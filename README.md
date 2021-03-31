@@ -82,7 +82,7 @@ The Amazon EBS volume attached to the instance is deleted when the deep learning
 
 ## Deleting the Stack
 
-When you no longer need the desktop instance, you may delete the AWS CloudFormation stack from the AWS CloudFormation console. The EFS file system is **not** automatically deleted when you delete  stack.
+When you no longer need the desktop instance, you may delete the AWS CloudFormation stack from the AWS CloudFormation console. The EFS file system is **not** automatically deleted when you delete the stack.
 
 
 ## Security
