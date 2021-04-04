@@ -194,7 +194,7 @@ Resources:
     Properties:
       Description: Ingress from self security group
       GroupId: !GetAtt DesktopSecurityGroup.GroupId
-      IpProtocol: -1
+      IpProtocol: "-1"
       FromPort: -1
       ToPort: -1
       SourceSecurityGroupId: !GetAtt DesktopSecurityGroup.GroupId
@@ -214,6 +214,7 @@ Resources:
     Type: 'AWS::EFS::FileSystem'
     Condition: CreateNewEFSFileSystem
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Encrypted : true
       PerformanceMode: generalPurpose
@@ -272,7 +273,6 @@ Resources:
         
   InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
-    DependsOn: InstanceRole
     Properties:
       Path: /
       Roles:
@@ -296,8 +296,8 @@ Resources:
           Ebs:
             VolumeSize: !Ref EbsVolumeSize
             VolumeType: !Ref EbsVolumeType
-            Encrypted: "true"
-            DeleteOnTermination: "true"
+            Encrypted: true
+            DeleteOnTermination: true
       NetworkInterfaces: 
       - AssociatePublicIpAddress: !Ref DesktopHasPublicIpAddress
         DeviceIndex: "0"
@@ -346,6 +346,8 @@ Resources:
                 exit 0
               fi
 
+              echo "Cloud init in progress. Machine will REBOOT after cloud init is complete!!" > /etc/motd
+              
               # Find Ubuntu Version 
               VERSION=$(lsb_release -a | grep Release | awk -F ":" '{print $2}' | sed -E -e 's/[[:blank:]]+//g')
               echo "Detected Ubuntu $VERSION"
@@ -534,7 +536,7 @@ Resources:
 
               EOL
               chown -R ubuntu:ubuntu /home/ubuntu/.aws
-              
+              echo "NICE DCV server is enabled!" > /etc/motd
               reboot
 Outputs:
   DesktopInstanceId:
