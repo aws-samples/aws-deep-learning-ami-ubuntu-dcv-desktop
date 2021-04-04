@@ -3,10 +3,71 @@
 The [AWS Deep Learning AMIs](https://aws.amazon.com/machine-learning/amis/) can be used to quickly launch Amazon EC2 instances pre-configured with Conda environments for popular deep learning frameworks such as TensorFlow, PyTorch, and Apache MXNet, among others. 
 [Amazon NICE DCV](https://aws.amazon.com/hpc/dcv/) enables high performance graphics desktops in Amazon EC2. 
 
-In this project, we show how to automatically combine the AWS Deep Learning AMI with NICE DCV to run a high performance graphics desktop for developing, training, testing and visualizing deep learning models in Amazon EC2.
+In this project, we show how to automatically combine the AWS Deep Learning AMI with NICE DCV to run a high performance graphics desktop for developing, training, testing and visualizing deep learning models in Amazon EC2. 
 
-## AWS CloudFormation Template 
-This repository provides an [AWS CloudFormation](https://aws.amazon.com/cloudformation/) template that can be used to create a stack for launching a deep learning graphics desktop based on [AWS Deep Learning AMI (Ubuntu 18.04) Version 41.0](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5) and [NICE DCV Server (Ubuntu 18.04) Version 2020.2-9662](https://docs.aws.amazon.com/dcv/latest/adminguide/setting-up-installing-linux-server.html).
+## Step by Step Tutorial
+
+### Prerequisites
+This tutorial assumes you have an [AWS Account](https://aws.amazon.com/account/), and you have [Administrator job function](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_job-functions.html) access to the AWS Management Console.
+
+To get started:
+
+* Select your [AWS Region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). The AWS Regions supported by this project include, us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, ap-northeast-2, and ap-south-1. Note that not all Amazon EC2 instance types are available in all [AWS Availability Zones](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) in an AWS Region.
+* Subscribe to the [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5).
+* If you do not already have an Amazon EC2 key pair, [create a new Amazon EC2 key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair). You will need the key pair name to specify the ```KeyName``` parameter when creating the CloudFormation stack below.
+* You will need an [Amazon S3](https://aws.amazon.com/s3/) bucket. If you don't have one, [create a new Amazon S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in the AWS region of your choice. You will use the S3 bucket name to specify the ```S3Bucket``` parameter in the stack.
+* Run ```curl ifconfig.co``` on your laptop and note your public IP address. This will be the IP address you will need to specify ```DesktopAccessCIDR``` parameter in the stack. 
+
+### Create AWS CloudFormation Stack
+This AWS CloudFormation [template](deep-learning-ubuntu-desktop.yaml) creates [AWS Identity and Access Management (IAM)](https://aws.amazon.com/iam/) resources. If you are creating CloudFormation Stack using the console, you must check 
+**I acknowledge that AWS CloudFormation might create IAM resources.** If you use the ```aws cloudformation create-stack``` CLI, you must use ```--capabilities CAPABILITY_NAMED_IAM```. 
+
+Use the [template](deep-learning-ubuntu-desktop.yaml) to create a new CloudFormation stack using the [ AWS Management console](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-stack.html), or using the [AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html). See [Reference](#Reference) section for the [template](deep-learning-ubuntu-desktop.yaml) input parameters, and stack outputs.
+
+### Connect to Desktop using SSH
+
+* Once the stack status in CloudFormation console is ```CREATE_COMPLETE```, find the deep learning desktop instance launched in your stack in the Amazon EC2 console, and [connect to the instance using SSH](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstancesLinux.html) as user ```ubuntu```, using your SSH key pair.
+* When you connect using SSH, and you see the message ```"Cloud init in progress. Machine will REBOOT after cloud init is complete!!"```, disconnect and try later after about 15 minutes. The desktop installs the NICE DCV server on first-time startup, and reboots after the install is complete.
+* If you see the message ```NICE DCV server is enabled!```, run the command ```sudo passwd ubuntu``` to set a new password for user ```ubuntu```. Now you are ready to connect to the desktop using the [NICE DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html)
+
+### Connect to Desktop using NICE DCV Client
+* Download and install the [NICE DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html) on your laptop.
+* Use the NICE DCV Client to login to the desktop as user ```ubuntu```
+* When you first login to the desktop using the NICE DCV client, you will be asked if you would like to upgrade the OS version. **Do not upgrade the OS version** .
+
+## Developing in an IDE
+Use the Ubuntu ```Software``` desktop application to install [Visual Studio Code](https://code.visualstudio.com/), or your favorite IDE to build, debug, and train deep learning models. Open a desktop terminal, and run ```conda env list``` to view the available Conda environments. 
+
+## Working with Data
+
+The deep learning desktop instance has access to the S3 bucket you specified when you create the CloudFormation stack. You can verify the access by running the command ```aws ls your-bucket-name```. 
+
+There is an [Amazon EBS](https://aws.amazon.com/ebs/) root volume attached to the instance. In addition, an [Amazon EFS](https://aws.amazon.com/efs/) file-system is mounted at ```/efs```. 
+
+You can use the EFS file system to stage your data. For example, use the command ```sudo mkdir /efs/data``` to create a new directory  ```data``` to stage data on the EFS file-system, and run the command ```sudo chown -R ubuntu:ubuntu /efs/data``` to change the ownership of the ```data``` directory to user ```ubuntu```. 
+
+The Amazon EBS volume attached to the instance is deleted when the deep learning instance is terminated. However, the EFS file-system persists after you terminate the desktop instance. 
+
+## Using Amazon SageMaker from deep learning desktop
+The deep learning desktop is pre-configured to use [Amazon SageMaker](https://aws.amazon.com/sagemaker/) machine learning platform. To get started with [Amazon SageMaker examples](https://github.com/aws/amazon-sagemaker-examples) in a [JupyterLab](https://jupyterlab.readthedocs.io/en/stable/getting_started/overview.html) notebook, execute following steps in a desktop terminal:
+
+	mkdir ~/git
+	cd ~/git
+	git clone https://github.com/aws/amazon-sagemaker-examples.git
+	jupyter-lab
+	
+
+This will start a ```jupyter-lab``` notebook server in the terminal, and open a tab in your web browser. You can now explore the Amazon SageMaker examples.
+
+## Stopping and Restarting the Desktop
+
+You may safely reboot, stop, and restart the desktop instance at any time. The desktop will automatically mount the EFS file-system on ```/efs``` at restart.
+
+## Deleting the Stack
+
+When you no longer need the desktop instance, you may delete the AWS CloudFormation stack from the AWS CloudFormation console. Deleting the stack will terminate the desktop instance, and delete the root EBS volume attached to the desktop. The EFS file system is **not** automatically deleted when you delete the stack.
+
+## <a name="Reference"></a> Reference
 
 ### AWS CloudFormation Template Input Parameters
 Below, we describe the AWS CloudFormation template input parameters.
@@ -35,55 +96,6 @@ Below, we describe the AWS CloudFormation Stack outputs.
 | DesktopRole | This is the AWS ARN for the IAM Role automatically created and attached to the desktop instance profile. |
 | DesktopSecurityGroup | This is the security group attached to the desktop instance, which is either specified in the Stack input parameters, or is automatically created. |
 | EFSFileSystemId | This is the EFS file system attached to the desktop instance, which is either specified in the Stack input parameters, or is automatically created. |
-
-## Step by Step Tutorial
-
-### Prerequisites
-This tutorial assumes you have an [AWS Account](https://aws.amazon.com/account/), and you have [Administrator job function](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_job-functions.html) access to the AWS Management Console.
-
-To get started:
-
-* Select your [AWS Region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). The AWS Regions supported by this project include, us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, ap-northeast-2, and ap-south-1. Note that not all Amazon EC2 instance types are available in all [AWS Availability Zones](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) in an AWS Region.
-* Subscribe to the [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5).
-* If you do not already have an Amazon EC2 key pair, [create a new Amazon EC2 key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair). You will need the key pair name to specify the ```KeyName``` parameter when creating the CloudFormation stack below.
-* You will need an [Amazon S3](https://aws.amazon.com/s3/) bucket. If you don't have one, [create a new Amazon S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in the AWS region of your choice. You will use the S3 bucket name to specify the ```S3Bucket``` parameter in the stack.
-* Run ```curl ifconfig.co``` on your laptop and note your public IP address. This will be the IP address you will need to specify ```DesktopAccessCIDR``` parameter in the stack. 
-
-### Create AWS CloudFormation Stack
-This template creates [AWS Identity and Access Management (IAM)](https://aws.amazon.com/iam/) resources. If you are creating CloudFormation Stack using the console, you must check 
-**I acknowledge that AWS CloudFormation might create IAM resources.** If you use the ```aws cloudformation create-stack``` CLI, you must use ```--capabilities CAPABILITY_NAMED_IAM```. 
-
-Use the [deep-learning-ubuntu-desktop.yaml](deep-learning-ubuntu-desktop.yaml) AWS CloudFormation template to [create a new CloudFormation stack using the console](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-stack.html). 
-
-### Connect to Desktop using SSH
-
-* Once the stack status in CloudFormation console is ```CREATE_COMPLETE```, find the deep learning desktop instance launched in your stack in the Amazon EC2 console, and [connect to the instance using SSH](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstancesLinux.html) as user ```ubuntu```, using your SSH key pair.
-* On the EC2 instance, run the command ```sudo passwd ubuntu``` and set a new password for user ```ubuntu```
-* The EC2 instance automatically installs and configures the NICE DCV server on startup, and it may take approximately 10-15 minutes to setup the DCV server.  To monitor the progress of the desktop initialization, you can ```tail -f /var/log/cloud-init-output.log```. The instance **reboots** automatically after the NICE DCV server setup is complete. The NICE DCV server logs are available under ```/var/log/dcv``` on the EC2 instance.
-
-### Connect to Desktop using NICE DCV Client
-* Now you are ready to connect to the EC2 instance using a [NICE DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html)
-* When you first login to the desktop using NICE DCV client, you will be asked if you would like to upgrade the OS version. **Do not upgrade the OS version** .
-* Once you are connected using NICE DCV client, you can run ```conda env list``` in a terminal window to view the available Conda environments. 
-* We recommend using the Ubuntu Software desktop application to install **Visual Studio Code**  IDE.
-
-### Stopping and Restarting the Desktop
-
-* You may safely stop and restart the desktop instance from EC2 console at any time. 
-
-## Working with Data
-
-The deep learning desktop instance has access to the S3 bucket you specified when you create the CloudFormation stack. You can verify the access by running the command ```aws ls your-bucket-name```. 
-
-There is an [Amazon EBS](https://aws.amazon.com/ebs/) root volume attached to the instance. In addition, an [Amazon EFS](https://aws.amazon.com/efs/) file-system is mounted at ```/efs```. 
-
-You can use the EFS file system to stage your data. For example, use the command ```sudo mkdir /efs/data``` to create a new directory  ```data``` to stage data on the EFS file-system, and run the command ```sudo chown -R ubuntu:ubuntu /efs/data``` to change the ownership of the ```data``` directory to user ```ubuntu```. 
-
-The Amazon EBS volume attached to the instance is deleted when the deep learning instance is terminated. However, the EFS file-system persists after you terminate the desktop instance. 
-
-## Deleting the Stack
-
-When you no longer need the desktop instance, you may delete the AWS CloudFormation stack from the AWS CloudFormation console. The EFS file system is **not** automatically deleted when you delete the stack.
 
 
 ## Security
