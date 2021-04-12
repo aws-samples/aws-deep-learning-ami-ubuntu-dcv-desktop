@@ -40,7 +40,7 @@ Use the Ubuntu ```Software``` desktop application to install [Visual Studio Code
 
 ## Working with Data
 
-The deep learning desktop instance has access to the S3 bucket you specified when you create the CloudFormation stack. You can verify the access by running the command ```aws ls your-bucket-name```. 
+The deep learning desktop instance has access to the S3 bucket you specified when you create the CloudFormation stack. You can verify the access by running the command ```aws s3 ls your-bucket-name```. 
 
 There is an [Amazon EBS](https://aws.amazon.com/ebs/) root volume attached to the instance. In addition, an [Amazon EFS](https://aws.amazon.com/efs/) file-system is mounted at ```/efs```. 
 
