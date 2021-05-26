@@ -559,13 +559,14 @@ Resources:
               [default]
               region = ${AWS_REGION}
 
+              EOL
+              chown -R ubuntu:ubuntu /home/ubuntu/.aws
+
               # update .bashrc
               echo "export desktop_role_arn=${DESKTOP_ROLE_ARN}" >> /home/ubuntu/.bashrc
               echo "export desktop_sg_id=${DESKTOP_SG_ID}" >> /home/ubuntu/.bashrc
               echo "export desktop_subnet_id=${DESKTOP_SUBNET_ID}" >> /home/ubuntu/.bashrc
 
-              EOL
-              chown -R ubuntu:ubuntu /home/ubuntu/.aws
               echo "NICE DCV server is enabled!" > /etc/motd
               reboot
 Outputs:
