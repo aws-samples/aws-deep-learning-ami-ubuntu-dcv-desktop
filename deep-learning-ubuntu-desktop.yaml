@@ -49,6 +49,12 @@ Parameters:
     Default: ''
     ConstraintDescription: Should be a Valid EFS File System Id, or blank
   
+  EFSMountPath:
+    Description: EFS file-system mount directory path.
+    Type: String
+    Default: '/efs'
+    ConstraintDescription: Should be a valid file-system directory path
+  
   DesktopSecurityGroupId:
     Description: >-
      (Optional) Advanced option to specify existing Desktop Security Group Id. 
@@ -221,7 +227,7 @@ Resources:
       FileSystemTags:
         - Key: Name
           Value: !Ref 'AWS::StackName'
-
+  
   EFSMountTarget:
     Condition: CreateNewEFSFileSystem
     Type: 'AWS::EFS::MountTarget'
@@ -512,18 +518,37 @@ Resources:
               - !Ref EFSFileSystemId
             - |+
 
+            - EFS_MOUNT_PATH=
+            - !Ref EFSMountPath
+            - |+
+
+            - DESKTOP_ROLE_ARN=
+            - !GetAtt InstanceRole.Arn
+            - |+
+
+            - DESKTOP_SUBNET_ID=
+            - !Ref DesktopVpcSubnetId
+            - |+
+
+            - DESKTOP_SG_ID=
+            - !If
+              - CreateNewSecurityGroup
+              - !GetAtt DesktopSecurityGroup.GroupId
+              - !Ref DesktopSecurityGroupId
+            - |+
+
             - |
               # Create EFS  mount script
               cat >/usr/local/bin/mount-efs.sh <<EOL
               #!/bin/bash
 
-              if [[ ! -d /efs ]]
+              if [[ ! -d $EFS_MOUNT_PATH ]]
               then
-                mkdir /efs
+                mkdir $EFS_MOUNT_PATH
               fi
               
               # Mount EFS
-              mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport $EFS_FS_ID.efs.$AWS_REGION.amazonaws.com:/ /efs
+              mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport $EFS_FS_ID.efs.$AWS_REGION.amazonaws.com:/ $EFS_MOUNT_PATH
 
               EOL
               chmod u+x /usr/local/bin/mount-efs.sh
@@ -533,6 +558,11 @@ Resources:
               cat >/home/ubuntu/.aws/config <<EOL
               [default]
               region = ${AWS_REGION}
+
+              # update .bashrc
+              echo "export desktop_role_arn=${DESKTOP_ROLE_ARN}" >> /home/ubuntu/.bashrc
+              echo "export desktop_sg_id=${DESKTOP_SG_ID}" >> /home/ubuntu/.bashrc
+              echo "export desktop_subnet_id=${DESKTOP_SUBNET_ID}" >> /home/ubuntu/.bashrc
 
               EOL
               chown -R ubuntu:ubuntu /home/ubuntu/.aws
