@@ -7,7 +7,7 @@ In this project, we show how to automatically combine the AWS Deep Learning AMI 
 
 ## Step by Step Tutorial
 
-### Prerequisites
+### <a name="Prerequisites"></a> Prerequisites
 This tutorial assumes you have an [AWS Account](https://aws.amazon.com/account/), and you have [Administrator job function](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_job-functions.html) access to the AWS Management Console.
 
 To get started:
@@ -15,14 +15,17 @@ To get started:
 * Select your [AWS Region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). The AWS Regions supported by this project include, us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, ap-northeast-2, and ap-south-1. Note that not all Amazon EC2 instance types are available in all [AWS Availability Zones](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) in an AWS Region.
 * Subscribe to the [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5).
 * If you do not already have an Amazon EC2 key pair, [create a new Amazon EC2 key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair). You will need the key pair name to specify the ```KeyName``` parameter when creating the CloudFormation stack below.
-* You will need an [Amazon S3](https://aws.amazon.com/s3/) bucket. If you don't have one, [create a new Amazon S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in the AWS region of your choice. You will use the S3 bucket name to specify the ```S3Bucket``` parameter in the stack.
+* You will need an [Amazon S3](https://aws.amazon.com/s3/) bucket. If you don't have one, [create a new Amazon S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in the AWS region you seleced. The S3 bucket can be empty at this point.
 * Run ```curl ifconfig.co``` on your laptop and note your public IP address. This will be the IP address you will need to specify ```DesktopAccessCIDR``` parameter in the stack. 
+* Clone this Git repository on your laptop using [```git clone ```](https://git-scm.com/book/en/v2/Git-Basics-Getting-a-Git-Repository).
 
 ### Create AWS CloudFormation Stack
-This AWS CloudFormation [template](deep-learning-ubuntu-desktop.yaml) creates [AWS Identity and Access Management (IAM)](https://aws.amazon.com/iam/) resources. If you are creating CloudFormation Stack using the console, you must check 
+Use the AWS CloudFormation template [deep-learning-ubuntu-desktop.yaml](deep-learning-ubuntu-desktop.yaml) from your cloned  repository to create a new CloudFormation stack using the [ AWS Management console](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-stack.html), or using the [AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html). See [Reference](#Reference) section for the [template](deep-learning-ubuntu-desktop.yaml) input parameters, and stack outputs.
+
+The template [deep-learning-ubuntu-desktop.yaml](deep-learning-ubuntu-desktop.yaml) creates [AWS Identity and Access Management (IAM)](https://aws.amazon.com/iam/) resources. If you are creating CloudFormation Stack using the console, you must check 
 **I acknowledge that AWS CloudFormation might create IAM resources.** If you use the ```aws cloudformation create-stack``` CLI, you must use ```--capabilities CAPABILITY_NAMED_IAM```. 
 
-Use the [template](deep-learning-ubuntu-desktop.yaml) to create a new CloudFormation stack using the [ AWS Management console](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-stack.html), or using the [AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html). See [Reference](#Reference) section for the [template](deep-learning-ubuntu-desktop.yaml) input parameters, and stack outputs.
+
 
 ### Connect to Desktop using SSH
 
@@ -40,7 +43,7 @@ Use the Ubuntu ```Software``` desktop application to install [Visual Studio Code
 
 ## Working with Data
 
-The deep learning desktop instance has access to the S3 bucket you specified when you create the CloudFormation stack. You can verify the access by running the command ```aws s3 ls your-bucket-name```. 
+The deep learning desktop instance has access to the S3 bucket you specified when you create the CloudFormation stack. You can verify the access to your S3 bucket by running the command ```aws s3 ls your-bucket-name```. If you do not have access to the S3 bucket, you will see an error message. If your S3 bucket is empty, the previous command will produce no output, which is normal. 
 
 There is an [Amazon EBS](https://aws.amazon.com/ebs/) root volume attached to the instance. In addition, an [Amazon EFS](https://aws.amazon.com/efs/) file-system is mounted at ```/efs```. 
 
@@ -76,6 +79,7 @@ Below, we describe the AWS CloudFormation template input parameters.
 | --- | ----------- |
 | DeepLearningAMIUbuntu | This is an *optional* advanced parameter whereby you specify a valid Deep Learning AMI for Ubuntu 18.04 available in your AWS region. This parameter overrides the AMI version specified in the template. |
 | DesktopAccessCIDR | This parameter specifies the public IP CIDR range from where you need access to your deep learning desktop, e.g. 1.2.3.4/32, or 7.8.0.0/16. This parameter is *ignored* if you specify the optional parameter  DesktopSecurityGroupId.|
+| DesktopHasPublicIpAddress | This is a **required** parameter whereby you specify if the desktop has a public internet address. Unless you have AWS [VPN](https://aws.amazon.com/vpn/) or [DirectConnect](https://aws.amazon.com/directconnect) access enabled, you must set this parameter to "true".
 | DesktopInstanceType | This is a **required** parameter whereby you select an Amazon EC2 instance type. G3, G4, P3 and P4 instance types are GPU enabled.  |
 | DesktopSecurityGroupId | This is an *optional* advanced parameter whereby you specify Amazon EC2 security group for your desktop. The specified security group must allow inbound access over ports 22 (SSH) and 8443 (DCV). Leave it blank to create a new security group. |
 | DesktopVpcId | This is a **required** parameter whereby you select your Amazon VPC id.|
@@ -86,7 +90,7 @@ Below, we describe the AWS CloudFormation template input parameters.
 | EbsVolumeSize | This is a **required** parameter whereby you specify the size of the EBS volume (default size is 200 GB). Typically, the default size is sufficient.|
 | EbsVolumeType | This is a **required** parameter whereby you select the [EBS volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html) (default is gp3). |
 | KeyName | This is a **required** parameter whereby you select the Amazon EC2 key pair name used for SSH access to the desktop. You must have access to the selected key pair's private key to connect to your desktop. |
-| S3Bucket | This is a **required** parameter whereby you specify the name of the Amazon S3 bucket with your data. |
+| S3Bucket | This is a **required** parameter whereby you specify the name of the Amazon S3 bucket used to store your data. The S3 bucket may be empty at the time you create the AWS CloiudFormation stack.  |
 
 ### AWS CloudFormation Stack Outputs
 Below, we describe the AWS CloudFormation Stack outputs.
