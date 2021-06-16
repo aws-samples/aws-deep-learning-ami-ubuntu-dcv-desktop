@@ -52,7 +52,7 @@ Parameters:
   EFSMountPath:
     Description: EFS file-system mount directory path.
     Type: String
-    Default: '/efs'
+    Default: '/home/ubuntu/efs'
     ConstraintDescription: Should be a valid file-system directory path
   
   DesktopSecurityGroupId:
