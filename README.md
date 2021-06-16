@@ -62,7 +62,7 @@ This will start a ```jupyter-lab``` notebook server in the terminal, and open a 
 
 ## Stopping and Restarting the Desktop
 
-You may safely reboot, stop, and restart the desktop instance at any time. The desktop will automatically mount the EFS file-system on ```/efs``` at restart.
+You may safely reboot, stop, and restart the desktop instance at any time. The desktop will automatically mount the EFS file-system at restart.
 
 ## Deleting the Stack
 
