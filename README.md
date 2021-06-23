@@ -16,7 +16,7 @@ To get started:
 * Subscribe to the [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5).
 * If you do not already have an Amazon EC2 key pair, [create a new Amazon EC2 key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair). You will need the key pair name to specify the ```KeyName``` parameter when creating the CloudFormation stack below.
 * You will need an [Amazon S3](https://aws.amazon.com/s3/) bucket. If you don't have one, [create a new Amazon S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in the AWS region you selected. The S3 bucket can be empty at this point.
-* Run ```curl ifconfig.co``` on your laptop and note your public IP address. This will be the IP address you will need to specify ```DesktopAccessCIDR``` parameter in the stack. 
+* Use [AWS check ip](http://checkip.amazonaws.com/) to get your public IP address. This will be the IP address you will need to specify ```DesktopAccessCIDR``` parameter in the stack. 
 * Clone this Git repository on your laptop using [```git clone ```](https://git-scm.com/book/en/v2/Git-Basics-Getting-a-Git-Repository).
 
 ### Create AWS CloudFormation Stack
