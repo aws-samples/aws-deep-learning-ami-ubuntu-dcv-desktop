@@ -107,6 +107,10 @@ Parameters:
       - p3.16xlarge
       - p3dn.24xlarge
       - p4d.24xlarge
+      - inf1.xlarge
+      - inf1.2xlarge
+      - inf1.6xlarge
+      - inf1.24xlarge
     ConstraintDescription: Must be a valid CPU, or GPU instance type.
   DesktopAccessCIDR:
     Description: >-
@@ -128,25 +132,25 @@ Parameters:
 Mappings:
   DeepLearningAMIUbuntu:
     us-east-1:
-      AMI: ami-05f6982c11ca3027d
+      AMI: ami-0b70285e5215b80eb
     us-east-2:
-      AMI: ami-07f83f2fb8212ce3b 
+      AMI: ami-028dbc12531690cf4 
     us-west-2:
-      AMI: ami-0ad8583a83f802ca4 
+      AMI: ami-0ccc71d716eb5d6a4 
     eu-west-1:
-      AMI: ami-049ef6e979361936b 
+      AMI: ami-01084b03b72a330d9 
     eu-central-1:
-      AMI: ami-07fbd58b78f5e5248 
+      AMI: ami-0c4b99db370d5fd24 
     ap-southeast-1:
-      AMI: ami-08879cdd5a9950697 
+      AMI: ami-0f8d09646bc4f7849 
     ap-southeast-2:
-      AMI: ami-0c2ce6c550986b24d 
+      AMI: ami-01287e15e70547b14 
     ap-south-1:
-      AMI: ami-075aed164f155cade 
+      AMI: ami-0ae2763018e0fbd72 
     ap-northeast-1:
-      AMI: ami-0e0dce3efe7e0bcc3 
+      AMI: ami-08ae8907ab6fb8f72 
     ap-northeast-2:
-      AMI: ami-079172bcb6fe144f8
+      AMI: ami-091f205b026a893b2
 
 Conditions:
   OverrideAMI: !Not 
