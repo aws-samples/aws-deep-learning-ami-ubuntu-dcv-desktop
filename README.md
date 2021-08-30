@@ -25,8 +25,6 @@ Use the AWS CloudFormation template [deep-learning-ubuntu-desktop.yaml](deep-lea
 The template [deep-learning-ubuntu-desktop.yaml](deep-learning-ubuntu-desktop.yaml) creates [AWS Identity and Access Management (IAM)](https://aws.amazon.com/iam/) resources. If you are creating CloudFormation Stack using the console, you must check 
 **I acknowledge that AWS CloudFormation might create IAM resources.** If you use the ```aws cloudformation create-stack``` CLI, you must use ```--capabilities CAPABILITY_NAMED_IAM```. 
 
-
-
 ### Connect to Desktop using SSH
 
 * Once the stack status in CloudFormation console is ```CREATE_COMPLETE```, find the deep learning desktop instance launched in your stack in the Amazon EC2 console, and [connect to the instance using SSH](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstancesLinux.html) as user ```ubuntu```, using your SSH key pair.
@@ -45,7 +43,7 @@ Use the Ubuntu ```Software``` desktop application to install [Visual Studio Code
 
 The deep learning desktop instance has access to the S3 bucket you specified when you create the CloudFormation stack. You can verify the access to your S3 bucket by running the command ```aws s3 ls your-bucket-name```. If you do not have access to the S3 bucket, you will see an error message. If your S3 bucket is empty, the previous command will produce no output, which is normal. 
 
-There is an [Amazon EBS](https://aws.amazon.com/ebs/) root volume attached to the instance. In addition, an [Amazon EFS](https://aws.amazon.com/efs/) file-system is mounted on your desktop at ```EFSMountPath```, which by default is ```/home/ubuntu/efs```.  
+There is an [Amazon EBS](https://aws.amazon.com/ebs/) root volume attached to the instance. In addition, an [Amazon EFS](https://aws.amazon.com/efs/) file-system is mounted on your desktop at ```EFSMountPath```, which by default is ```/home/ubuntu/efs```. Optionally, an [Amazon FSx for Lustre](https://aws.amazon.com/fsx/) file-system can be mounted on your desktop at ```FSxMountPath```, which by default is ```/home/ubuntu/fsx```.  See ```FSxForLustre``` parameter in [Reference](#Reference) section to learn how to enable FSx for Lustre file-system.
 
 The Amazon EBS volume attached to the instance is deleted when the deep learning instance is terminated. However, the EFS file-system persists after you terminate the desktop instance. 
 
@@ -59,7 +57,7 @@ The deep learning desktop is pre-configured to use [Amazon SageMaker](https://aw
 	
 This will start a ```jupyter-lab``` notebook server in the terminal, and open a tab in your web browser. You can now explore the Amazon SageMaker examples. 
 
-For SageMaker examples that require you to specify a [subnet](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#vpc-subnet-basics), and a [security group](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html), use the pre-configured environment variables  ```desktop_subnet_id``` and ```desktop_sg_id```, respectively.
+For SageMaker examples that require you to specify a [subnet](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#vpc-subnet-basics), and a [security group](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html), use the pre-configured environment variables  ```desktop_subnet_id``` and ```desktop_sg_id```, respectively. If FSx for Lustre is enabled, pre-configured environment variable  ```fsx_fs_id``` contains FSx for Lustre file-system id, and ```fsx_mount_name``` variable contains the mount name.
 
 ## Stopping and Restarting the Desktop
 
@@ -67,7 +65,9 @@ You may safely reboot, stop, and restart the desktop instance at any time. The d
 
 ## Deleting the Stack
 
-When you no longer need the desktop instance, you may delete the AWS CloudFormation stack from the AWS CloudFormation console. Deleting the stack will terminate the desktop instance, and delete the root EBS volume attached to the desktop. The EFS file system is **not** automatically deleted when you delete the stack.
+When you no longer need the desktop instance, you may delete the AWS CloudFormation stack from the AWS CloudFormation console. Deleting the stack will terminate the desktop instance, and delete the root EBS volume attached to the desktop. If the FSx for Lustre file-system is enabled, it is automatically deleted when you delete the stack.
+
+The EFS file system is **not** automatically deleted when you delete the stack.
 
 ## <a name="Reference"></a> Reference
 
@@ -85,11 +85,15 @@ Below, we describe the AWS CloudFormation template input parameters.
 | DesktopVpcSubnetId | This is a **required** parameter whereby you select your Amazon VPC subnet. The specified subnet must be public if you plan to access your desktop over the Internet. |
 | EBSOptimized | This is a **required** parameter whereby you select if you want your desktop instance to be [network optimized for EBS](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html) (default is **true**)|
 | EFSFileSystemId | This is an *optional* advanced parameter whereby you specify an existing EFS file-system id with an [existing network mount target](https://docs.aws.amazon.com/efs/latest/ug/how-it-works.html#how-it-works-ec2)  accessible from your DesktopVpcSubnetId. If you specify this parameter, do it in conjunction with DesktopSecurityGroupId. Leave it blank to create a new EFS file-system.  |
- EFSMountPath | Absolute path for the directory where EFS file-system is mounted (default is ```/home/ubuntu/efs```).   |
+| EFSMountPath | Absolute path for the directory where EFS file-system is mounted (default is ```/home/ubuntu/efs```).   |
 | EbsVolumeSize | This is a **required** parameter whereby you specify the size of the EBS volume (default size is 200 GB). Typically, the default size is sufficient.|
 | EbsVolumeType | This is a **required** parameter whereby you select the [EBS volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html) (default is gp3). |
+| FSxCapacity | This is an **optional** parameter whereby you specify the capacity of the FSx for Lustre file-sysstem. This capacity must be in multiples of 1200 GB. Default capacity is 1200 GB. See ```FSxForLustre``` parameter to enable FSx for Lustre file-system. | 
+| FSxForLustre | This is an **optional** parameter whereby you  enable, disable FSx for Lustre file-system. By default, it is disabled. If enabled, a FSx for Lustre file-system is created and mounted on the desktop. The FSx for Lustre file-system automatically imports data from ```s3://S3bucket/S3Import```. See ```S3Bucket``` and ```S3Import``` parameters. |
+| FSxMountPath | FSx file-system mount directory path (default is ```/home/ubuntu/fsx```).   |
 | KeyName | This is a **required** parameter whereby you select the Amazon EC2 key pair name used for SSH access to the desktop. You must have access to the selected key pair's private key to connect to your desktop. |
 | S3Bucket | This is a **required** parameter whereby you specify the name of the Amazon S3 bucket used to store your data. The S3 bucket may be empty at the time you create the AWS CloudFormation stack.  |
+| S3Import | This is an **optional** parameter whereby you specify S3 import prefix for FSx file-system. See ```FSxForLustre``` parameter to enable FSx for Lustre file-system.  |
 
 ### AWS CloudFormation Stack Outputs
 Below, we describe the AWS CloudFormation Stack outputs.

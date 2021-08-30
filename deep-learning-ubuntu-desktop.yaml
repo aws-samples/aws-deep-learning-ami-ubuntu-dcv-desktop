@@ -6,6 +6,12 @@ Parameters:
   S3Bucket:
     Description: S3 bucket name for read write access from desktop
     Type: String
+  S3Import:
+    Description: >-
+      (Optional) Advanced option to specify S3 import prefix for FSx file-system.
+       See FSxForLustre parameter to enable FSx for Lustre file-system. 
+    Type: String
+    Default: ""
   DeepLearningAMIUbuntu:
     Description: >-
       (Optional) Advanced option to override 
@@ -63,6 +69,30 @@ Parameters:
     AllowedPattern: '(^sg-[0-9a-z]{17,17})$|()$'
     Default: ''
     ConstraintDescription: Should be a Valid SecurityGroup Id in selected VPC, or blank
+
+  FSxCapacity:
+    Description: Must be a multiple of 1200 GBs
+    Type: Number
+    Default: 1200
+    MinValue: 1200
+  
+  FSxForLustre:
+    Description: >-
+      Advanced option to enable, disable FSx for Lustre file-system. If enabled, a FSx for Lustre 
+      file-system is created and mounted on the desktop. The FSx for Lustre file-system 
+      automatically imports data from s3://S3bucket/S3Import. 
+      See S3Bucket and S3Import parameters.
+    Type: String
+    Default: 'disabled'
+    AllowedValues:
+      - 'enabled'
+      - 'disabled'
+
+  FSxMountPath:
+    Description: FSx file-system mount directory path.
+    Type: String
+    Default: '/home/ubuntu/fsx'
+    ConstraintDescription: Should be a valid file-system directory path
 
   KeyName:
     Description: >-
@@ -160,6 +190,9 @@ Conditions:
   CreateNewEFSFileSystem: !Equals 
     - !Ref EFSFileSystemId
     - ''
+  FSxForLustreEnabled: !Equals 
+    - !Ref FSxForLustre
+    - 'enabled'
   CreateNewSecurityGroup: !Equals 
     - !Ref DesktopSecurityGroupId
     - ''
@@ -204,9 +237,9 @@ Resources:
     Properties:
       Description: Ingress from self security group
       GroupId: !GetAtt DesktopSecurityGroup.GroupId
-      IpProtocol: "-1"
-      FromPort: -1
-      ToPort: -1
+      IpProtocol: "tcp"
+      FromPort: 0
+      ToPort: 65535
       SourceSecurityGroupId: !GetAtt DesktopSecurityGroup.GroupId
   
   DesktopSecurityGroupCIDREgress: 
@@ -239,10 +272,120 @@ Resources:
       FileSystemId: !Ref EFSFileSystem
       SubnetId: !Ref DesktopVpcSubnetId
       SecurityGroups: 
-        - !If
-          - CreateNewSecurityGroup
-          - !GetAtt DesktopSecurityGroup.GroupId
-          - !Ref DesktopSecurityGroupId
+        - !GetAtt EFSSecurityGroup.GroupId
+        
+  EFSSecurityGroup:
+    Condition: CreateNewEFSFileSystem
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for EFS mount target
+      VpcId: !Ref DesktopVpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId: !If
+            - CreateNewSecurityGroup
+            - !GetAtt DesktopSecurityGroup.GroupId
+            - !Ref DesktopSecurityGroupId
+          Description: Ingress from desktop
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          DestinationSecurityGroupId: !If
+            - CreateNewSecurityGroup
+            - !GetAtt DesktopSecurityGroup.GroupId
+            - !Ref DesktopSecurityGroupId
+          Description: Egress to desktop
+ 
+  EFSSecurityGroupIngress:
+    Condition: CreateNewEFSFileSystem
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: Ingress from within the EFSSecurityGroup
+      GroupId: !GetAtt EFSSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 2049
+      ToPort: 2049
+      SourceSecurityGroupId: !GetAtt EFSSecurityGroup.GroupId
+
+  EFSSecurityGroupEgress:
+    Condition: CreateNewEFSFileSystem
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      Description: Ingress from within the EFSSecurityGroup
+      GroupId: !GetAtt EFSSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 2049
+      ToPort: 2049
+      DestinationSecurityGroupId: !GetAtt EFSSecurityGroup.GroupId
+
+  FSxSecurityGroup:
+    Condition: FSxForLustreEnabled
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for FSx mount target
+      VpcId: !Ref DesktopVpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 988
+          ToPort: 988
+          SourceSecurityGroupId: !If
+            - CreateNewSecurityGroup
+            - !GetAtt DesktopSecurityGroup.GroupId
+            - !Ref DesktopSecurityGroupId
+          Description: Ingress from desktop
+      SecurityGroupEgress: 
+        - IpProtocol: tcp
+          FromPort: 988
+          ToPort: 988
+          DestinationSecurityGroupId: !If
+            - CreateNewSecurityGroup
+            - !GetAtt DesktopSecurityGroup.GroupId
+            - !Ref DesktopSecurityGroupId
+          Description: Egress to desktop
+ 
+  FSxSecurityGroupIngress:
+    Condition: FSxForLustreEnabled
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: Ingress from within the FSxSecurityGroup
+      GroupId: !GetAtt FSxSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 988
+      ToPort: 988
+      SourceSecurityGroupId: !GetAtt FSxSecurityGroup.GroupId
+
+  FSxSecurityGroupEgress:
+    Condition: FSxForLustreEnabled
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      Description: Ingress from within the FSxSecurityGroup
+      GroupId: !GetAtt FSxSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 988
+      ToPort: 988
+      DestinationSecurityGroupId: !GetAtt FSxSecurityGroup.GroupId
+
+  FSxFileSystem:
+    Condition: FSxForLustreEnabled
+    Type: AWS::FSx::FileSystem
+    Properties:
+      FileSystemType: 'LUSTRE'
+      LustreConfiguration:
+        DeploymentType: SCRATCH_2
+        AutoImportPolicy: NEW_CHANGED
+        ImportPath: !Sub s3://${S3Bucket}/${S3Import}
+      SecurityGroupIds:
+        - !GetAtt FSxSecurityGroup.GroupId
+      StorageCapacity: !Ref FSxCapacity
+      StorageType: 'SSD'
+      SubnetIds: 
+        - !Ref DesktopVpcSubnetId
+      Tags:
+        - Key: Name
+          Value: !Ref 'AWS::StackName'
 
   InstanceRole:
     Type: 'AWS::IAM::Role'
@@ -353,6 +496,7 @@ Resources:
               then
                 apt install -y lustre-client-modules-$(uname -r)
                 /usr/local/bin/mount-efs.sh
+                /usr/local/bin/mount-fsx.sh
                 exit 0
               fi
 
@@ -526,6 +670,10 @@ Resources:
             - !Ref EFSMountPath
             - |+
 
+            - FSX_MOUNT_PATH=
+            - !Ref FSxMountPath
+            - |+
+
             - DESKTOP_ROLE_ARN=
             - !GetAtt InstanceRole.Arn
             - |+
@@ -539,6 +687,27 @@ Resources:
               - CreateNewSecurityGroup
               - !GetAtt DesktopSecurityGroup.GroupId
               - !Ref DesktopSecurityGroupId
+            - |+
+
+            - FSX_ENABLED=
+            - !If
+              - FSxForLustreEnabled
+              - "true"
+              - "false"
+            - |+
+
+            - FSX_FS_ID=
+            - !If 
+              - FSxForLustreEnabled 
+              - !Ref FSxFileSystem
+              - ''
+            - |+
+
+            - FSX_MOUNT_NAME=
+            - !If 
+              - FSxForLustreEnabled 
+              - !GetAtt FSxFileSystem.LustreMountName
+              - ''
             - |+
 
             - |
@@ -557,6 +726,26 @@ Resources:
               EOL
               chmod u+x /usr/local/bin/mount-efs.sh
 
+              # Create FSx  mount script
+              cat >/usr/local/bin/mount-fsx.sh <<EOL
+              #!/bin/bash
+
+              echo "FSx for Lustre is enabled: $FSX_ENABLED"
+              # Mount FSX
+              if [[ "$FSX_ENABLED"  == "true" ]]
+              then
+
+                if [[ ! -d $FSX_MOUNT_PATH ]]
+                then
+                  mkdir $FSX_MOUNT_PATH
+                fi
+              
+                mount -t lustre -o noatime,flock $FSX_FS_ID.fsx.$AWS_REGION.amazonaws.com@tcp:/$FSX_MOUNT_NAME $FSX_MOUNT_PATH
+              fi
+
+              EOL
+              chmod u+x /usr/local/bin/mount-fsx.sh
+
               # Create config file
               mkdir /home/ubuntu/.aws
               cat >/home/ubuntu/.aws/config <<EOL
@@ -570,6 +759,17 @@ Resources:
               echo "export desktop_role_arn=${DESKTOP_ROLE_ARN}" >> /home/ubuntu/.bashrc
               echo "export desktop_sg_id=${DESKTOP_SG_ID}" >> /home/ubuntu/.bashrc
               echo "export desktop_subnet_id=${DESKTOP_SUBNET_ID}" >> /home/ubuntu/.bashrc
+              echo "export efs_fs_id=${EFS_FS_ID}" >> /home/ubuntu/.bashrc
+
+              if [[ "$FSX_ENABLED"  == "true" ]]
+              then
+                echo "export fsx_fs_id=${FSX_FS_ID}" >> /home/ubuntu/.bashrc
+                echo "export fsx_mount_name=${FSX_MOUNT_NAME}" >> /home/ubuntu/.bashrc
+              fi
+
+              # install jupyterlab
+              pip install --upgrade pip
+              pip install jupyterlab
 
               echo "NICE DCV server is enabled!" > /etc/motd
               reboot
