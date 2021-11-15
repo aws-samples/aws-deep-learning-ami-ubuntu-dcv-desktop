@@ -162,25 +162,25 @@ Parameters:
 Mappings:
   DeepLearningAMIUbuntu:
     us-east-1:
-      AMI: ami-0b70285e5215b80eb
+      AMI: ami-0e3c68b57d50caf64
     us-east-2:
-      AMI: ami-028dbc12531690cf4 
+      AMI: ami-0ae79682024fe31cd 
     us-west-2:
-      AMI: ami-0ccc71d716eb5d6a4 
+      AMI: ami-0050625d58fa27b6d 
     eu-west-1:
-      AMI: ami-01084b03b72a330d9 
+      AMI: ami-050232e50c0e4c717 
     eu-central-1:
-      AMI: ami-0c4b99db370d5fd24 
+      AMI: ami-030544fb939a57d47 
     ap-southeast-1:
-      AMI: ami-0f8d09646bc4f7849 
+      AMI: ami-03cd4f13212437f05 
     ap-southeast-2:
-      AMI: ami-01287e15e70547b14 
+      AMI: ami-0187cfc974691fa71 
     ap-south-1:
-      AMI: ami-0ae2763018e0fbd72 
+      AMI: ami-010f0b376694126ea 
     ap-northeast-1:
-      AMI: ami-08ae8907ab6fb8f72 
+      AMI: ami-038b35bb6d9b45de3 
     ap-northeast-2:
-      AMI: ami-091f205b026a893b2
+      AMI: ami-0b740f27ce3f0e5c7
 
 Conditions:
   OverrideAMI: !Not 
@@ -510,6 +510,12 @@ Resources:
               export DEBIAN_FRONTEND=noninteractive
               export DEBCONF_NONINTERACTIVE_SEEN=true
 
+              # check if we have a GPU and if Nvidia drivers need to be installed
+              [[ ! -x "$(command -v nvidia-smi)" ]] && apt update && apt -y upgrade && \
+                apt -y install ubuntu-drivers-common && \
+                [[ ! -z "$(ubuntu-drivers devices | grep nvidia-driver | grep recommended | awk -F " " '{print $3}')" ]] && \
+                ubuntu-drivers autoinstall && reboot
+
               # setup software repo for docker
               curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
               apt-key fingerprint 0EBFCD88
@@ -525,16 +531,6 @@ Resources:
 
               # update and install required packages
               apt update
-
-              # check if we need NVIDIA drivers and if they are installed
-              apt -y install ubuntu-drivers-common
-              NVIDIA_DRIVER=$(ubuntu-drivers devices | grep nvidia-driver | grep recommended | awk -F " " '{print $3}')
-              if [[ $NVIDIA_DRIVER != "" && ! -x "$(command -v nvidia-smi)" ]]
-              then
-                echo "Auto install NVIDIA GPU drivers"
-                ubuntu-drivers autoinstall
-                reboot
-              fi
 
               apt install -y git tar
               apt install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
