@@ -51,7 +51,7 @@ Parameters:
       existing EFS File System Id with an existing mount target in your subnet.
       Leave blank to create a new EFS file system.
     Type: String
-    AllowedPattern: '(^fs-[0-9a-f]{8,8})$|()$'
+    AllowedPattern: '(^fs-[0-9a-f]+)$|()$'
     Default: ''
     ConstraintDescription: Should be a Valid EFS File System Id, or blank
   
@@ -66,7 +66,7 @@ Parameters:
      (Optional) Advanced option to specify existing Desktop Security Group Id. 
       Leave blank to create new Security Group.
     Type: String
-    AllowedPattern: '(^sg-[0-9a-z]{17,17})$|()$'
+    AllowedPattern: '(^sg-[0-9a-z]+)$|()$'
     Default: ''
     ConstraintDescription: Should be a Valid SecurityGroup Id in selected VPC, or blank
 
