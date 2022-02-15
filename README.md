@@ -1,9 +1,11 @@
-# AWS Deep Learning High Performance Graphics Desktop
+# AWS Deep Learning Desktop with NICE DCV
 
-The [AWS Deep Learning AMIs](https://aws.amazon.com/machine-learning/amis/) can be used to quickly launch Amazon EC2 instances pre-configured with Conda environments for popular deep learning frameworks such as TensorFlow, PyTorch, and Apache MXNet, among others. 
-[Amazon NICE DCV](https://aws.amazon.com/hpc/dcv/) enables high performance graphics desktops in Amazon EC2. 
+This project is a tutorial on how to launch an AWS deep learning desktop with [NICE DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models. To launch the deep learning desktop, you have a choice of two [AMIs](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html):
 
-In this project, we show how to automatically combine the AWS Deep Learning AMI with NICE DCV to run a high performance graphics desktop for developing, training, testing and visualizing deep learning models in Amazon EC2. 
+* [AWS Deep Learning AMI (Ubuntu 18.04), version 50.0](https://aws.amazon.com/machine-learning/amis/) (Default)
+* [Ubuntu Pro 20.04 LTS, version 20220118](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo?sr=0-1&ref_=beagle&applicationId=AWSMPContessa)
+
+Using either AMI, you can launch a deep learning desktop pre-configured with [CUDA](https://developer.nvidia.com/cuda-toolkit), [cuDNN](https://developer.nvidia.com/cudnn), [Tensorflow](https://www.tensorflow.org/), [PyTorch](https://pytorch.org/) and [Apache MxNet](https://aws.amazon.com/mxnet/) deep-learning frameworks. For latest version of [CUDA](https://developer.nvidia.com/cuda-toolkit) and the deep-learning frameworks, use the Ubuntu Pro 20.04 LTS AMI.
 
 ## Step by Step Tutorial
 
@@ -13,7 +15,7 @@ This tutorial assumes you have an [AWS Account](https://aws.amazon.com/account/)
 To get started:
 
 * Select your [AWS Region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). The AWS Regions supported by this project include, us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, ap-northeast-2, and ap-south-1. Note that not all Amazon EC2 instance types are available in all [AWS Availability Zones](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) in an AWS Region.
-* Subscribe to the [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5).
+* Subscribe to the [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5) and [Ubuntu Pro 20.04 LTS](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo?sr=0-1&ref_=beagle&applicationId=AWSMPContessa) AMIs
 * If you do not already have an Amazon EC2 key pair, [create a new Amazon EC2 key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair). You will need the key pair name to specify the ```KeyName``` parameter when creating the CloudFormation stack below.
 * You will need an [Amazon S3](https://aws.amazon.com/s3/) bucket. If you don't have one, [create a new Amazon S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in the AWS region you selected. The S3 bucket can be empty at this point.
 * Use [AWS check ip](http://checkip.amazonaws.com/) to get your public IP address. This will be the IP address you will need to specify ```DesktopAccessCIDR``` parameter in the stack. 
@@ -61,7 +63,7 @@ For SageMaker examples that require you to specify a [subnet](https://docs.aws.a
 
 ## Stopping and Restarting the Desktop
 
-You may safely reboot, stop, and restart the desktop instance at any time. The desktop will automatically mount the EFS file-system at restart.
+You may safely reboot, stop, and restart the desktop instance at any time. The desktop will automatically mount the EFS file-system at restart. If FSx for Luster file-system is enabled, it is automtically mounted, as well.
 
 ## Deleting the Stack
 
@@ -76,7 +78,7 @@ Below, we describe the AWS CloudFormation template input parameters.
 
 | Parameter Name | Parameter Description |
 | --- | ----------- |
-| DeepLearningAMIUbuntu | This is an *optional* advanced parameter whereby you specify a valid Deep Learning AMI for Ubuntu 18.04 available in your AWS region. This parameter overrides the AMI version specified in the template. |
+| AWSUbuntuAMIType | This is a required parameter that selects the AMI type. Default AMI type is [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5). |
 | DesktopAccessCIDR | This parameter specifies the public IP CIDR range from where you need access to your deep learning desktop, e.g. 1.2.3.4/32, or 7.8.0.0/16. This parameter is *ignored* if you specify the optional parameter  DesktopSecurityGroupId.|
 | DesktopHasPublicIpAddress | This is a **required** parameter whereby you specify if the desktop has a public internet address. Unless you have AWS [VPN](https://aws.amazon.com/vpn/) or [DirectConnect](https://aws.amazon.com/directconnect) access enabled, you must set this parameter to "true".
 | DesktopInstanceType | This is a **required** parameter whereby you select an Amazon EC2 instance type. G3, G4, P3 and P4 instance types are GPU enabled.  |
@@ -94,6 +96,7 @@ Below, we describe the AWS CloudFormation template input parameters.
 | KeyName | This is a **required** parameter whereby you select the Amazon EC2 key pair name used for SSH access to the desktop. You must have access to the selected key pair's private key to connect to your desktop. |
 | S3Bucket | This is a **required** parameter whereby you specify the name of the Amazon S3 bucket used to store your data. The S3 bucket may be empty at the time you create the AWS CloudFormation stack.  |
 | S3Import | This is an **optional** parameter whereby you specify S3 import prefix for FSx file-system. See ```FSxForLustre``` parameter to enable FSx for Lustre file-system.  |
+| UbuntuAMIOverride | This is an *optional* advanced parameter to override the AMI. Leave blank to use default AMIs for your region. See parameter ```AWSUbuntuAMIType```. |
 
 ### AWS CloudFormation Stack Outputs
 Below, we describe the AWS CloudFormation Stack outputs.

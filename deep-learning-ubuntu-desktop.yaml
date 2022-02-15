@@ -3,6 +3,13 @@ Description: >-
   AWS Deep Learning Ubuntu Desktop with DCV Server. 
   Connect using a DCV Client.
 Parameters:
+  AWSUbuntuAMIType:
+    Description: AWS Deep Learning AMI (Ubuntu 18.04), or  Ubuntu Pro 20.04 LTS
+    Type: String
+    Default: "DeepLearningAMIUbuntu1804"
+    AllowedValues:
+      - "DeepLearningAMIUbuntu1804"
+      - "UbuntuPro2004LTS"
   S3Bucket:
     Description: S3 bucket name for read write access from desktop
     Type: String
@@ -12,11 +19,10 @@ Parameters:
        See FSxForLustre parameter to enable FSx for Lustre file-system. 
     Type: String
     Default: ""
-  DeepLearningAMIUbuntu:
+  UbuntuAMIOverride:
     Description: >-
-      (Optional) Advanced option to override 
-      Deep Learning AMI for Ubuntu 18.04, 
-      or 20.04, available in your region.  Leave blank, if unsure.
+      (Optional) Advanced option to override the Ubuntu 18.04, or 20.04 AMI.  
+      Leave blank, if unsure.
     Type: String
     AllowedPattern: '(ami-[0-9a-z]{17})?'
   DesktopVpcId:
@@ -102,7 +108,7 @@ Parameters:
   DesktopInstanceType:
     Description: EC2 instance type for desktop
     Type: String
-    Default: g3s.xlarge
+    Default: g4dn.xlarge
     AllowedValues:
       - m5d.2xlarge
       - m5d.4xlarge
@@ -160,7 +166,7 @@ Parameters:
       - 'true'
 
 Mappings:
-  DeepLearningAMIUbuntu:
+  DeepLearningAMIUbuntu1804:
     us-east-1:
       AMI: ami-0e3c68b57d50caf64
     us-east-2:
@@ -181,11 +187,32 @@ Mappings:
       AMI: ami-038b35bb6d9b45de3 
     ap-northeast-2:
       AMI: ami-0b740f27ce3f0e5c7
+  UbuntuPro2004LTS:
+    us-east-1:
+      AMI: ami-0514b4bd87dba7384
+    us-east-2:
+      AMI: ami-05117a5348bb8a291
+    us-west-2:
+      AMI: ami-0f09d704ce46e6a2b
+    eu-west-1:
+      AMI: ami-03c13f269af7966ed
+    eu-central-1:
+      AMI: ami-0bcce4ca0396fb05b
+    ap-southeast-1:
+      AMI: ami-0fc6c5e9cea99b19a
+    ap-southeast-2:
+      AMI: ami-027f8e873ea62233a
+    ap-south-1:
+      AMI: ami-095fd2eba69d252b2
+    ap-northeast-1:
+      AMI: ami-05704132ab024395d
+    ap-northeast-2:
+     AMI: ami-0944342c546cdb378
 
 Conditions:
   OverrideAMI: !Not 
     - !Equals 
-      - !Ref DeepLearningAMIUbuntu
+      - !Ref UbuntuAMIOverride
       - ''
   CreateNewEFSFileSystem: !Equals 
     - !Ref EFSFileSystemId
@@ -436,9 +463,9 @@ Resources:
     Properties:
       ImageId: !If 
         - OverrideAMI
-        - !Ref DeepLearningAMIUbuntu
+        - !Ref UbuntuAMIOverride
         - !FindInMap 
-          - DeepLearningAMIUbuntu
+          - !Ref 'AWSUbuntuAMIType'
           - !Ref 'AWS::Region'
           - AMI
       InstanceType: !Ref DesktopInstanceType
@@ -494,7 +521,7 @@ Resources:
 
               if [[ -f "/etc/systemd/system/dcvsession.service" ]]
               then
-                apt install -y lustre-client-modules-$(uname -r)
+                apt-get -y install lustre-client-modules-$(uname -r)
                 /usr/local/bin/mount-efs.sh
                 /usr/local/bin/mount-fsx.sh
                 exit 0
@@ -510,11 +537,28 @@ Resources:
               export DEBIAN_FRONTEND=noninteractive
               export DEBCONF_NONINTERACTIVE_SEEN=true
 
-              # check if we have a GPU and if Nvidia drivers need to be installed
-              [[ ! -x "$(command -v nvidia-smi)" ]] && apt update && apt -y upgrade && \
-                apt -y install ubuntu-drivers-common && \
+              # check if we have a GPU and if Nvidia drivers and CUDA need to be installed
+              [[ ! -x "$(command -v nvidia-smi)" ]] && \
+                apt-get update && apt-get -y upgrade && \
+                apt-get -y install ubuntu-drivers-common && \
                 [[ ! -z "$(ubuntu-drivers devices | grep nvidia-driver | grep recommended | awk -F " " '{print $3}')" ]] && \
-                ubuntu-drivers autoinstall && reboot
+                apt-get -y install linux-headers-$(uname -r) && \
+                ( ( [[ $VERSION == "18.04" ]] &&
+                    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin && \
+                    mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600 && \
+                    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub && \
+                    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /" ) || \
+                  ( [[ $VERSION == "20.04" ]] && \
+                    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin && \
+                    mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600 && \
+                    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/7fa2af80.pub && \
+                    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /" ) ) && \
+                apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y autoremove && \
+                apt-get -y install cuda && \
+                apt-get -y install nvidia-cuda-toolkit && \
+                apt-get -y install libcudnn8 && \
+                apt-get -y install libcudnn8-dev && \
+                reboot
 
               # setup software repo for docker
               curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
@@ -528,37 +572,41 @@ Resources:
               wget https://d1uj6qtbmh3dt5.cloudfront.net/NICE-GPG-KEY
               gpg --import NICE-GPG-KEY
 
-              # update and install required packages
-              apt update
+               # add  visual code repository
+              wget -q https://packages.microsoft.com/keys/microsoft.asc -O- | apt-key add -
+              add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main"
 
-              apt install -y git tar
-              apt install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+              # update and install required packages
+              apt-get update
+
+              apt-get -y install git tar
+              apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
               
               # install docker if it is not installed
               if [ ! -x "$(command -v docker)" ]; then
-                apt install -y docker-ce docker-ce-cli containerd.io      
+                apt-get -y install docker-ce docker-ce-cli containerd.io      
                 usermod -aG docker ubuntu
               fi
 
-              apt install -y tzdata
-              apt install -y keyboard-configuration
-              apt install -y gnupg2
-              apt install -y lsb-core 
+              apt-get -y install tzdata
+              apt-get -y install keyboard-configuration
+              apt-get -y install gnupg2
+              apt-get -y install lsb-core 
 
               # install DCV server
               echo "install DCV server..."
-              apt install -y ubuntu-desktop
+              apt-get -y install ubuntu-desktop
 
               if [[ $VERSION == "18.04" ]]
               then
                 bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu bionic main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
 
-                apt install -y lightdm
-                apt -y upgrade
+                apt-get -y install lightdm
+                apt-get -y upgrade
                 echo "/usr/sbin/lightdm" > /etc/X11/default-display-manager
                 dpkg-reconfigure lightdm
 
-                apt install -y mesa-utils
+                apt-get -y install mesa-utils
                 if [ -x "$(command -v nvidia-xconfig)" ]; then
                   nvidia-xconfig --preserve-busid --enable-all-gpus
                 fi
@@ -571,19 +619,19 @@ Resources:
                 wget https://d1uj6qtbmh3dt5.cloudfront.net/2020.2/Servers/nice-dcv-2020.2-9662-ubuntu1804-x86_64.tgz
                 tar -xvzf nice-dcv-2020.2-9662-ubuntu1804-x86_64.tgz 
                 cd nice-dcv-2020.2-9662-ubuntu1804-x86_64
-                apt install -y  ./nice-dcv-server_2020.2.9662-1_amd64.ubuntu1804.deb
+                apt-get -y install  ./nice-dcv-server_2020.2.9662-1_amd64.ubuntu1804.deb
               elif [[ $VERSION == "20.04" ]]
               then
                 bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu focal main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
                
-                apt install -y gdm3
-                apt -y upgrade
+                apt-get -y install gdm3
+                apt-get -y upgrade
                 echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
                 dpkg-reconfigure gdm3
                 sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
                 systemctl restart gdm3
 
-                apt install -y mesa-utils
+                apt-get -y install mesa-utils
                 if [ -x "$(command -v nvidia-xconfig)" ]; then
                   nvidia-xconfig --preserve-busid --enable-all-gpus
                 fi
@@ -596,7 +644,7 @@ Resources:
                 wget https://d1uj6qtbmh3dt5.cloudfront.net/2020.2/Servers/nice-dcv-2020.2-9662-ubuntu2004-x86_64.tgz
                 tar -xvzf nice-dcv-2020.2-9662-ubuntu2004-x86_64.tgz
                 cd nice-dcv-2020.2-9662-ubuntu2004-x86_64
-                apt install -y ./nice-dcv-server_2020.2.9662-1_amd64.ubuntu2004.deb/
+                apt-get -y install ./nice-dcv-server_2020.2.9662-1_amd64.ubuntu2004.deb/
               else
                 echo "Ubuntu $VERSION is not supported; must be one of 18.04, or 20.04"
                 exit 1
@@ -652,7 +700,7 @@ Resources:
               echo "install DCV server complete"
 
               # install nfs-common
-              apt install -y nfs-common
+              apt-get -y install nfs-common
             
             - AWS_REGION=
             - !Ref AWS::Region
@@ -766,9 +814,61 @@ Resources:
                 echo "export fsx_mount_name=${FSX_MOUNT_NAME}" >> /home/ubuntu/.bashrc
               fi
 
-              # install jupyterlab
-              apt install -y python3-minimal  python3-pip && pip3 install --upgrade pip && pip3 install jupyterlab
+              # install miniconda3 if anaconda3, or miniconda3 are not installed
+              if [[ ! -d "/home/ubuntu/anaconda3" ]] && [[ ! -d "/home/ubuntu/miniconda3" ]]
+              then
+                wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /home/ubuntu/miniconda3.sh
+                bash /home/ubuntu/miniconda3.sh -b -p /home/ubuntu/miniconda3
+                echo "source /home/ubuntu/miniconda3/etc/profile.d/conda.sh" >> /home/ubuntu/.bashrc
+                rm /home/ubuntu/miniconda3.sh
 
+                source /home/ubuntu/miniconda3/etc/profile.d/conda.sh
+                conda update -y --name base -c defaults conda
+
+                # install jupyterlab and boto3 in base env
+                conda activate && \
+                conda install -y -c conda-forge jupyterlab && \
+                conda install -y ipykernel && \
+                conda install -y boto3 && \
+                conda install -y nb_conda_kernels && \
+                conda deactivate
+
+                # create conda environments
+                conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.8 && \
+                conda activate tensorflow && \
+                pip3 install --upgrade pip && \
+                pip3 install tensorflow && \
+                conda install -y ipykernel && \
+                conda install -y boto3 && \
+                conda deactivate
+
+                conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.8 && \
+                conda activate pytorch && \
+                pip3 install --upgrade pip && \
+                pip3 install torch torchvision && \
+                conda install -y ipykernel && \
+                conda install -y boto3 && \
+                conda deactivate
+
+                conda create -y --prefix /home/ubuntu/miniconda3/envs/mxnet python=3.8 && \
+                conda activate mxnet && \
+                pip3 install --upgrade pip && \
+                pip3 install mxnet && \
+                conda install -y ipykernel && \
+                conda install -y boto3 && \
+                conda deactivate
+            
+                chown -R ubuntu:ubuntu /home/ubuntu/miniconda3
+              fi
+              
+              echo "conda activate" >> /home/ubuntu/.bashrc
+              
+              # install aws cli
+              apt-get -y install awscli
+
+              # install visual code 
+              apt-get -y install code
+              
               echo "NICE DCV server is enabled!" > /etc/motd
               reboot
 Outputs:
