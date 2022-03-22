@@ -189,25 +189,25 @@ Mappings:
       AMI: ami-0b740f27ce3f0e5c7
   UbuntuPro2004LTS:
     us-east-1:
-      AMI: ami-0514b4bd87dba7384
+      AMI: ami-0541529ba25fbb39d
     us-east-2:
-      AMI: ami-05117a5348bb8a291
+      AMI: ami-01067d50d117edc0b
     us-west-2:
-      AMI: ami-0f09d704ce46e6a2b
+      AMI: ami-043a92adc1231220f
     eu-west-1:
-      AMI: ami-03c13f269af7966ed
+      AMI: ami-020fa1e8e2e0b3039
     eu-central-1:
-      AMI: ami-0bcce4ca0396fb05b
+      AMI: ami-0bb988b09a59bfa9f
     ap-southeast-1:
-      AMI: ami-0fc6c5e9cea99b19a
+      AMI: ami-031a9a529b82d10b0
     ap-southeast-2:
-      AMI: ami-027f8e873ea62233a
+      AMI: ami-016d38ca96f5a0545
     ap-south-1:
-      AMI: ami-095fd2eba69d252b2
+      AMI: ami-0160777edd81cf143
     ap-northeast-1:
-      AMI: ami-05704132ab024395d
+      AMI: ami-092dbeb031597615b
     ap-northeast-2:
-     AMI: ami-0944342c546cdb378
+      AMI: ami-09ea29d8a468c7774
 
 Conditions:
   OverrideAMI: !Not 
@@ -572,7 +572,7 @@ Resources:
               wget https://d1uj6qtbmh3dt5.cloudfront.net/NICE-GPG-KEY
               gpg --import NICE-GPG-KEY
 
-               # add  visual code repository
+              # add  visual code repository
               wget -q https://packages.microsoft.com/keys/microsoft.asc -O- | apt-key add -
               add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main"
 
@@ -586,6 +586,17 @@ Resources:
               if [ ! -x "$(command -v docker)" ]; then
                 apt-get -y install docker-ce docker-ce-cli containerd.io      
                 usermod -aG docker ubuntu
+
+                # install nvidia container toolkit if we have a nvidia GPU
+                if [[ -x "$(command -v nvidia-smi)" ]]
+                then
+                  curl -s -L https://nvidia.github.io/nvidia-container-runtime/gpgkey |  apt-key add -
+                  distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+                  curl -s -L https://nvidia.github.io/nvidia-container-runtime/$distribution/nvidia-container-runtime.list | \
+                    tee /etc/apt/sources.list.d/nvidia-container-runtime.list
+                  apt-get update
+                  apt-get -y install nvidia-container-toolkit
+                fi
               fi
 
               apt-get -y install tzdata

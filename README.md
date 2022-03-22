@@ -3,7 +3,7 @@
 This project is a tutorial on how to launch an AWS deep learning desktop with [NICE DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models. To launch the deep learning desktop, you have a choice of two [AMIs](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html):
 
 * [AWS Deep Learning AMI (Ubuntu 18.04), version 50.0](https://aws.amazon.com/machine-learning/amis/) (Default)
-* [Ubuntu Pro 20.04 LTS, version 20220118](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo?sr=0-1&ref_=beagle&applicationId=AWSMPContessa)
+* [Ubuntu Pro 20.04 LTS, version 20220308](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo?sr=0-1&ref_=beagle&applicationId=AWSMPContessa)
 
 Using either AMI, you can launch a deep learning desktop pre-configured with [CUDA](https://developer.nvidia.com/cuda-toolkit), [cuDNN](https://developer.nvidia.com/cudnn), [Tensorflow](https://www.tensorflow.org/), [PyTorch](https://pytorch.org/) and [Apache MxNet](https://aws.amazon.com/mxnet/) deep-learning frameworks. For latest version of [CUDA](https://developer.nvidia.com/cuda-toolkit) and the deep-learning frameworks, use the Ubuntu Pro 20.04 LTS AMI.
 
