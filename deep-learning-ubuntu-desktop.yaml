@@ -603,6 +603,8 @@ Resources:
               apt-get -y install keyboard-configuration
               apt-get -y install gnupg2
               apt-get -y install lsb-core 
+              apt-get -y install libopenmpi-dev 
+              apt-get -y install protobuf-compiler
 
               # install DCV server
               echo "install DCV server..."
@@ -849,6 +851,7 @@ Resources:
                 conda activate tensorflow && \
                 pip3 install --upgrade pip && \
                 pip3 install tensorflow && \
+                pip3 install s3fs  && \
                 conda install -y ipykernel && \
                 conda install -y boto3 && \
                 conda deactivate
@@ -857,6 +860,7 @@ Resources:
                 conda activate pytorch && \
                 pip3 install --upgrade pip && \
                 pip3 install torch torchvision && \
+                pip3 install s3fs && \
                 conda install -y ipykernel && \
                 conda install -y boto3 && \
                 conda deactivate
@@ -865,6 +869,7 @@ Resources:
                 conda activate mxnet && \
                 pip3 install --upgrade pip && \
                 pip3 install mxnet && \
+                pip3 install s3fs  && \
                 conda install -y ipykernel && \
                 conda install -y boto3 && \
                 conda deactivate
