@@ -4,12 +4,13 @@ Description: >-
   Connect using a DCV Client.
 Parameters:
   AWSUbuntuAMIType:
-    Description: AWS Deep Learning AMI (Ubuntu 18.04), or  Ubuntu Pro 20.04 LTS
+    Description: Ubuntu Pro 22.04 LTS, Ubuntu Pro 20.04 LTS, or AWS Deep Learning AMI (Ubuntu 18.04).
     Type: String
-    Default: "DeepLearningAMIUbuntu1804"
+    Default: "UbuntuPro2204LTS"
     AllowedValues:
       - "DeepLearningAMIUbuntu1804"
       - "UbuntuPro2004LTS"
+      - "UbuntuPro2204LTS"
   S3Bucket:
     Description: S3 bucket name for read write access from desktop
     Type: String
@@ -197,25 +198,46 @@ Mappings:
       AMI: ami-0b740f27ce3f0e5c7
   UbuntuPro2004LTS:
     us-east-1:
-      AMI: ami-0b41210ffa03995a4
+      AMI: ami-0d47ff0cf6fdae248
     us-east-2:
-      AMI: ami-0f6e5975629b255d6
+      AMI: ami-0f13ba3eb5f121248
     us-west-2:
-      AMI: ami-0343a89ef4c59b9db
+      AMI: ami-000f76952a7e3392f
     eu-west-1:
-      AMI: ami-0e55001f5bba4ebe1
+      AMI: ami-038f25401c9d1e8b4
     eu-central-1:
-      AMI: ami-04b56bcab7b5da0d4
+      AMI: ami-04653c23df246576d
     ap-southeast-1:
-      AMI: ami-0eb71d980428176ac
+      AMI: ami-03ea76a36bec93abf
     ap-southeast-2:
-      AMI: ami-09d40e88c515dca0e
+      AMI: ami-0890b914372a4c40d
     ap-south-1:
-      AMI: ami-0be503045f1b31adb
+      AMI: ami-0032f7b1162963f95
     ap-northeast-1:
-      AMI: ami-0ab86080c3fe4ed0c
+      AMI: ami-008eb3d0705154428
     ap-northeast-2:
-      AMI: ami-04d7345e605f9be3f
+      AMI: ami-008d135ee5a077b34
+  UbuntuPro2204LTS:
+    us-east-1:
+      AMI: ami-0df98d1c227268eca
+    us-east-2:
+      AMI: ami-01ad0b22f20e31794
+    us-west-2:
+      AMI: ami-0573d9e7f7c229af1
+    eu-west-1:
+      AMI: ami-022c5f58cc6a57b1b
+    eu-central-1:
+      AMI: ami-0c49b1f4a762ff82f
+    ap-southeast-1:
+      AMI: ami-06be72127bdf48298
+    ap-southeast-2:
+      AMI: ami-04345f15b1bbae51a
+    ap-south-1:
+      AMI: ami-03b4c3a597963541c
+    ap-northeast-1:
+      AMI: ami-0fafdd9db4ee92c09
+    ap-northeast-2:
+      AMI: ami-0ed9f71f8f7c3376f
 
 Conditions:
   OverrideAMI: !Not 
@@ -560,12 +582,18 @@ Resources:
                     wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin && \
                     mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600 && \
                     apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub && \
-                    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /" ) ) && \
+                    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /" ) || \
+                  ( [[ $VERSION == "22.04" ]] && \
+                    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin && \
+                    mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600 && \
+                    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub && \
+                    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /" ) ) && \
                 apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y autoremove && \
-                apt-get -y install cuda && \
-                apt-get -y install nvidia-cuda-toolkit && \
-                apt-get -y install libcudnn8 && \
-                apt-get -y install libcudnn8-dev && \
+                apt-get -y install cuda-11-8 && \
+                apt-get -y install libcudnn8=8.6.0.163-1+cuda11.8 && \
+                apt-get -y install libcudnn8-dev=8.6.0.163-1+cuda11.8 && \
+                echo "export PATH=/usr/local/cuda-11.8/bin:$PATH" >> /home/ubuntu/.bashrc && \
+                echo "export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
                 reboot
 
               # setup software repo for docker
@@ -666,8 +694,33 @@ Resources:
                 tar -xvzf nice-dcv-2020.2-9662-ubuntu2004-x86_64.tgz
                 cd nice-dcv-2020.2-9662-ubuntu2004-x86_64
                 apt-get -y install ./nice-dcv-server_2020.2.9662-1_amd64.ubuntu2004.deb/
+              elif [[ $VERSION == "22.04" ]]
+              then   
+                bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
+               
+                apt-get -y install gdm3
+                apt-get -y upgrade
+                echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
+                dpkg-reconfigure gdm3
+                sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
+                systemctl restart gdm3
+
+                apt-get -y install mesa-utils
+                if [ -x "$(command -v nvidia-xconfig)" ]; then
+                  nvidia-xconfig --preserve-busid --enable-all-gpus
+                fi
+
+                #restart X server
+                echo "restart X-server"
+                systemctl set-default graphical.target
+                systemctl isolate graphical.target
+
+                wget https://d1uj6qtbmh3dt5.cloudfront.net/2022.1/Servers/nice-dcv-2022.1-13300-ubuntu2204-x86_64.tgz
+                tar -xvzf nice-dcv-2022.1-13300-ubuntu2204-x86_64.tgz
+                cd nice-dcv-2022.1-13300-ubuntu2204-x86_64
+                apt-get -y install ./nice-dcv-server_2022.1.13300-1_amd64.ubuntu2204.deb/
               else
-                echo "Ubuntu $VERSION is not supported; must be one of 18.04, or 20.04"
+                echo "Ubuntu $VERSION is not supported; must be one of 18.04, 20.04, or 22.04"
                 exit 1
               fi
 

@@ -1,11 +1,13 @@
 # AWS Deep Learning Desktop with NICE DCV
 
-This project is a tutorial on how to launch an AWS deep learning desktop with [NICE DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models. To launch the deep learning desktop, you have a choice of two [AMIs](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html):
+This project is a tutorial on how to launch an AWS deep learning desktop with [NICE DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models. To launch the deep learning desktop, you have a choice of two [Ubuntu Pro AMIs](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html):
 
-* [AWS Deep Learning AMI (Ubuntu 18.04), version 50.0](https://aws.amazon.com/machine-learning/amis/) (Default)
-* [Ubuntu Pro 20.04 LTS, version 20220308](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo?sr=0-1&ref_=beagle&applicationId=AWSMPContessa)
+* [Ubuntu Pro 22.04 LTS, v20220921.1](https://aws.amazon.com/marketplace/pp/prodview-uy7jg4dds3qjw) (Default)
+* [Ubuntu Pro 20.04 LTS, v20220920](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo)
+* [AWS Deep Learning AMI (Ubuntu 18.04), version 50.0](https://aws.amazon.com/machine-learning/amis/) (Deprecated)
 
-Using either AMI, you can launch a deep learning desktop pre-configured with [CUDA](https://developer.nvidia.com/cuda-toolkit), [cuDNN](https://developer.nvidia.com/cudnn), [Tensorflow](https://www.tensorflow.org/), [PyTorch](https://pytorch.org/) and [Apache MxNet](https://aws.amazon.com/mxnet/) deep-learning frameworks. For latest version of [CUDA](https://developer.nvidia.com/cuda-toolkit) and the deep-learning frameworks, use the Ubuntu Pro 20.04 LTS AMI.
+
+Using either Ubuntu Pro AMI above, you can launch a deep learning desktop pre-configured with [CUDA](https://developer.nvidia.com/cuda-toolkit), [cuDNN](https://developer.nvidia.com/cudnn), [Tensorflow](https://www.tensorflow.org/), [PyTorch](https://pytorch.org/) and [Apache MxNet](https://aws.amazon.com/mxnet/) deep-learning frameworks. 
 
 ## Step by Step Tutorial
 
@@ -15,7 +17,7 @@ This tutorial assumes you have an [AWS Account](https://aws.amazon.com/account/)
 To get started:
 
 * Select your [AWS Region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). The AWS Regions supported by this project include, us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, ap-northeast-2, and ap-south-1. Note that not all Amazon EC2 instance types are available in all [AWS Availability Zones](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) in an AWS Region.
-* Subscribe to the [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5) and [Ubuntu Pro 20.04 LTS](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo?sr=0-1&ref_=beagle&applicationId=AWSMPContessa) AMIs
+* Subscribe to the [Ubuntu Pro 22.04 LTS, v20220921.1](https://aws.amazon.com/marketplace/pp/prodview-uy7jg4dds3qjw) or the [Ubuntu Pro 20.04 LTS, v20220920](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo) AMI 
 * If you do not already have an Amazon EC2 key pair, [create a new Amazon EC2 key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair). You will need the key pair name to specify the ```KeyName``` parameter when creating the CloudFormation stack below.
 * You will need an [Amazon S3](https://aws.amazon.com/s3/) bucket. If you don't have one, [create a new Amazon S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in the AWS region you selected. The S3 bucket can be empty at this point.
 * Use [AWS check ip](http://checkip.amazonaws.com/) to get your public IP address. This will be the IP address you will need to specify ```DesktopAccessCIDR``` parameter in the stack. 
