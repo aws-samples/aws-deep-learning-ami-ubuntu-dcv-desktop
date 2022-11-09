@@ -198,46 +198,46 @@ Mappings:
       AMI: ami-0b740f27ce3f0e5c7
   UbuntuPro2004LTS:
     us-east-1:
-      AMI: ami-0d47ff0cf6fdae248
+      AMI: ami-0edaaf6893668e6b0
     us-east-2:
-      AMI: ami-0f13ba3eb5f121248
+      AMI: ami-05982b44d62ceee24
     us-west-2:
-      AMI: ami-000f76952a7e3392f
+      AMI: ami-0597f94f56d2d2f9a
     eu-west-1:
-      AMI: ami-038f25401c9d1e8b4
+      AMI: ami-021f75d7aec8edca3
     eu-central-1:
-      AMI: ami-04653c23df246576d
+      AMI: ami-0bd10b8eaf80b8f6f
     ap-southeast-1:
-      AMI: ami-03ea76a36bec93abf
+      AMI: ami-02349877f59f5f045
     ap-southeast-2:
-      AMI: ami-0890b914372a4c40d
+      AMI: ami-08dc67a7da7ad13b6
     ap-south-1:
-      AMI: ami-0032f7b1162963f95
+      AMI: ami-07ac8f7c0faa696f5
     ap-northeast-1:
-      AMI: ami-008eb3d0705154428
+      AMI: ami-062021fe0ad5f5c9e
     ap-northeast-2:
-      AMI: ami-008d135ee5a077b34
+      AMI: ami-04eb2296745051d64
   UbuntuPro2204LTS:
     us-east-1:
-      AMI: ami-0df98d1c227268eca
+      AMI: ami-0f45714212565e2c5
     us-east-2:
-      AMI: ami-01ad0b22f20e31794
+      AMI: ami-0a5495c9c5bac4e84
     us-west-2:
-      AMI: ami-0573d9e7f7c229af1
+      AMI: ami-0c616e46f89a983a9
     eu-west-1:
-      AMI: ami-022c5f58cc6a57b1b
+      AMI: ami-0f06674b2cdfca9c2
     eu-central-1:
-      AMI: ami-0c49b1f4a762ff82f
+      AMI: ami-065a81264fe36b49c
     ap-southeast-1:
-      AMI: ami-06be72127bdf48298
+      AMI: ami-0369d5fd05f84e3a9
     ap-southeast-2:
-      AMI: ami-04345f15b1bbae51a
+      AMI: ami-0704377fe6b147e48
     ap-south-1:
-      AMI: ami-03b4c3a597963541c
+      AMI: ami-064547413f6e196d4
     ap-northeast-1:
-      AMI: ami-0fafdd9db4ee92c09
+      AMI: ami-02e454cedebdafc59
     ap-northeast-2:
-      AMI: ami-0ed9f71f8f7c3376f
+      AMI: ami-028fa55537e8e6f20
 
 Conditions:
   OverrideAMI: !Not 
@@ -699,7 +699,7 @@ Resources:
                 bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
                
                 apt-get -y install gdm3
-                apt-get -y upgrade
+                apt-get -y upgrade || echo "ignoring upgrade error"
                 echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
                 dpkg-reconfigure gdm3
                 sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf

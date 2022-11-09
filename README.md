@@ -2,8 +2,8 @@
 
 This project is a tutorial on how to launch an AWS deep learning desktop with [NICE DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models. To launch the deep learning desktop, you have a choice of two [Ubuntu Pro AMIs](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html):
 
-* [Ubuntu Pro 22.04 LTS, v20220921.1](https://aws.amazon.com/marketplace/pp/prodview-uy7jg4dds3qjw) (Default)
-* [Ubuntu Pro 20.04 LTS, v20220920](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo)
+* [Ubuntu Pro 22.04 LTS, v20221101.1](https://aws.amazon.com/marketplace/pp/prodview-uy7jg4dds3qjw) (Default)
+* [Ubuntu Pro 20.04 LTS, v20221018](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo)
 * [AWS Deep Learning AMI (Ubuntu 18.04), version 50.0](https://aws.amazon.com/machine-learning/amis/) (Deprecated)
 
 
