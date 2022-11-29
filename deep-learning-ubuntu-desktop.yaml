@@ -488,9 +488,20 @@ Resources:
       Roles:
         - !Ref InstanceRole
   
+  DesktopLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties: 
+      LaunchTemplateData: 
+        MetadataOptions:
+          HttpTokens: "required"
+          HttpEndpoint: "enabled"
+
   DesktopInstance:
     Type: 'AWS::EC2::Instance'
     Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref DesktopLaunchTemplate
+        Version: !GetAtt DesktopLaunchTemplate.LatestVersionNumber
       ImageId: !If 
         - OverrideAMI
         - !Ref UbuntuAMIOverride
@@ -568,10 +579,8 @@ Resources:
               export DEBCONF_NONINTERACTIVE_SEEN=true
 
               # check if we have a GPU and if Nvidia drivers and CUDA need to be installed
+              [[ ! -z $(lspci -v | grep NVIDIA) ]] && \
               [[ ! -x "$(command -v nvidia-smi)" ]] && \
-                apt-get update && apt-get -y upgrade && \
-                apt-get -y install ubuntu-drivers-common && \
-                [[ ! -z "$(ubuntu-drivers devices | grep nvidia-driver | grep recommended | awk -F " " '{print $3}')" ]] && \
                 apt-get -y install linux-headers-$(uname -r) && \
                 ( ( [[ $VERSION == "18.04" ]] &&
                     wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin && \
