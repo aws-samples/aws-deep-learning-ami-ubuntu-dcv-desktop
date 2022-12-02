@@ -560,15 +560,7 @@ Resources:
 
               #!/bin/bash -xe
 
-              if [[ -f "/etc/systemd/system/dcvsession.service" ]]
-              then
-                apt-get -y install lustre-client-modules-$(uname -r)
-                /usr/local/bin/mount-efs.sh
-                /usr/local/bin/mount-fsx.sh
-                exit 0
-              fi
-
-              echo "Cloud init in progress. Machine will REBOOT after cloud init is complete!!" > /etc/motd
+              echo "Cloud init in progress!" > /etc/motd
               
               # Find Ubuntu Version 
               VERSION=$(lsb_release -a | grep Release | awk -F ":" '{print $2}' | sed -E -e 's/[[:blank:]]+//g')
@@ -659,75 +651,91 @@ Resources:
               then
                 bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu bionic main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
 
-                apt-get -y install lightdm
-                apt-get -y upgrade
-                echo "/usr/sbin/lightdm" > /etc/X11/default-display-manager
-                dpkg-reconfigure lightdm
+                if [[ ! -x "$(command -v dcv)" ]]
+                then
+                  apt-get -y install lightdm
+                  apt-get -y upgrade
+                  echo "/usr/sbin/lightdm" > /etc/X11/default-display-manager
+                  dpkg-reconfigure lightdm
 
-                apt-get -y install mesa-utils
-                if [ -x "$(command -v nvidia-xconfig)" ]; then
-                  nvidia-xconfig --preserve-busid --enable-all-gpus
+                  apt-get -y install mesa-utils
+                  if [[ -x "$(command -v nvidia-xconfig)" ]] && [[ -x "$(command -v nvidia-smi)" ]]
+                  then
+                    nvidia-xconfig --preserve-busid --enable-all-gpus
+                  fi
+
+                  #restart X server
+                  echo "restart X-server"
+                  systemctl set-default graphical.target
+                  systemctl isolate graphical.target
+
+                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2020.2/Servers/nice-dcv-2020.2-9662-ubuntu1804-x86_64.tgz
+                  tar -xvzf nice-dcv-2020.2-9662-ubuntu1804-x86_64.tgz 
+                  cd nice-dcv-2020.2-9662-ubuntu1804-x86_64
+                  apt-get -y install  ./nice-dcv-server_2020.2.9662-1_amd64.ubuntu1804.deb
+                  reboot
                 fi
 
-                #restart X server
-                echo "restart X-server"
-                systemctl set-default graphical.target
-                systemctl isolate graphical.target
-
-                wget https://d1uj6qtbmh3dt5.cloudfront.net/2020.2/Servers/nice-dcv-2020.2-9662-ubuntu1804-x86_64.tgz
-                tar -xvzf nice-dcv-2020.2-9662-ubuntu1804-x86_64.tgz 
-                cd nice-dcv-2020.2-9662-ubuntu1804-x86_64
-                apt-get -y install  ./nice-dcv-server_2020.2.9662-1_amd64.ubuntu1804.deb
               elif [[ $VERSION == "20.04" ]]
               then
                 bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu focal main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
-               
-                apt-get -y install gdm3
-                apt-get -y upgrade
-                echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
-                dpkg-reconfigure gdm3
-                sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
-                systemctl restart gdm3
 
-                apt-get -y install mesa-utils
-                if [ -x "$(command -v nvidia-xconfig)" ]; then
-                  nvidia-xconfig --preserve-busid --enable-all-gpus
+                if [[ ! -x "$(command -v dcv)" ]]
+                then
+                  apt-get -y install gdm3
+                  apt-get -y upgrade
+                  echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
+                  dpkg-reconfigure gdm3
+                  sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
+                  systemctl restart gdm3
+
+                  apt-get -y install mesa-utils
+                  if [[ -x "$(command -v nvidia-xconfig)" ]] && [[ -x "$(command -v nvidia-smi)" ]]
+                  then
+                    nvidia-xconfig --preserve-busid --enable-all-gpus
+                  fi
+
+                  #restart X server
+                  echo "restart X-server"
+                  systemctl set-default graphical.target
+                  systemctl isolate graphical.target
+
+                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2020.2/Servers/nice-dcv-2020.2-9662-ubuntu2004-x86_64.tgz
+                  tar -xvzf nice-dcv-2020.2-9662-ubuntu2004-x86_64.tgz
+                  cd nice-dcv-2020.2-9662-ubuntu2004-x86_64
+                  apt-get -y install ./nice-dcv-server_2020.2.9662-1_amd64.ubuntu2004.deb/
+                  reboot
                 fi
-
-                #restart X server
-                echo "restart X-server"
-                systemctl set-default graphical.target
-                systemctl isolate graphical.target
-
-                wget https://d1uj6qtbmh3dt5.cloudfront.net/2020.2/Servers/nice-dcv-2020.2-9662-ubuntu2004-x86_64.tgz
-                tar -xvzf nice-dcv-2020.2-9662-ubuntu2004-x86_64.tgz
-                cd nice-dcv-2020.2-9662-ubuntu2004-x86_64
-                apt-get -y install ./nice-dcv-server_2020.2.9662-1_amd64.ubuntu2004.deb/
               elif [[ $VERSION == "22.04" ]]
               then   
                 bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
                
-                apt-get -y install gdm3
-                apt-get -y upgrade || echo "ignoring upgrade error"
-                echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
-                dpkg-reconfigure gdm3
-                sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
-                systemctl restart gdm3
+                if [[ ! -x "$(command -v dcv)" ]]
+                then
+                  apt-get -y install gdm3
+                  apt-get -y upgrade || echo "ignoring upgrade error"
+                  echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
+                  dpkg-reconfigure gdm3
+                  sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
+                  systemctl restart gdm3
 
-                apt-get -y install mesa-utils
-                if [ -x "$(command -v nvidia-xconfig)" ]; then
-                  nvidia-xconfig --preserve-busid --enable-all-gpus
+                  apt-get -y install mesa-utils
+                  if [[ -x "$(command -v nvidia-xconfig)" ]] && [[ -x "$(command -v nvidia-smi)" ]]
+                  then
+                    nvidia-xconfig --preserve-busid --enable-all-gpus
+                  fi
+
+                  #restart X server
+                  echo "restart X-server"
+                  systemctl set-default graphical.target
+                  systemctl isolate graphical.target
+
+                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2022.1/Servers/nice-dcv-2022.1-13300-ubuntu2204-x86_64.tgz
+                  tar -xvzf nice-dcv-2022.1-13300-ubuntu2204-x86_64.tgz
+                  cd nice-dcv-2022.1-13300-ubuntu2204-x86_64
+                  apt-get -y install ./nice-dcv-server_2022.1.13300-1_amd64.ubuntu2204.deb/
+                  reboot
                 fi
-
-                #restart X server
-                echo "restart X-server"
-                systemctl set-default graphical.target
-                systemctl isolate graphical.target
-
-                wget https://d1uj6qtbmh3dt5.cloudfront.net/2022.1/Servers/nice-dcv-2022.1-13300-ubuntu2204-x86_64.tgz
-                tar -xvzf nice-dcv-2022.1-13300-ubuntu2204-x86_64.tgz
-                cd nice-dcv-2022.1-13300-ubuntu2204-x86_64
-                apt-get -y install ./nice-dcv-server_2022.1.13300-1_amd64.ubuntu2204.deb/
               else
                 echo "Ubuntu $VERSION is not supported; must be one of 18.04, 20.04, or 22.04"
                 exit 1
@@ -736,14 +744,16 @@ Resources:
               #restart X server
               systemctl set-default graphical.target
               systemctl isolate graphical.target
-
+  
               # Create DCV server configuration file
-              mkdir  /opt/dcv-session-store
+              [[ -d /opt/dcv-session-store ]] || mkdir /opt/dcv-session-store
               echo "[license]" >> dcv.conf
               echo "[log]" >> dcv.conf
               echo "[session-management]" >> dcv.conf
+              echo "create-session = true" >> dcv.conf
               echo "[session-management/defaults]" >> dcv.conf
               echo "[session-management/automatic-console-session]" >> dcv.conf
+              echo "owner=ubuntu" >> dcv.conf
               echo "storage-root=\"/opt/dcv-session-store/\"" >> dcv.conf
               echo "[display]" >> dcv.conf
               echo "[connectivity]" >> dcv.conf
@@ -754,32 +764,15 @@ Resources:
               echo "primary-selection-paste=true" >> dcv.conf
               mv dcv.conf /etc/dcv/dcv.conf
 
-              # Enable DCV server
-              systemctl enable dcvserver
-
               # Create DCV session permissions files
               rm -f /home/ubuntu/dcv.perms
               echo "[permissions]" >> /home/ubuntu/dcv.perms
               echo "%owner% allow builtin" >> /home/ubuntu/dcv.perms
 
-              # Create startup session script
-              echo "#!/bin/bash" >> /usr/local/bin/start-dcvsession.sh
-              echo "dcv create-session --type=console --owner ubuntu --storage-root /opt/dcv-session-store/ --permissions-file /home/ubuntu/dcv.perms dcvsession" >> /usr/local/bin/start-dcvsession.sh
-              chmod a+x /usr/local/bin/start-dcvsession.sh
-
-              echo "[Unit]" >> /etc/systemd/system/dcvsession.service
-              echo "Description=DCV session service" >> /etc/systemd/system/dcvsession.service
-              echo "After=dcvserver.service" >> /etc/systemd/system/dcvsession.service
-              echo "" >> /etc/systemd/system/dcvsession.service
-              echo "[Service]" >> /etc/systemd/system/dcvsession.service
-              echo "User=root" >> /etc/systemd/system/dcvsession.service
-              echo "ExecStart=/usr/local/bin/start-dcvsession.sh" >> /etc/systemd/system/dcvsession.service
-              echo "Restart= on-abort" >> /etc/systemd/system/dcvsession.service
-              echo "" >> /etc/systemd/system/dcvsession.service
-              echo "[Install]" >> /etc/systemd/system/dcvsession.service
-              echo "WantedBy=graphical.target" >> /etc/systemd/system/dcvsession.service
-
-              systemctl enable dcvsession
+              # Enable DCV server
+              systemctl enable dcvserver
+              systemctl restart dcvserver
+              
               echo "install DCV server complete"
 
               # install nfs-common
@@ -855,7 +848,8 @@ Resources:
 
               EOL
               chmod u+x /usr/local/bin/mount-efs.sh
-
+              /usr/local/bin/mount-efs.sh
+             
               # Create FSx  mount script
               cat >/usr/local/bin/mount-fsx.sh <<EOL
               #!/bin/bash
@@ -870,14 +864,16 @@ Resources:
                   mkdir $FSX_MOUNT_PATH
                 fi
               
+                apt-get -y install lustre-client-modules-$(uname -r)
                 mount -t lustre -o noatime,flock $FSX_FS_ID.fsx.$AWS_REGION.amazonaws.com@tcp:/$FSX_MOUNT_NAME $FSX_MOUNT_PATH
               fi
 
               EOL
               chmod u+x /usr/local/bin/mount-fsx.sh
-
+              /usr/local/bin/mount-fsx.sh
+             
               # Create config file
-              mkdir /home/ubuntu/.aws
+              mkdir -p /home/ubuntu/.aws
               cat >/home/ubuntu/.aws/config <<EOL
               [default]
               region = ${AWS_REGION}
@@ -954,9 +950,8 @@ Resources:
 
               # install visual code 
               apt-get -y install code
-              
+ 
               echo "NICE DCV server is enabled!" > /etc/motd
-              reboot
 Outputs:
   DesktopInstanceId:
     Description: Desktop instance Id
