@@ -897,7 +897,7 @@ Resources:
               if [[ ! -d "/home/ubuntu/anaconda3" ]] && [[ ! -d "/home/ubuntu/miniconda3" ]]
               then
                 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /home/ubuntu/miniconda3.sh
-                bash /home/ubuntu/miniconda3.sh -b -p /home/ubuntu/miniconda3
+                HOME=/home/ubuntu bash /home/ubuntu/miniconda3.sh -b -p /home/ubuntu/miniconda3
                 echo "source /home/ubuntu/miniconda3/etc/profile.d/conda.sh" >> /home/ubuntu/.bashrc
                 rm /home/ubuntu/miniconda3.sh
 
