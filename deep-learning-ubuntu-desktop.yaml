@@ -913,34 +913,36 @@ Resources:
                 conda deactivate
 
                 # create conda environments
-                conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.8 && \
+                conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.10 && \
                 conda activate tensorflow && \
                 pip3 install --upgrade pip && \
                 pip3 install tensorflow && \
-                pip3 install s3fs  && \
+                pip3 install datasets && \
+                pip3 install transformers && \
                 conda install -y ipykernel && \
                 conda install -y boto3 && \
                 conda deactivate
 
-                conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.8 && \
+                conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.10 && \
                 conda activate pytorch && \
                 pip3 install --upgrade pip && \
                 pip3 install torch torchvision && \
-                pip3 install s3fs && \
+                pip3 install datasets && \
+                pip3 install transformers && \
                 conda install -y ipykernel && \
                 conda install -y boto3 && \
                 conda deactivate
 
-                conda create -y --prefix /home/ubuntu/miniconda3/envs/mxnet python=3.8 && \
+                conda create -y --prefix /home/ubuntu/miniconda3/envs/mxnet python=3.10 && \
                 conda activate mxnet && \
                 pip3 install --upgrade pip && \
                 pip3 install mxnet && \
-                pip3 install s3fs  && \
                 conda install -y ipykernel && \
                 conda install -y boto3 && \
                 conda deactivate
             
                 chown -R ubuntu:ubuntu /home/ubuntu/miniconda3
+                chown -R ubuntu:ubuntu /home/ubuntu/.conda
               fi
               
               echo "conda activate" >> /home/ubuntu/.bashrc
