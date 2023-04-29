@@ -219,25 +219,25 @@ Mappings:
       AMI: ami-08accefb19e265cff
   UbuntuPro2204LTS:
     us-east-1:
-      AMI: ami-040646da8e19f69bc
+      AMI: ami-0601f60a2ae898302
     us-east-2:
-      AMI: ami-0b5ebb9f83cb444f9
+      AMI: ami-06171adea4a5c9ccf
     us-west-2:
-      AMI: ami-0df37d659b316fdcf
+      AMI: ami-0d6819728eca5742b
     eu-west-1:
-      AMI: ami-0c693f2b1787f42fa
+      AMI: ami-08b2cca30578c4f24
     eu-central-1:
-      AMI: ami-00c1ee5c96d80fff6
+      AMI: ami-0c7ecc20e590f217d
     ap-southeast-1:
-      AMI: ami-019e14a29af39379c
+      AMI: ami-0491123bc3aaefde7
     ap-southeast-2:
-      AMI: ami-0e1b96eec7546837c
+      AMI: ami-0eab3cce02a2130a6
     ap-south-1:
-      AMI: ami-053a739bad4b0841c
+      AMI: ami-0af5da74fb054a6b8
     ap-northeast-1:
-      AMI: ami-0cf0526f1d3bd7fca
+      AMI: ami-0ee63f9049de440d7
     ap-northeast-2:
-      AMI: ami-0cfcacec8d99b9319
+      AMI: ami-077875308beac779a
 
 Conditions:
   OverrideAMI: !Not 
@@ -564,8 +564,10 @@ Resources:
               
               # Find Ubuntu Version 
               VERSION=$(lsb_release -a | grep Release | awk -F ":" '{print $2}' | sed -E -e 's/[[:blank:]]+//g')
-              echo "Detected Ubuntu $VERSION"
-              
+              distro=ubuntu${VERSION//[.]/""}
+              arch="x86_64"
+              echo "Ubuntu  $distro/$arch"
+
               # setup graphics desktop
               export DEBIAN_FRONTEND=noninteractive
               export DEBCONF_NONINTERACTIVE_SEEN=true
@@ -573,29 +575,16 @@ Resources:
               # check if we have a GPU and if Nvidia drivers and CUDA need to be installed
               [[ ! -z $(lspci -v | grep NVIDIA) ]] && \
               [[ ! -x "$(command -v nvidia-smi)" ]] && \
-                apt-get -y install linux-headers-$(uname -r) && \
-                ( ( [[ $VERSION == "18.04" ]] &&
-                    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin && \
-                    mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600 && \
-                    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub && \
-                    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/ /" ) || \
-                  ( [[ $VERSION == "20.04" ]] && \
-                    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin && \
-                    mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600 && \
-                    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub && \
-                    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /" ) || \
-                  ( [[ $VERSION == "22.04" ]] && \
-                    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin && \
-                    mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600 && \
-                    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub && \
-                    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /" ) ) && \
-                apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y autoremove && \
-                apt-get -y install cuda-11-8 && \
-                apt-get -y install libcudnn8=8.6.0.163-1+cuda11.8 && \
-                apt-get -y install libcudnn8-dev=8.6.0.163-1+cuda11.8 && \
-                echo "export PATH=/usr/local/cuda-11.8/bin:$PATH" >> /home/ubuntu/.bashrc && \
-                echo "export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
-                reboot
+              apt-get -y install linux-headers-$(uname -r) && \
+              wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.0-1_all.deb && \
+              dpkg -i cuda-keyring_1.0-1_all.deb && \
+              apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y autoremove && \
+              apt-get -y install cuda-12-1 && \
+              apt-get -y install libcudnn8 && \
+              apt-get -y install libcudnn8-dev && \
+              echo "export PATH=/usr/local/cuda-12.1/bin:$PATH" >> /home/ubuntu/.bashrc && \
+              echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.1/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
+              reboot
 
               # setup software repo for docker
               curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
@@ -669,10 +658,10 @@ Resources:
                   systemctl set-default graphical.target
                   systemctl isolate graphical.target
 
-                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2020.2/Servers/nice-dcv-2020.2-9662-ubuntu1804-x86_64.tgz
-                  tar -xvzf nice-dcv-2020.2-9662-ubuntu1804-x86_64.tgz 
-                  cd nice-dcv-2020.2-9662-ubuntu1804-x86_64
-                  apt-get -y install  ./nice-dcv-server_2020.2.9662-1_amd64.ubuntu1804.deb
+                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2023.0/Servers/nice-dcv-2023.0-15022-ubuntu1804-x86_64.tgz
+                  tar -xvzf nice-dcv-2023.0-15022-ubuntu1804-x86_64.tgz
+                  cd nice-dcv-2023.0-15022-ubuntu1804-x86_64
+                  apt-get -y install  ./nice-dcv-server_2023.0.15022-1_amd64.ubuntu1804.deb
                   reboot
                 fi
 
@@ -700,10 +689,10 @@ Resources:
                   systemctl set-default graphical.target
                   systemctl isolate graphical.target
 
-                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2020.2/Servers/nice-dcv-2020.2-9662-ubuntu2004-x86_64.tgz
-                  tar -xvzf nice-dcv-2020.2-9662-ubuntu2004-x86_64.tgz
-                  cd nice-dcv-2020.2-9662-ubuntu2004-x86_64
-                  apt-get -y install ./nice-dcv-server_2020.2.9662-1_amd64.ubuntu2004.deb/
+                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2023.0/Servers/nice-dcv-2023.0-15022-ubuntu2004-x86_64.tgz
+                  tar -xvzf nice-dcv-2023.0-15022-ubuntu2004-x86_64.tgz
+                  cd nice-dcv-2023.0-15022-ubuntu2004-x86_64
+                  apt-get -y install ./nice-dcv-server_2023.0.15022-1_amd64.ubuntu2004.deb
                   reboot
                 fi
               elif [[ $VERSION == "22.04" ]]
@@ -730,10 +719,10 @@ Resources:
                   systemctl set-default graphical.target
                   systemctl isolate graphical.target
 
-                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2022.1/Servers/nice-dcv-2022.1-13300-ubuntu2204-x86_64.tgz
-                  tar -xvzf nice-dcv-2022.1-13300-ubuntu2204-x86_64.tgz
-                  cd nice-dcv-2022.1-13300-ubuntu2204-x86_64
-                  apt-get -y install ./nice-dcv-server_2022.1.13300-1_amd64.ubuntu2204.deb/
+                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2023.0/Servers/nice-dcv-2023.0-15022-ubuntu2204-x86_64.tgz
+                  tar -xvzf nice-dcv-2023.0-15022-ubuntu2204-x86_64.tgz
+                  cd nice-dcv-2023.0-15022-ubuntu2204-x86_64
+                  apt-get -y install ./nice-dcv-server_2023.0.15022-1_amd64.ubuntu2204.deb
                   reboot
                 fi
               else
