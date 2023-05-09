@@ -578,7 +578,7 @@ Resources:
               apt-get -y install linux-headers-$(uname -r) && \
               wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.0-1_all.deb && \
               dpkg -i cuda-keyring_1.0-1_all.deb && \
-              apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y autoremove && \
+              apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
               apt-get -y install cuda-12-1 && \
               apt-get -y install libcudnn8 && \
               apt-get -y install libcudnn8-dev && \
