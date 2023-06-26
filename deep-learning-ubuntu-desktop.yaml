@@ -572,6 +572,10 @@ Resources:
               export DEBIAN_FRONTEND=noninteractive
               export DEBCONF_NONINTERACTIVE_SEEN=true
 
+              CUDA=11.8
+              CUDA_DASH=11-8
+              CUDNN=8.9.2.26
+
               # check if we have a GPU and if Nvidia drivers and CUDA need to be installed
               [[ ! -z $(lspci -v | grep NVIDIA) ]] && \
               [[ ! -x "$(command -v nvidia-smi)" ]] && \
@@ -579,11 +583,12 @@ Resources:
               wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.0-1_all.deb && \
               dpkg -i cuda-keyring_1.0-1_all.deb && \
               apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
-              apt-get -y install cuda-12-1 && \
-              apt-get -y install libcudnn8 && \
-              apt-get -y install libcudnn8-dev && \
-              echo "export PATH=/usr/local/cuda-12.1/bin:$PATH" >> /home/ubuntu/.bashrc && \
-              echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.1/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
+              apt-get -y install cuda-${CUDA_DASH} && \
+              apt-get -y install libcudnn8=${CUDNN}-1+cuda${CUDA} && \
+              apt-get -y install libcudnn8-dev=${CUDNN}-1+cuda${CUDA} && \
+              apt-get -y install cuda-compat-12-1 && \
+              echo "export PATH=/usr/local/cuda-${CUDA}/bin:$PATH" >> /home/ubuntu/.bashrc && \
+              echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.1/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
               reboot
 
               # setup software repo for docker
@@ -905,6 +910,7 @@ Resources:
                 conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.10 && \
                 conda activate tensorflow && \
                 pip3 install --upgrade pip && \
+                pip3 install nvidia-cudnn-cu11==${CUDNN} && \
                 pip3 install tensorflow && \
                 pip3 install datasets && \
                 pip3 install transformers && \
@@ -915,6 +921,7 @@ Resources:
                 conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.10 && \
                 conda activate pytorch && \
                 pip3 install --upgrade pip && \
+                pip3 install nvidia-cudnn-cu11==${CUDNN} && \
                 pip3 install torch torchvision && \
                 pip3 install datasets && \
                 pip3 install transformers && \
@@ -925,6 +932,7 @@ Resources:
                 conda create -y --prefix /home/ubuntu/miniconda3/envs/mxnet python=3.10 && \
                 conda activate mxnet && \
                 pip3 install --upgrade pip && \
+                pip3 install nvidia-cudnn-cu11==${CUDNN} && \
                 pip3 install mxnet && \
                 conda install -y ipykernel && \
                 conda install -y boto3 && \
