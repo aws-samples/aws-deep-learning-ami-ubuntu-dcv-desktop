@@ -4,7 +4,7 @@ Description: >-
   Connect using a DCV Client.
 Parameters:
   AWSUbuntuAMIType:
-    Description: Ubuntu Pro 22.04 LTS, Ubuntu Pro 20.04 LTS, or AWS Deep Learning AMI (Ubuntu 18.04).
+    Description: Ubuntu Pro 22.04 LTS, Ubuntu Pro 20.04 LTS.
     Type: String
     Default: "UbuntuPro2204LTS"
     AllowedValues:
@@ -22,7 +22,7 @@ Parameters:
     Default: ""
   UbuntuAMIOverride:
     Description: >-
-      (Optional) Advanced option to override the Ubuntu 18.04, or 20.04 AMI.  
+      (Optional) Advanced option to override the Ubuntu 20.04 or 22.04 AMI.  
       Leave blank, if unsure.
     Type: String
     AllowedPattern: '(ami-[0-9a-z]{17})?'
@@ -152,10 +152,9 @@ Parameters:
       - p3.16xlarge
       - p3dn.24xlarge
       - p4d.24xlarge
-      - inf1.xlarge
-      - inf1.2xlarge
-      - inf1.6xlarge
-      - inf1.24xlarge
+      - trn1.2xlarge
+      - trn1.32xlarge
+      - trn1n.32xlarge
     ConstraintDescription: Must be a valid CPU, or GPU instance type.
   DesktopAccessCIDR:
     Description: >-
@@ -219,25 +218,25 @@ Mappings:
       AMI: ami-08accefb19e265cff
   UbuntuPro2204LTS:
     us-east-1:
-      AMI: ami-0601f60a2ae898302
+      AMI: ami-0026ffa8c08991c66
     us-east-2:
-      AMI: ami-06171adea4a5c9ccf
+      AMI: ami-05e2702b01f78d2c5
     us-west-2:
-      AMI: ami-0d6819728eca5742b
+     AMI: ami-02731d1741a1e602c
     eu-west-1:
-      AMI: ami-08b2cca30578c4f24
+      AMI: ami-0a44faf0e41d4bbf0
     eu-central-1:
-      AMI: ami-0c7ecc20e590f217d
+      AMI: ami-0233eddd69ff36e9a
     ap-southeast-1:
-      AMI: ami-0491123bc3aaefde7
+      AMI: ami-0129527ba7a47484c
     ap-southeast-2:
-      AMI: ami-0eab3cce02a2130a6
+      AMI: ami-0a868a395ec98483f
     ap-south-1:
-      AMI: ami-0af5da74fb054a6b8
+      AMI: ami-09fd0f1beba83f58e
     ap-northeast-1:
-      AMI: ami-0ee63f9049de440d7
+      AMI: ami-05785a950811cb02d
     ap-northeast-2:
-      AMI: ami-077875308beac779a
+      AMI: ami-0d574b5641a75986b
 
 Conditions:
   OverrideAMI: !Not 
@@ -561,10 +560,9 @@ Resources:
               #!/bin/bash -xe
 
               echo "Cloud init in progress!" > /etc/motd
-              
-              # Find Ubuntu Version 
-              VERSION=$(lsb_release -a | grep Release | awk -F ":" '{print $2}' | sed -E -e 's/[[:blank:]]+//g')
-              distro=ubuntu${VERSION//[.]/""}
+              . /etc/os-release
+
+              distro=ubuntu${VERSION_ID//[.]/""}
               arch="x86_64"
               echo "Ubuntu  $distro/$arch"
 
@@ -587,9 +585,39 @@ Resources:
               apt-get -y install libcudnn8=${CUDNN}-1+cuda${CUDA} && \
               apt-get -y install libcudnn8-dev=${CUDNN}-1+cuda${CUDA} && \
               apt-get -y install cuda-compat-12-1 && \
+              apt-get -y install cuda-compat-12-2 && \
               echo "export PATH=/usr/local/cuda-${CUDA}/bin:$PATH" >> /home/ubuntu/.bashrc && \
-              echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.1/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
+              echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.2/compat:/usr/local/cuda-12.1/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
               reboot
+
+              # check if we have a Trainium  instance
+              [[ -z $(lspci -v | grep NVIDIA) ]] && update-pciids
+              if [[ ! -z $(lspci -v | grep Trainium) ]] && [[ ! -x "$(command -v /opt/aws/neuron/neuron-ls)" ]]
+              then
+                echo "deb https://apt.repos.neuron.amazonaws.com ${VERSION_CODENAME} main" > /etc/apt/sources.list.d/neuron.list
+                wget -qO - https://apt.repos.neuron.amazonaws.com/GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB | apt-key add -
+
+                # Update OS packages 
+                apt-get -y update
+
+                # Install OS headers 
+                apt-get -y install linux-headers-$(uname -r)
+
+                # Install git 
+                apt-get -y install git
+
+                # install Neuron Driver
+                apt-get -y install aws-neuronx-dkms
+
+                # Install Neuron Tools 
+                apt-get -y install aws-neuronx-tools
+
+                # Install Neuron Runtime 
+                apt-get -y install aws-neuronx-collectives
+                apt-get -y install aws-neuronx-runtime-lib
+
+                echo "export PATH=/opt/aws/neuron/bin:$PATH" >> /home/ubuntu/.bashrc
+              fi
 
               # setup software repo for docker
               curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
@@ -611,7 +639,7 @@ Resources:
               apt-get update
 
               apt-get -y install git tar
-              apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+              apt-get -y install software-properties-common
               
               # install docker if it is not installed
               if [ ! -x "$(command -v docker)" ]; then
@@ -622,7 +650,7 @@ Resources:
                 if [[ -x "$(command -v nvidia-smi)" ]]
                 then
                   curl -s -L https://nvidia.github.io/nvidia-container-runtime/gpgkey |  apt-key add -
-                  distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+                  distribution=$ID$VERSION_ID
                   curl -s -L https://nvidia.github.io/nvidia-container-runtime/$distribution/nvidia-container-runtime.list | \
                     tee /etc/apt/sources.list.d/nvidia-container-runtime.list
                   apt-get update
@@ -641,43 +669,13 @@ Resources:
               echo "install DCV server..."
               apt-get -y install ubuntu-desktop
 
-              if [[ $VERSION == "18.04" ]]
-              then
-                bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu bionic main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
-
-                if [[ ! -x "$(command -v dcv)" ]]
-                then
-                  apt-get -y install lightdm
-                  apt-get -y upgrade
-                  echo "/usr/sbin/lightdm" > /etc/X11/default-display-manager
-                  dpkg-reconfigure lightdm
-
-                  apt-get -y install mesa-utils
-                  if [[ -x "$(command -v nvidia-xconfig)" ]] && [[ -x "$(command -v nvidia-smi)" ]]
-                  then
-                    nvidia-xconfig --preserve-busid --enable-all-gpus
-                  fi
-
-                  #restart X server
-                  echo "restart X-server"
-                  systemctl set-default graphical.target
-                  systemctl isolate graphical.target
-
-                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2023.0/Servers/nice-dcv-2023.0-15022-ubuntu1804-x86_64.tgz
-                  tar -xvzf nice-dcv-2023.0-15022-ubuntu1804-x86_64.tgz
-                  cd nice-dcv-2023.0-15022-ubuntu1804-x86_64
-                  apt-get -y install  ./nice-dcv-server_2023.0.15022-1_amd64.ubuntu1804.deb
-                  reboot
-                fi
-
-              elif [[ $VERSION == "20.04" ]]
+              if [[ "$VERSION_ID" == "20.04" ]]
               then
                 bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu focal main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
 
                 if [[ ! -x "$(command -v dcv)" ]]
                 then
                   apt-get -y install gdm3
-                  apt-get -y upgrade
                   echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
                   dpkg-reconfigure gdm3
                   sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
@@ -700,14 +698,13 @@ Resources:
                   apt-get -y install ./nice-dcv-server_2023.0.15022-1_amd64.ubuntu2004.deb
                   reboot
                 fi
-              elif [[ $VERSION == "22.04" ]]
+              elif [[ "$VERSION_ID" == "22.04" ]]
               then   
                 bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
                
                 if [[ ! -x "$(command -v dcv)" ]]
                 then
                   apt-get -y install gdm3
-                  apt-get -y upgrade || echo "ignoring upgrade error"
                   echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
                   dpkg-reconfigure gdm3
                   sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
@@ -731,7 +728,7 @@ Resources:
                   reboot
                 fi
               else
-                echo "Ubuntu $VERSION is not supported; must be one of 18.04, 20.04, or 22.04"
+                echo "Ubuntu $VERSION_ID is not supported; must be one of 20.04, or 22.04"
                 exit 1
               fi
 
@@ -910,8 +907,7 @@ Resources:
                 conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.10 && \
                 conda activate tensorflow && \
                 pip3 install --upgrade pip && \
-                pip3 install nvidia-cudnn-cu11==${CUDNN} && \
-                pip3 install tensorflow && \
+                pip3 install tensorflow==2.12.1 && \
                 pip3 install datasets && \
                 pip3 install transformers && \
                 conda install -y ipykernel && \
@@ -921,8 +917,7 @@ Resources:
                 conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.10 && \
                 conda activate pytorch && \
                 pip3 install --upgrade pip && \
-                pip3 install nvidia-cudnn-cu11==${CUDNN} && \
-                pip3 install torch torchvision && \
+                pip3 install torch==2.0.1 torchvision && \
                 pip3 install datasets && \
                 pip3 install transformers && \
                 conda install -y ipykernel && \
@@ -932,11 +927,27 @@ Resources:
                 conda create -y --prefix /home/ubuntu/miniconda3/envs/mxnet python=3.10 && \
                 conda activate mxnet && \
                 pip3 install --upgrade pip && \
-                pip3 install nvidia-cudnn-cu11==${CUDNN} && \
                 pip3 install mxnet && \
                 conda install -y ipykernel && \
                 conda install -y boto3 && \
                 conda deactivate
+
+                if [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1) ]] || \
+                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1n) ]] || \
+                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep inf2) ]]
+                then
+                  conda activate pytorch && \
+                  pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
+                  pip3 install neuronx-cc torch-neuronx torchvision && \
+                  pip3 install optimum[neuronx] && \
+                  conda deactivate 
+
+                  conda activate tensorflow && \
+                  pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
+                  pip3 install neuronx-cc tensorflow-neuronx && \
+                  pip3 install optimum[neuronx] && \
+                  conda deactivate
+                fi
             
                 chown -R ubuntu:ubuntu /home/ubuntu/miniconda3
                 chown -R ubuntu:ubuntu /home/ubuntu/.conda

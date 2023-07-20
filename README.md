@@ -4,10 +4,13 @@ This project is a tutorial on how to launch an AWS deep learning desktop with [N
 
 * [Ubuntu Pro 22.04 LTS](https://aws.amazon.com/marketplace/pp/prodview-uy7jg4dds3qjw) (Default)
 * [Ubuntu Pro 20.04 LTS](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo)
-* [AWS Deep Learning AMI (Ubuntu 18.04), version 50.0](https://aws.amazon.com/machine-learning/amis/) (Deprecated)
 
 
-Using either Ubuntu Pro AMI above, you can launch a deep learning desktop pre-configured with [CUDA](https://developer.nvidia.com/cuda-toolkit), [cuDNN](https://developer.nvidia.com/cudnn), [Tensorflow](https://www.tensorflow.org/), [PyTorch](https://pytorch.org/) and [Apache MxNet](https://aws.amazon.com/mxnet/) deep-learning frameworks. 
+Using either Ubuntu Pro AMI above, you can launch a deep learning desktop. Following deep-learning frameworks are automatically installed on the desktop during the launch: [Tensorflow 2.12.1](https://www.tensorflow.org/), and [PyTorch 2.0.1](https://pytorch.org/), along with [Hugging Face Transfomers](https://huggingface.co/docs/transformers/index). 
+
+Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), GPU enabled [g3](https://aws.amazon.com/ec2/instance-types/g3/), [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and CPU-only [m5d](https://aws.amazon.com/ec2/instance-types/m5/), [c5d](https://aws.amazon.com/ec2/instance-types/c5/), and [r5d](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
+
+If you launch the deep-learning desktop selecting GPU enabled instance type, [CUDA](https://developer.nvidia.com/cuda-toolkit) and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed during the launch.
 
 ## Step by Step Tutorial
 
