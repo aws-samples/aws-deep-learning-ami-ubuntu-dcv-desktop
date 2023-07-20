@@ -6,7 +6,7 @@ This project is a tutorial on how to launch an AWS deep learning desktop with [N
 * [Ubuntu Pro 20.04 LTS](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo)
 
 
-Using either Ubuntu Pro AMI above, you can launch a deep learning desktop. Following deep-learning frameworks are automatically installed on the desktop during the launch: [Tensorflow 2.12.1](https://www.tensorflow.org/), and [PyTorch 2.0.1](https://pytorch.org/), along with [Hugging Face Transfomers](https://huggingface.co/docs/transformers/index). 
+Using either Ubuntu Pro AMI above, you can launch a deep learning desktop. Following deep-learning frameworks are automatically installed in the desktop as [conda](https://docs.conda.io/en/latest/miniconda.html) environments : [Tensorflow 2.12.1](https://www.tensorflow.org/), and [PyTorch 2.0.1](https://pytorch.org/). [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) are installed in both the framework environments.
 
 Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), GPU enabled [g3](https://aws.amazon.com/ec2/instance-types/g3/), [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and CPU-only [m5d](https://aws.amazon.com/ec2/instance-types/m5/), [c5d](https://aws.amazon.com/ec2/instance-types/c5/), and [r5d](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
 
