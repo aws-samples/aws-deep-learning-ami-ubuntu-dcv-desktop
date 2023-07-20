@@ -10,7 +10,9 @@ Using either Ubuntu Pro AMI above, you can launch a deep learning desktop. Follo
 
 Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), GPU enabled [g3](https://aws.amazon.com/ec2/instance-types/g3/), [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and CPU-only [m5d](https://aws.amazon.com/ec2/instance-types/m5/), [c5d](https://aws.amazon.com/ec2/instance-types/c5/), and [r5d](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
 
-If you select Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) instance, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) is automatically installed. If you select Amazon EC2 GPU enabled instance, [CUDA](https://developer.nvidia.com/cuda-toolkit) and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed. 
+If you select Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) instance, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) is automatically installed. 
+
+If you select Amazon EC2 GPU enabled instance, [CUDA](https://developer.nvidia.com/cuda-toolkit) and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed. *Automatic or manual upgrades to CUDA may require new CUDA compatibility packages to be installed.* Currently, CUDA-12-1 and CUDA 12-2 compatibility packages are automatically installed in the GPU enabled instances.
 
 
 ## Step by Step Tutorial
@@ -38,6 +40,9 @@ The template [deep-learning-ubuntu-desktop.yaml](deep-learning-ubuntu-desktop.ya
 * Once the stack status in CloudFormation console is ```CREATE_COMPLETE```, find the deep learning desktop instance launched in your stack in the Amazon EC2 console, and [connect to the instance using SSH](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstancesLinux.html) as user ```ubuntu```, using your SSH key pair.
 * When you connect using SSH, and you see the message ```"Cloud init in progress. Machine will REBOOT after cloud init is complete!!"```, disconnect and try later after about 15 minutes. The desktop installs the NICE DCV server on first-time startup, and reboots after the install is complete.
 * If you see the message ```NICE DCV server is enabled!```, run the command ```sudo passwd ubuntu``` to set a new password for user ```ubuntu```. Now you are ready to connect to the desktop using the [NICE DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html)
+
+#### NOTE
+The deep-learning desktop uses EC2 [user-data](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html) to automatically install the required software in the desktop instance. The log output of this automatic installation is available in `/var/log/cloud-init-output.log` file. Most *transient* failures in the automatic user-data installation can be fixed by rebooting the instance.
 
 ### Connect to Desktop using NICE DCV Client
 * Download and install the [NICE DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html) on your laptop.
