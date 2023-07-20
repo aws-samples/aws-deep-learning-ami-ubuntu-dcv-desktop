@@ -10,7 +10,8 @@ Using either Ubuntu Pro AMI above, you can launch a deep learning desktop. Follo
 
 Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), GPU enabled [g3](https://aws.amazon.com/ec2/instance-types/g3/), [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and CPU-only [m5d](https://aws.amazon.com/ec2/instance-types/m5/), [c5d](https://aws.amazon.com/ec2/instance-types/c5/), and [r5d](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
 
-If you launch the deep-learning desktop selecting GPU enabled instance type, [CUDA](https://developer.nvidia.com/cuda-toolkit) and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed during the launch.
+If you select Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) instance, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) is automatically installed. If you select Amazon EC2 GPU enabled instance, [CUDA](https://developer.nvidia.com/cuda-toolkit) and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed. 
+
 
 ## Step by Step Tutorial
 
