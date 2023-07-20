@@ -12,7 +12,7 @@ Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/inst
 
 If you select Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) instance, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) is automatically installed. 
 
-If you select Amazon EC2 GPU enabled instance, [CUDA](https://developer.nvidia.com/cuda-toolkit) and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed. *Automatic or manual upgrades to CUDA may require new CUDA compatibility packages to be installed.* Currently, CUDA-12-1 and CUDA 12-2 compatibility packages are automatically installed in the GPU enabled instances.
+If you select Amazon EC2 GPU enabled instance, [CUDA](https://developer.nvidia.com/cuda-toolkit) and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed. *Automatic or manual upgrades to CUDA may require new [CUDA Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/index.html) packages to be installed.* Currently, CUDA Compatibility versions 12.1 and 12.2 packages are automatically installed in the GPU enabled instances.
 
 
 ## Step by Step Tutorial
