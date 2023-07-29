@@ -8,7 +8,6 @@ Parameters:
     Type: String
     Default: "UbuntuPro2204LTS"
     AllowedValues:
-      - "DeepLearningAMIUbuntu1804"
       - "UbuntuPro2004LTS"
       - "UbuntuPro2204LTS"
   S3Bucket:
@@ -174,27 +173,6 @@ Parameters:
       - 'true'
 
 Mappings:
-  DeepLearningAMIUbuntu1804:
-    us-east-1:
-      AMI: ami-0e3c68b57d50caf64
-    us-east-2:
-      AMI: ami-0ae79682024fe31cd 
-    us-west-2:
-      AMI: ami-0050625d58fa27b6d 
-    eu-west-1:
-      AMI: ami-050232e50c0e4c717 
-    eu-central-1:
-      AMI: ami-030544fb939a57d47 
-    ap-southeast-1:
-      AMI: ami-03cd4f13212437f05 
-    ap-southeast-2:
-      AMI: ami-0187cfc974691fa71 
-    ap-south-1:
-      AMI: ami-010f0b376694126ea 
-    ap-northeast-1:
-      AMI: ami-038b35bb6d9b45de3 
-    ap-northeast-2:
-      AMI: ami-0b740f27ce3f0e5c7
   UbuntuPro2004LTS:
     us-east-1:
       AMI: ami-007ccac74cc85cb43
@@ -252,6 +230,19 @@ Conditions:
   CreateNewSecurityGroup: !Equals 
     - !Ref DesktopSecurityGroupId
     - ''
+  EfaEnabled: !Or
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'trn1.32xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'p4d.24xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'trn1n.32xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'p3dn.24xlarge'
 
 Resources:
   
@@ -494,46 +485,115 @@ Resources:
         MetadataOptions:
           HttpTokens: "required"
           HttpEndpoint: "enabled"
-
-  DesktopInstance:
-    Type: 'AWS::EC2::Instance'
-    Properties:
-      LaunchTemplate:
-        LaunchTemplateId: !Ref DesktopLaunchTemplate
-        Version: !GetAtt DesktopLaunchTemplate.LatestVersionNumber
-      ImageId: !If 
-        - OverrideAMI
-        - !Ref UbuntuAMIOverride
-        - !FindInMap 
-          - !Ref 'AWSUbuntuAMIType'
-          - !Ref 'AWS::Region'
-          - AMI
-      InstanceType: !Ref DesktopInstanceType
-      EbsOptimized: !Ref EBSOptimized
-      IamInstanceProfile: !Ref InstanceProfile
-      BlockDeviceMappings:
+        NetworkInterfaces: 
+        - AssociatePublicIpAddress: !Ref DesktopHasPublicIpAddress
+          DeviceIndex: "0"
+          Groups: 
+            - !If
+              - CreateNewSecurityGroup
+              - !GetAtt DesktopSecurityGroup.GroupId
+              - !Ref DesktopSecurityGroupId
+          SubnetId: !Ref DesktopVpcSubnetId
+        BlockDeviceMappings:
         - DeviceName: "/dev/sda1"
           Ebs:
             VolumeSize: !Ref EbsVolumeSize
             VolumeType: !Ref EbsVolumeType
             Encrypted: true
             DeleteOnTermination: true
-      NetworkInterfaces: 
-      - AssociatePublicIpAddress: !Ref DesktopHasPublicIpAddress
-        DeviceIndex: "0"
-        GroupSet: 
-          - !If
-            - CreateNewSecurityGroup
-            - !GetAtt DesktopSecurityGroup.GroupId
-            - !Ref DesktopSecurityGroupId
+        ImageId: !If 
+          - OverrideAMI
+          - !Ref UbuntuAMIOverride
+          - !FindInMap 
+            - !Ref 'AWSUbuntuAMIType'
+            - !Ref 'AWS::Region'
+            - AMI
+        EbsOptimized: !Ref EBSOptimized
 
-        SubnetId: !Ref DesktopVpcSubnetId
+  EfaSecurityGroup:
+    Condition: EfaEnabled
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Efa security group
+      VpcId: !Ref DesktopVpcId
+      Tags:
+        - Key: Name
+          Value: !Ref 'AWS::StackName'
 
+  EfaSecurityGroupIngressSelf: 
+    Condition: EfaEnabled
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: Ingress from self security group
+      GroupId: !Ref EfaSecurityGroup
+      IpProtocol: "-1"
+      FromPort: 0
+      ToPort: 65535
+      SourceSecurityGroupId: !Ref EfaSecurityGroup
+  
+  EfaSecurityGroupEgressSelf:
+    Condition: EfaEnabled
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      Description: Egress rule for out bound traffic
+      GroupId: !Ref EfaSecurityGroup
+      IpProtocol: "-1"
+      FromPort: 0
+      ToPort: 65535
+      DestinationSecurityGroupId: !Ref EfaSecurityGroup
+
+  EfaDesktopLaunchTemplate:
+    Condition: EfaEnabled
+    Type: AWS::EC2::LaunchTemplate
+    Properties: 
+      LaunchTemplateData: 
+        MetadataOptions:
+          HttpTokens: "required"
+          HttpEndpoint: "enabled" 
+        NetworkInterfaces:
+        - AssociatePublicIpAddress: !Ref DesktopHasPublicIpAddress
+          Description: NetworkInterfaces Configuration For EFA
+          NetworkCardIndex: 0
+          DeviceIndex: 0
+          DeleteOnTermination: true
+          Groups:
+            - !Ref EfaSecurityGroup
+            - !If
+              - CreateNewSecurityGroup
+              - !GetAtt DesktopSecurityGroup.GroupId
+              - !Ref DesktopSecurityGroupId
+          InterfaceType: efa
+        BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: !Ref EbsVolumeSize
+            VolumeType: !Ref EbsVolumeType
+            Encrypted: true
+            DeleteOnTermination: true
+        ImageId: !If 
+          - OverrideAMI
+          - !Ref UbuntuAMIOverride
+          - !FindInMap 
+            - !Ref 'AWSUbuntuAMIType'
+            - !Ref 'AWS::Region'
+            - AMI
+        EbsOptimized: !Ref EBSOptimized
+
+  DesktopInstance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !If
+          - EfaEnabled
+          - !Ref EfaDesktopLaunchTemplate
+          - !Ref DesktopLaunchTemplate
+        Version: !GetAtt DesktopLaunchTemplate.LatestVersionNumber
+      InstanceType: !Ref DesktopInstanceType
+      IamInstanceProfile: !Ref InstanceProfile
       KeyName: !Ref KeyName
       Tags: 
         - Key: "Name"
           Value: !Sub '${AWS::StackName}-deep-learning-ubuntu-desktop'
-
       UserData: !Base64 
         'Fn::Join':
           - ''
@@ -589,7 +649,7 @@ Resources:
               echo "export PATH=/usr/local/cuda-${CUDA}/bin:$PATH" >> /home/ubuntu/.bashrc && \
               echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.2/compat:/usr/local/cuda-12.1/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
               reboot
-
+              
               # check if we have a Trainium  instance
               [[ -z $(lspci -v | grep NVIDIA) ]] && update-pciids
               if [[ ! -z $(lspci -v | grep Trainium) ]] && [[ ! -x "$(command -v /opt/aws/neuron/neuron-ls)" ]]
@@ -603,7 +663,7 @@ Resources:
                 # Install OS headers 
                 apt-get -y install linux-headers-$(uname -r)
 
-                # Install git 
+                # install git
                 apt-get -y install git
 
                 # install Neuron Driver
@@ -824,7 +884,34 @@ Resources:
               - ''
             - |+
 
+            - EFA_ENABLED=
+            - !If 
+              - EfaEnabled 
+              - "true"
+              - "false"
+            - |+
+
             - |
+              
+              # Install EFA software, if Efa is enabled
+              if [[ "$EFA_ENABLED"  == "true" ]]
+              then
+              # disable ptrace
+              sysctl -w kernel.yama.ptrace_scope=0
+
+              if [[ ! -d "/opt/amazon/efa" ]]
+              then
+              curl -O https://efa-installer.amazonaws.com/aws-efa-installer-latest.tar.gz
+              wget https://efa-installer.amazonaws.com/aws-efa-installer.key && gpg --import aws-efa-installer.key
+              cat aws-efa-installer.key | gpg --fingerprint
+              wget https://efa-installer.amazonaws.com/aws-efa-installer-latest.tar.gz.sig && gpg --verify ./aws-efa-installer-latest.tar.gz.sig
+              tar -xvf aws-efa-installer-latest.tar.gz
+              cd aws-efa-installer && bash efa_installer.sh --yes
+              cd / && rm -rf aws-efa-installer-latest.tar.gz aws-efa-installer
+              fi
+
+              fi
+
               # Create EFS  mount script
               cat >/usr/local/bin/mount-efs.sh <<EOL
               #!/bin/bash
@@ -955,6 +1042,10 @@ Resources:
               
               echo "conda activate" >> /home/ubuntu/.bashrc
               
+              # install nodejs 20.x
+              curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+              apt-get install -y nodejs
+
               # install aws cli
               apt-get -y install awscli
 
