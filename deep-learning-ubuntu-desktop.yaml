@@ -29,7 +29,7 @@ Parameters:
     Description: Desktop VPC ID
     Type: 'AWS::EC2::VPC::Id'
   DesktopVpcSubnetId:
-    Description: Desktop VPC Subnet ID. Subnet must be public for access over Internet.
+    Description: Desktop VPC Subnet ID. Subnet must be public with IGW access, if DesktopHasPublicIpAddress is 'true', else private with NAT gateway access.
     Type: 'AWS::EC2::Subnet::Id'
   DesktopHasPublicIpAddress:
     Description: Should a Public Ip Address be associated with the Desktop?
@@ -116,17 +116,23 @@ Parameters:
       - m5d.12xlarge
       - m5d.16xlarge
       - m5d.24xlarge
+      - m5n.24xlarge
+      - m5dn.24xlarge
       - r5d.2xlarge
       - r5d.4xlarge
       - r5d.8xlarge
       - r5d.12xlarge
       - r5d.16xlarge
       - r5d.24xlarge
+      - r5n.24xlarge
+      - r5dn.24xlarge
       - c5d.2xlarge
       - c5d.4xlarge
       - c5d.9xlarge
+      - c5n.9xlarge
       - c5d.12xlarge
       - c5d.18xlarge
+      - c5n.18xlarge
       - c5d.24xlarge
       - g3s.xlarge
       - g3.4xlarge
@@ -230,19 +236,74 @@ Conditions:
   CreateNewSecurityGroup: !Equals 
     - !Ref DesktopSecurityGroupId
     - ''
-  EfaEnabled: !Or
+  
+  EfaCpuInstances: !Or
     - !Equals 
       - !Ref DesktopInstanceType
-      - 'trn1.32xlarge'
+      - 'm5n.24xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'm5dn.24xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'c5n.9xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'c5n.18xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'r5n.24xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'r5dn.24xlarge'
+
+  EfaGInstances: !Or
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'g4dn.8xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'g4dn.12xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'g4dn.16xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'g5.8xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'g5.12xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'g5.16xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'g5.24xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'g5.48xlarge'
+
+  EfaPInstances: !Or
     - !Equals 
       - !Ref DesktopInstanceType
       - 'p4d.24xlarge'
     - !Equals 
       - !Ref DesktopInstanceType
-      - 'trn1n.32xlarge'
+      - 'p3dn.24xlarge'
+
+  EfaTrn132Instances: !Or
     - !Equals 
       - !Ref DesktopInstanceType
-      - 'p3dn.24xlarge'
+      - 'trn1.32xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'trn1n.32xlarge'
+
+  EfaEnabled: !Or
+    - !Condition EfaCpuInstances
+    - !Condition EfaGInstances
+    - !Condition EfaPInstances
+    - !Condition EfaTrn132Instances
 
 Resources:
   
