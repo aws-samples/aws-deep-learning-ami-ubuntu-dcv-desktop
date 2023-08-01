@@ -6,9 +6,9 @@ This project is a tutorial on how to launch an AWS deep learning desktop with [N
 * [Ubuntu Pro 20.04 LTS](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo)
 
 
-Using either Ubuntu Pro AMI above, you can launch a deep learning desktop. Following deep-learning frameworks are automatically installed in the desktop as [conda](https://docs.conda.io/en/latest/miniconda.html) environments : [Tensorflow 2.12.1](https://www.tensorflow.org/), and [PyTorch 2.0.1](https://pytorch.org/). [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) are installed in both the framework environments.
+Using either Ubuntu Pro AMI above, you can launch a deep learning desktop. Following deep-learning frameworks are automatically installed in the desktop as [conda](https://docs.conda.io/en/latest/miniconda.html) environments : [Tensorflow 2.12.1](https://www.tensorflow.org/), and [PyTorch 2.0.1](https://pytorch.org/). [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) are installed in both the framework environments. [Visual Studio Code](https://code.visualstudio.com/) is automatically installed, as well.
 
-Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), GPU enabled [g3](https://aws.amazon.com/ec2/instance-types/g3/), [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and CPU-only [m5d](https://aws.amazon.com/ec2/instance-types/m5/), [c5d](https://aws.amazon.com/ec2/instance-types/c5/), and [r5d](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
+Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), GPU enabled [g3](https://aws.amazon.com/ec2/instance-types/g3/), [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), and [r5](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
 
 If you select Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) instance, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) is automatically installed. 
 
@@ -49,9 +49,6 @@ The deep-learning desktop uses EC2 [user-data](https://docs.aws.amazon.com/AWSEC
 * Use the NICE DCV Client to login to the desktop as user ```ubuntu```
 * When you first login to the desktop using the NICE DCV client, you will be asked if you would like to upgrade the OS version. **Do not upgrade the OS version** .
 
-## Developing in an IDE
-Use the Ubuntu ```Software``` desktop application to install [Visual Studio Code](https://code.visualstudio.com/), or your favorite IDE to build, debug, and train deep learning models. Open a desktop terminal, and run ```conda env list``` to view the available Conda environments. 
-
 ## Working with Data
 
 The deep learning desktop instance has access to the S3 bucket you specified when you create the CloudFormation stack. You can verify the access to your S3 bucket by running the command ```aws s3 ls your-bucket-name```. If you do not have access to the S3 bucket, you will see an error message. If your S3 bucket is empty, the previous command will produce no output, which is normal. 
@@ -74,7 +71,7 @@ For SageMaker examples that require you to specify a [subnet](https://docs.aws.a
 
 ## Stopping and Restarting the Desktop
 
-You may safely reboot, stop, and restart the desktop instance at any time. The desktop will automatically mount the EFS file-system at restart. If FSx for Luster file-system is enabled, it is automtically mounted, as well.
+You may safely reboot, stop, and restart the desktop instance at any time. The desktop will automatically mount the EFS file-system at restart. If FSx for Luster file-system is enabled, it is automatically mounted, as well.
 
 ## Deleting the Stack
 
@@ -101,7 +98,7 @@ Below, we describe the AWS CloudFormation template input parameters.
 | EFSMountPath | Absolute path for the directory where EFS file-system is mounted (default is ```/home/ubuntu/efs```).   |
 | EbsVolumeSize | This is a **required** parameter whereby you specify the size of the EBS volume (default size is 200 GB). Typically, the default size is sufficient.|
 | EbsVolumeType | This is a **required** parameter whereby you select the [EBS volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html) (default is gp3). |
-| FSxCapacity | This is an **optional** parameter whereby you specify the capacity of the FSx for Lustre file-sysstem. This capacity must be in multiples of 1200 GB. Default capacity is 1200 GB. See ```FSxForLustre``` parameter to enable FSx for Lustre file-system. | 
+| FSxCapacity | This is an **optional** parameter whereby you specify the capacity of the FSx for Lustre file-system. This capacity must be in multiples of 1200 GB. Default capacity is 1200 GB. See ```FSxForLustre``` parameter to enable FSx for Lustre file-system. | 
 | FSxForLustre | This is an **optional** parameter whereby you  enable, disable FSx for Lustre file-system. By default, it is disabled. If enabled, a FSx for Lustre file-system is created and mounted on the desktop. The FSx for Lustre file-system automatically imports data from ```s3://S3bucket/S3Import```. See ```S3Bucket``` and ```S3Import``` parameters. |
 | FSxMountPath | FSx file-system mount directory path (default is ```/home/ubuntu/fsx```).   |
 | KeyName | This is a **required** parameter whereby you select the Amazon EC2 key pair name used for SSH access to the desktop. You must have access to the selected key pair's private key to connect to your desktop. |
