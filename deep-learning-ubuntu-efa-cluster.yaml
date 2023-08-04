@@ -1,0 +1,613 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS Deep Learning Ubuntu EFA MPI cluster. 
+Parameters:
+
+  DesktopStack:
+    Description: Desktop stack name
+    Type: String
+
+  ClusterSubnetId:
+    Description: Private subnet with NAT gateway access
+    Type: 'AWS::EC2::Subnet::Id'
+
+  ClusterSubnetAZ:
+    Description: Availability Zone (AZ) for ClusterSubnetId.
+    Type: 'AWS::EC2::AvailabilityZone::Name'
+
+  EbsVolumeSize:
+    Default: 200
+    Description: Ebs volume size (GB)
+    Type: Number
+    MinValue: 200
+
+  EbsVolumeType:
+    Default: 'gp3'
+    Description: Ebs volume type
+    Type: String
+    AllowedValues:
+      - 'gp2'
+      - 'gp3'
+  
+  ClusterInstanceType:
+    Description: EC2 instance type for Cluster
+    Type: String
+    Default: g4dn.8xlarge
+    AllowedValues:
+      - m5n.24xlarge
+      - m5dn.24xlarge
+      - r5n.24xlarge
+      - r5dn.24xlarge
+      - c5n.9xlarge
+      - c5n.18xlarge
+      - g4dn.8xlarge
+      - g4dn.12xlarge
+      - g4dn.16xlarge
+      - g5.8xlarge
+      - g5.12xlarge
+      - g5.16xlarge
+      - g5.24xlarge
+      - g5.48xlarge
+      - p3dn.24xlarge
+      - p4d.24xlarge
+      - trn1.32xlarge
+      - trn1n.32xlarge
+    ConstraintDescription: Must be a valid CPU, or GPU instance type
+
+  EBSOptimized:
+    Description: >-
+      Is the instance EBS optimized?
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'false'
+      - 'true'
+
+  ASGMaxSize:
+    Description: Auto-scaling group max size, 1 <= ASGDesiredSize <= ASGMaxSize
+    Type: Number
+    Default: 4
+    MinValue: 1
+    MaxValue: 32
+
+  ASGDesiredSize:
+    Description: Auto-scaling group desired size, 1 <= ASGDesiredSize <= ASGMaxSize.
+    Type: Number
+    Default: 2
+    MinValue: 1
+    MaxValue: 32
+
+Conditions:
+  EfaTrn132Instances: !Or
+    - !Equals 
+      - !Ref ClusterInstanceType
+      - 'trn1.32xlarge'
+    - !Equals 
+      - !Ref ClusterInstanceType
+      - 'trn1n.32xlarge'
+
+  EfaTrn1n32Instances: !Equals 
+    - !Ref ClusterInstanceType
+    - 'trn1n.32xlarge'
+
+Resources:
+
+  ClusterLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties: 
+      LaunchTemplateData: 
+        MetadataOptions:
+          HttpTokens: "required"
+          HttpEndpoint: "enabled" 
+        NetworkInterfaces:
+        - Description: EFA 0
+          SubnetId: !Ref ClusterSubnetId
+          NetworkCardIndex: 0
+          DeviceIndex: 0
+          DeleteOnTermination: true
+          Groups:
+            - 'Fn::ImportValue':
+                'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+          InterfaceType: 'efa'
+        - !If
+          - EfaTrn132Instances
+          - Description: EFA 1
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 1
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn132Instances
+          - Description: EFA 2
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 2
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn132Instances
+          - Description: EFA 3
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 3
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn132Instances
+          - Description: EFA 4
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 4
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn132Instances
+          - Description: EFA 5
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 5
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn132Instances
+          - Description: EFA 6
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 6
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn132Instances
+          - Description: EFA 7
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 7
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn1n32Instances
+          - Description: EFA 8
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 8
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn1n32Instances
+          - Description: EFA 9
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 9
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn1n32Instances
+          - Description: EFA 10
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 10
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn1n32Instances
+          - Description: EFA 11
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 11
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn1n32Instances
+          - Description: EFA 12
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 12
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn1n32Instances
+          - Description: EFA 13
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 13
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn1n32Instances
+          - Description: EFA 14
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 14
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        - !If
+          - EfaTrn1n32Instances
+          - Description: EFA 15
+            SubnetId: !Ref ClusterSubnetId
+            NetworkCardIndex: 15
+            DeviceIndex: 1
+            DeleteOnTermination: true
+            Groups:
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-SecurityGroupId'
+            InterfaceType: 'efa'
+          - !Ref 'AWS::NoValue'
+        BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: !Ref EbsVolumeSize
+            VolumeType: !Ref EbsVolumeType
+            Encrypted: true
+            DeleteOnTermination: true
+        ImageId: 
+          'Fn::ImportValue':
+            'Fn::Sub': '${DesktopStack}-Ami'
+        EbsOptimized: !Ref EBSOptimized
+        KeyName: 
+          'Fn::ImportValue':
+            'Fn::Sub': '${DesktopStack}-KeyPairName'
+        InstanceType: !Ref ClusterInstanceType
+        IamInstanceProfile: 
+          Arn: 
+            'Fn::ImportValue':
+              'Fn::Sub': '${DesktopStack}-InstanceProfileArn'
+        UserData: !Base64 
+          'Fn::Join':
+            - ''
+            - - |
+                Content-Type: multipart/mixed; boundary="//"
+                MIME-Version: 1.0
+
+                --//
+                Content-Type: text/cloud-config; charset="us-ascii"
+                MIME-Version: 1.0
+                Content-Transfer-Encoding: 7bit
+                Content-Disposition: attachment; filename="cloud-config.txt"
+
+                #cloud-config
+                cloud_final_modules:
+                - [scripts-user, always]
+
+                --//
+                Content-Type: text/x-shellscript; charset="us-ascii"
+                MIME-Version: 1.0
+                Content-Transfer-Encoding: 7bit
+                Content-Disposition: attachment; filename="userdata.txt"
+
+                #!/bin/bash -xe
+
+                echo "Cloud init in progress!" > /etc/motd
+                . /etc/os-release
+
+                distro=ubuntu${VERSION_ID//[.]/""}
+                arch="x86_64"
+                echo "Ubuntu  $distro/$arch"
+
+                # setup graphics Cluster
+                export DEBIAN_FRONTEND=noninteractive
+                export DEBCONF_NONINTERACTIVE_SEEN=true
+
+                CUDA=11.8
+                CUDA_DASH=11-8
+                CUDNN=8.9.2.26
+
+                # check if we have a GPU and if Nvidia drivers and CUDA need to be installed
+                [[ ! -z $(lspci -v | grep NVIDIA) ]] && \
+                [[ ! -x "$(command -v nvidia-smi)" ]] && \
+                apt-get -y install linux-headers-$(uname -r) && \
+                wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.0-1_all.deb && \
+                dpkg -i cuda-keyring_1.0-1_all.deb && \
+                apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
+                apt-get -y install cuda-${CUDA_DASH} && \
+                apt-get -y install libcudnn8=${CUDNN}-1+cuda${CUDA} && \
+                apt-get -y install libcudnn8-dev=${CUDNN}-1+cuda${CUDA} && \
+                apt-get -y install cuda-compat-12-1 && \
+                apt-get -y install cuda-compat-12-2 && \
+                echo "export PATH=/usr/local/cuda-${CUDA}/bin:$PATH" >> /home/ubuntu/.bashrc && \
+                echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.2/compat:/usr/local/cuda-12.1/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
+                reboot
+                
+                # check if we have a Trainium  instance
+                [[ -z $(lspci -v | grep NVIDIA) ]] && update-pciids
+                if [[ ! -z $(lspci -v | grep Trainium) ]] && [[ ! -x "$(command -v /opt/aws/neuron/neuron-ls)" ]]
+                then
+                  echo "deb https://apt.repos.neuron.amazonaws.com ${VERSION_CODENAME} main" > /etc/apt/sources.list.d/neuron.list
+                  wget -qO - https://apt.repos.neuron.amazonaws.com/GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB | apt-key add -
+
+                  # Update OS packages 
+                  apt-get -y update
+
+                  # Install OS headers 
+                  apt-get -y install linux-headers-$(uname -r)
+
+                  # install git
+                  apt-get -y install git
+
+                  # install Neuron Driver
+                  apt-get -y install aws-neuronx-dkms
+
+                  # Install Neuron Tools 
+                  apt-get -y install aws-neuronx-tools
+
+                  # Install Neuron Runtime 
+                  apt-get -y install aws-neuronx-collectives
+                  apt-get -y install aws-neuronx-runtime-lib
+
+                  echo "export PATH=/opt/aws/neuron/bin:$PATH" >> /home/ubuntu/.bashrc
+                fi
+
+                # setup software repo for fsx-lustre client
+                wget -O - https://fsx-lustre-client-repo-public-keys.s3.amazonaws.com/fsx-ubuntu-public-key.asc | apt-key add -
+                
+                # update and install required packages
+                apt-get update
+
+                apt-get -y install git tar
+                apt-get -y install software-properties-common
+
+                apt-get -y install tzdata
+                apt-get -y install keyboard-configuration
+                apt-get -y install gnupg2
+                apt-get -y install lsb-core
+                apt-get -y install openmpi-bin libopenmpi-dev 
+                apt-get -y install protobuf-compiler
+
+                if [[ "$VERSION_ID" == "20.04" ]]
+                then
+                  bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu focal main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
+                elif [[ "$VERSION_ID" == "22.04" ]]
+                then   
+                  bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
+                else
+                  echo "Ubuntu $VERSION_ID is not supported; must be one of 20.04, or 22.04"
+                  exit 1
+                fi
+
+                # install nfs-common
+                apt-get -y install nfs-common
+              
+              - AWS_REGION=
+              - !Ref AWS::Region
+              - |+
+
+              - EFS_FS_ID= 
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-EfsId'
+              - |+
+
+              - EFS_MOUNT_PATH=
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-EfsMountPath'
+              - |+
+
+              - FSX_FS_ID=
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-FsxId'
+              - |+
+
+              - FSX_MOUNT_NAME=
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-FsxMountName'
+              - |+
+
+              - FSX_MOUNT_PATH=
+              - 'Fn::ImportValue':
+                  'Fn::Sub': '${DesktopStack}-FsxMountPath'
+              - |+
+
+              - |
+                
+                # Install EFA software
+                # disable ptrace
+                sysctl -w kernel.yama.ptrace_scope=0
+
+                curl -O https://efa-installer.amazonaws.com/aws-efa-installer-latest.tar.gz
+                wget https://efa-installer.amazonaws.com/aws-efa-installer.key && gpg --import aws-efa-installer.key
+                cat aws-efa-installer.key | gpg --fingerprint
+                wget https://efa-installer.amazonaws.com/aws-efa-installer-latest.tar.gz.sig && gpg --verify ./aws-efa-installer-latest.tar.gz.sig
+                tar -xvf aws-efa-installer-latest.tar.gz
+                cd aws-efa-installer && bash efa_installer.sh --yes
+                cd / && rm -rf aws-efa-installer-latest.tar.gz aws-efa-installer
+
+                # Create EFS  mount script
+                cat >/usr/local/bin/mount-efs.sh <<EOL
+                #!/bin/bash
+
+                if [[ ! -d $EFS_MOUNT_PATH ]]
+                then
+                  mkdir -p $EFS_MOUNT_PATH
+                fi
+                
+                # Mount EFS
+                mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport $EFS_FS_ID.efs.$AWS_REGION.amazonaws.com:/ $EFS_MOUNT_PATH
+
+                EOL
+                chmod u+x /usr/local/bin/mount-efs.sh
+                /usr/local/bin/mount-efs.sh
+              
+                # Create FSx  mount script
+                cat >/usr/local/bin/mount-fsx.sh <<EOL
+                #!/bin/bash
+
+                echo "FSx for Lustre is enabled: $FSX_ENABLED"
+                # Mount FSX
+                if [[ ! "$FSX_FS_ID" == "disabled" ]]
+                then
+
+                  if [[ ! -d $FSX_MOUNT_PATH ]]
+                  then
+                    mkdir $FSX_MOUNT_PATH
+                  fi
+                
+                  apt-get -y install lustre-client-modules-$(uname -r)
+                  mount -t lustre -o noatime,flock $FSX_FS_ID.fsx.$AWS_REGION.amazonaws.com@tcp:/$FSX_MOUNT_NAME $FSX_MOUNT_PATH
+                fi
+
+                EOL
+                chmod u+x /usr/local/bin/mount-fsx.sh
+                /usr/local/bin/mount-fsx.sh
+              
+                # Create config file
+                mkdir -p /home/ubuntu/.aws
+                cat >/home/ubuntu/.aws/config <<EOL
+                [default]
+                region = ${AWS_REGION}
+
+                EOL
+                chown -R ubuntu:ubuntu /home/ubuntu/.aws
+   
+                if [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1) ]] || \
+                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1n) ]]
+                then
+                  apt-get install -y python3-pip && \
+                  apt-get install -y python3-venv && \
+                  pip3 install virtualenv
+
+                  [[ ! -d /home/ubuntu/aws_neuron_venv_pytorch ]] && \
+                    HOME=/home/ubuntu && \
+                    cd $HOME && \
+                    python3 -m venv aws_neuron_venv_pytorch && \
+                    source aws_neuron_venv_pytorch/bin/activate && \
+                    pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
+                    pip3 install neuronx-cc torch-neuronx torchvision tensorboard && \
+                    deactivate && \
+                    chown -R ubuntu:ubuntu /home/ubuntu/aws_neuron_venv_pytorch
+                else
+                  # install miniconda3 if anaconda3, or miniconda3 are not installed
+                  if [[ ! -d "/home/ubuntu/anaconda3" ]] && [[ ! -d "/home/ubuntu/miniconda3" ]]
+                  then
+                    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /home/ubuntu/miniconda3.sh
+                    HOME=/home/ubuntu bash /home/ubuntu/miniconda3.sh -b -p /home/ubuntu/miniconda3
+                    echo "source /home/ubuntu/miniconda3/etc/profile.d/conda.sh" >> /home/ubuntu/.bashrc
+                    rm /home/ubuntu/miniconda3.sh
+
+                    source /home/ubuntu/miniconda3/etc/profile.d/conda.sh
+                    conda update -y --name base -c defaults conda
+
+                    # install jupyterlab and boto3 in base env
+                    conda activate && \
+                    conda install -y -c conda-forge jupyterlab && \
+                    conda install -y ipykernel && \
+                    conda install -y boto3 && \
+                    conda install -y nb_conda_kernels && \
+                    conda deactivate
+
+                    # create conda environments
+                    conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.10 && \
+                    conda activate tensorflow && \
+                    pip3 install --upgrade pip && \
+                    pip3 install tensorflow==2.12.1 && \
+                    pip3 install datasets && \
+                    pip3 install transformers && \
+                    conda install -y ipykernel && \
+                    conda install -y boto3 && \
+                    conda deactivate
+
+                    conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.10 && \
+                    conda activate pytorch && \
+                    pip3 install --upgrade pip && \
+                    pip3 install torch==2.0.1 torchvision && \
+                    pip3 install datasets && \
+                    pip3 install transformers && \
+                    conda install -y ipykernel && \
+                    conda install -y boto3 && \
+                    conda deactivate
+
+                    conda create -y --prefix /home/ubuntu/miniconda3/envs/mxnet python=3.10 && \
+                    conda activate mxnet && \
+                    pip3 install --upgrade pip && \
+                    pip3 install mxnet && \
+                    conda install -y ipykernel && \
+                    conda install -y boto3 && \
+                    conda deactivate
+
+                    chown -R ubuntu:ubuntu /home/ubuntu/miniconda3
+                    chown -R ubuntu:ubuntu /home/ubuntu/.conda
+                  fi
+                
+                  echo "conda activate" >> /home/ubuntu/.bashrc
+                fi
+             
+                # install aws cli
+                apt-get -y install awscli
+
+                echo "Cluster node is ready!" > /etc/motd
+
+  ClusterASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub '${AWS::StackName}-asg'
+      AvailabilityZones:
+        - !Ref ClusterSubnetAZ
+      DefaultInstanceWarmup: 0
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ClusterLaunchTemplate
+        Version: !GetAtt ClusterLaunchTemplate.LatestVersionNumber
+      MaxSize: !Ref ASGMaxSize
+      MinSize: 1
+      DesiredCapacity: !Ref ASGDesiredSize
+      Tags: 
+        - Key: "Name"
+          Value: !Sub '${AWS::StackName}-deep-learning-ubuntu-efa-cluster'
+          PropagateAtLaunch: "true"
+
+Outputs:
+  Asg:
+    Description: Auto-scaling group
+    Value: !Ref ClusterASG

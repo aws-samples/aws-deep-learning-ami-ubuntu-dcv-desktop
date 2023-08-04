@@ -69,7 +69,7 @@ Parameters:
   
   DesktopSecurityGroupId:
     Description: >-
-     (Optional) Advanced option to specify existing Desktop Security Group Id. 
+      (Optional) Advanced option to specify existing Desktop Security Group Id. 
       Leave blank to create new Security Group.
     Type: String
     AllowedPattern: '(^sg-[0-9a-z]+)$|()$'
@@ -339,16 +339,27 @@ Resources:
       FromPort: 22
       ToPort: 22
   
-  DesktopSecurityGroupCIDRIngressSelf: 
+  DesktopSecurityGroupIngressSelf: 
     Condition: CreateNewSecurityGroup
     Type: 'AWS::EC2::SecurityGroupIngress'
     Properties:
       Description: Ingress from self security group
       GroupId: !GetAtt DesktopSecurityGroup.GroupId
-      IpProtocol: "tcp"
+      IpProtocol: "-1"
       FromPort: 0
       ToPort: 65535
       SourceSecurityGroupId: !GetAtt DesktopSecurityGroup.GroupId
+
+  DesktopSecurityGroupEgressSelf: 
+    Condition: CreateNewSecurityGroup
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      Description: Egress to self security group
+      GroupId: !GetAtt DesktopSecurityGroup.GroupId
+      IpProtocol: "-1"
+      FromPort: 0
+      ToPort: 65535
+      DestinationSecurityGroupId: !GetAtt DesktopSecurityGroup.GroupId
   
   DesktopSecurityGroupCIDREgress: 
     Condition: CreateNewSecurityGroup
@@ -531,6 +542,14 @@ Resources:
                   - 's3:GetObject'
                 Resource: 
                   - !Sub 'arn:aws:s3:::dcv-license.${AWS::Region}/*'
+        - PolicyName: ec2-autoscaling
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'autoscaling:DescribeAutoScalingInstances'
+                  - 'ec2:DescribeInstances'
+                Resource: '*'
         
   InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
@@ -782,8 +801,8 @@ Resources:
               apt-get -y install tzdata
               apt-get -y install keyboard-configuration
               apt-get -y install gnupg2
-              apt-get -y install lsb-core 
-              apt-get -y install libopenmpi-dev 
+              apt-get -y install lsb-core
+              apt-get -y install openmpi-bin libopenmpi-dev 
               apt-get -y install protobuf-compiler
 
               # install DCV server
@@ -960,8 +979,6 @@ Resources:
               # disable ptrace
               sysctl -w kernel.yama.ptrace_scope=0
 
-              if [[ ! -d "/opt/amazon/efa" ]]
-              then
               curl -O https://efa-installer.amazonaws.com/aws-efa-installer-latest.tar.gz
               wget https://efa-installer.amazonaws.com/aws-efa-installer.key && gpg --import aws-efa-installer.key
               cat aws-efa-installer.key | gpg --fingerprint
@@ -969,8 +986,7 @@ Resources:
               tar -xvf aws-efa-installer-latest.tar.gz
               cd aws-efa-installer && bash efa_installer.sh --yes
               cd / && rm -rf aws-efa-installer-latest.tar.gz aws-efa-installer
-              fi
-
+              
               fi
 
               # Create EFS  mount script
@@ -1032,76 +1048,77 @@ Resources:
                 echo "export fsx_mount_name=${FSX_MOUNT_NAME}" >> /home/ubuntu/.bashrc
               fi
 
-              # install miniconda3 if anaconda3, or miniconda3 are not installed
-              if [[ ! -d "/home/ubuntu/anaconda3" ]] && [[ ! -d "/home/ubuntu/miniconda3" ]]
+              if [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1) ]] || \
+                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1n) ]]
               then
-                wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /home/ubuntu/miniconda3.sh
-                HOME=/home/ubuntu bash /home/ubuntu/miniconda3.sh -b -p /home/ubuntu/miniconda3
-                echo "source /home/ubuntu/miniconda3/etc/profile.d/conda.sh" >> /home/ubuntu/.bashrc
-                rm /home/ubuntu/miniconda3.sh
-
-                source /home/ubuntu/miniconda3/etc/profile.d/conda.sh
-                conda update -y --name base -c defaults conda
-
-                # install jupyterlab and boto3 in base env
-                conda activate && \
-                conda install -y -c conda-forge jupyterlab && \
-                conda install -y ipykernel && \
-                conda install -y boto3 && \
-                conda install -y nb_conda_kernels && \
-                conda deactivate
-
-                # create conda environments
-                conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.10 && \
-                conda activate tensorflow && \
-                pip3 install --upgrade pip && \
-                pip3 install tensorflow==2.12.1 && \
-                pip3 install datasets && \
-                pip3 install transformers && \
-                conda install -y ipykernel && \
-                conda install -y boto3 && \
-                conda deactivate
-
-                conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.10 && \
-                conda activate pytorch && \
-                pip3 install --upgrade pip && \
-                pip3 install torch==2.0.1 torchvision && \
-                pip3 install datasets && \
-                pip3 install transformers && \
-                conda install -y ipykernel && \
-                conda install -y boto3 && \
-                conda deactivate
-
-                conda create -y --prefix /home/ubuntu/miniconda3/envs/mxnet python=3.10 && \
-                conda activate mxnet && \
-                pip3 install --upgrade pip && \
-                pip3 install mxnet && \
-                conda install -y ipykernel && \
-                conda install -y boto3 && \
-                conda deactivate
-
-                if [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1) ]] || \
-                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1n) ]] || \
-                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep inf2) ]]
-                then
-                  conda activate pytorch && \
-                  pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
-                  pip3 install neuronx-cc torch-neuronx torchvision && \
-                  pip3 install optimum[neuronx] && \
-                  conda deactivate 
-
-                  conda activate tensorflow && \
-                  pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
-                  pip3 install neuronx-cc tensorflow-neuronx && \
-                  pip3 install optimum[neuronx] && \
-                  conda deactivate
-                fi
-            
-                chown -R ubuntu:ubuntu /home/ubuntu/miniconda3
-                chown -R ubuntu:ubuntu /home/ubuntu/.conda
-              fi
+                  apt-get install -y python3-pip && \
+                  apt-get install -y python3-venv && \
+                  pip3 install virtualenv
               
-              echo "conda activate" >> /home/ubuntu/.bashrc
+                  [[ ! -d /home/ubuntu/aws_neuron_venv_pytorch ]] && \
+                    HOME=/home/ubuntu && \
+                    cd $HOME && \
+                    python3 -m venv aws_neuron_venv_pytorch && \
+                    source aws_neuron_venv_pytorch/bin/activate && \
+                    pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
+                    pip3 install neuronx-cc torch-neuronx torchvision tensorboard && \
+                    deactivate && \
+                    chown -R ubuntu:ubuntu /home/ubuntu/aws_neuron_venv_pytorch
+              else
+                # install miniconda3 if anaconda3, or miniconda3 are not installed
+                if [[ ! -d "/home/ubuntu/anaconda3" ]] && [[ ! -d "/home/ubuntu/miniconda3" ]]
+                then
+                  wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /home/ubuntu/miniconda3.sh
+                  HOME=/home/ubuntu bash /home/ubuntu/miniconda3.sh -b -p /home/ubuntu/miniconda3
+                  echo "source /home/ubuntu/miniconda3/etc/profile.d/conda.sh" >> /home/ubuntu/.bashrc
+                  rm /home/ubuntu/miniconda3.sh
+
+                  source /home/ubuntu/miniconda3/etc/profile.d/conda.sh
+                  conda update -y --name base -c defaults conda
+
+                  # install jupyterlab and boto3 in base env
+                  conda activate && \
+                  conda install -y -c conda-forge jupyterlab && \
+                  conda install -y ipykernel && \
+                  conda install -y boto3 && \
+                  conda install -y nb_conda_kernels && \
+                  conda deactivate
+
+                  # create conda environments
+                  conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.10 && \
+                  conda activate tensorflow && \
+                  pip3 install --upgrade pip && \
+                  pip3 install tensorflow==2.12.1 && \
+                  pip3 install datasets && \
+                  pip3 install transformers && \
+                  conda install -y ipykernel && \
+                  conda install -y boto3 && \
+                  conda deactivate
+
+                  conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.10 && \
+                  conda activate pytorch && \
+                  pip3 install --upgrade pip && \
+                  pip3 install torch==2.0.1 torchvision && \
+                  pip3 install datasets && \
+                  pip3 install transformers && \
+                  conda install -y ipykernel && \
+                  conda install -y boto3 && \
+                  conda deactivate
+
+                  conda create -y --prefix /home/ubuntu/miniconda3/envs/mxnet python=3.10 && \
+                  conda activate mxnet && \
+                  pip3 install --upgrade pip && \
+                  pip3 install mxnet && \
+                  conda install -y ipykernel && \
+                  conda install -y boto3 && \
+                  conda deactivate
+
+                  chown -R ubuntu:ubuntu /home/ubuntu/miniconda3
+                  chown -R ubuntu:ubuntu /home/ubuntu/.conda
+                fi
+              
+                echo "conda activate" >> /home/ubuntu/.bashrc
+              fi
               
               # install nodejs 20.x
               curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
@@ -1115,21 +1132,74 @@ Resources:
  
               echo "NICE DCV server is enabled!" > /etc/motd
 Outputs:
-  DesktopInstanceId:
-    Description: Desktop instance Id
-    Value: !Ref DesktopInstance
-  DesktopRole:
-    Description: IAM role attached to desktop instance profile
-    Value: !GetAtt InstanceRole.Arn
-  DesktopSecurityGroup:
+  Ami:
+    Description: AMI
+    Value: !If 
+      - OverrideAMI
+      - !Ref UbuntuAMIOverride
+      - !FindInMap 
+        - !Ref 'AWSUbuntuAMIType'
+        - !Ref 'AWS::Region'
+        - AMI
+    Export:
+      Name: !Sub '${AWS::StackName}-Ami'
+  VpcId:
+    Description: Vpc Id
+    Value: !Ref DesktopVpcId
+    Export:
+      Name: !Sub '${AWS::StackName}-VpcId'
+  KeyPairName:
+    Description: EC2 Key Name
+    Value: !Ref KeyName
+    Export:
+      Name: !Sub '${AWS::StackName}-KeyPairName'
+  InstanceProfileArn:
+    Description: IAM instance profile
+    Value: !GetAtt InstanceProfile.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-InstanceProfileArn'
+  SecurityGroupId:
     Description: Desktop security group
     Value: !If
       - CreateNewSecurityGroup
       - !GetAtt DesktopSecurityGroup.GroupId
       - !Ref DesktopSecurityGroupId
-  EFSFileSystemId:
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupId'
+  EfsId:
     Description: EFS file system attached to the desktop
     Value: !If
       - CreateNewEFSFileSystem
       - !Ref EFSFileSystem
       - !Ref EFSFileSystemId
+    Export:
+      Name: !Sub '${AWS::StackName}-EfsId'
+  EfsMountPath:
+    Description: EFS file system mount path
+    Value: !Ref EFSMountPath
+    Export:
+      Name: !Sub '${AWS::StackName}-EfsMountPath'
+  FsxId:
+    Description: FSx file system Id
+    Value: !If 
+      - FSxForLustreEnabled
+      - !Ref FSxFileSystem
+      - 'disabled'
+    Export:
+      Name: !Sub '${AWS::StackName}-FsxId'
+  FsxMountName:
+    Description: FSx file system mount name
+    Value: !If
+      - FSxForLustreEnabled
+      - !GetAtt FSxFileSystem.LustreMountName
+      - 'disabled'
+    Export:
+      Name: !Sub '${AWS::StackName}-FsxMountName'
+  FsxMountPath:
+    Description: FSx file system mount path
+    Value: !If
+      - FSxForLustreEnabled
+      - !Ref FSxMountPath
+      - 'disabled'
+    Export:
+      Name: !Sub '${AWS::StackName}-FsxMountPath'
