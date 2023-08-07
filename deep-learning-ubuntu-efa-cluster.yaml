@@ -2,6 +2,21 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: AWS Deep Learning Ubuntu EFA MPI cluster. 
 Parameters:
 
+  AWSUbuntuAMIType:
+    Description: Ubuntu Pro 22.04 LTS, Ubuntu Pro 20.04 LTS.
+    Type: String
+    Default: "UbuntuPro2204LTS"
+    AllowedValues:
+      - "UbuntuPro2004LTS"
+      - "UbuntuPro2204LTS"
+  
+  UbuntuAMIOverride:
+    Description: >-
+      (Optional) Advanced option to override the Ubuntu 20.04 or 22.04 AMI.  
+      Leave blank, if unsure.
+    Type: String
+    AllowedPattern: '(ami-[0-9a-z]{17})?'
+
   DesktopStack:
     Description: Desktop stack name
     Type: String
@@ -76,7 +91,56 @@ Parameters:
     MinValue: 1
     MaxValue: 32
 
+Mappings:
+  UbuntuPro2004LTS:
+    us-east-1:
+      AMI: ami-007ccac74cc85cb43
+    us-east-2:
+      AMI: ami-099e81f8d52ddb352
+    us-west-2:
+      AMI: ami-0f48fa756eb8ae717
+    eu-west-1:
+      AMI: ami-06e7d4ed8752ea1a1
+    eu-central-1:
+      AMI: ami-0ebdbdc3009d263a1
+    ap-southeast-1:
+      AMI: ami-09b43c6a9d2db239d
+    ap-southeast-2:
+      AMI: ami-093ee8ca5cccbd9dd
+    ap-south-1:
+      AMI: ami-0c281c09ef103f5c3
+    ap-northeast-1:
+      AMI: ami-0734a013c43b8d8a2
+    ap-northeast-2:
+      AMI: ami-08accefb19e265cff
+  UbuntuPro2204LTS:
+    us-east-1:
+      AMI: ami-0026ffa8c08991c66
+    us-east-2:
+      AMI: ami-05e2702b01f78d2c5
+    us-west-2:
+     AMI: ami-02731d1741a1e602c
+    eu-west-1:
+      AMI: ami-0a44faf0e41d4bbf0
+    eu-central-1:
+      AMI: ami-0233eddd69ff36e9a
+    ap-southeast-1:
+      AMI: ami-0129527ba7a47484c
+    ap-southeast-2:
+      AMI: ami-0a868a395ec98483f
+    ap-south-1:
+      AMI: ami-09fd0f1beba83f58e
+    ap-northeast-1:
+      AMI: ami-05785a950811cb02d
+    ap-northeast-2:
+      AMI: ami-0d574b5641a75986b
+
 Conditions:
+  OverrideAMI: !Not 
+    - !Equals 
+      - !Ref UbuntuAMIOverride
+      - ''
+
   EfaTrn132Instances: !Or
     - !Equals 
       - !Ref ClusterInstanceType
@@ -295,9 +359,13 @@ Resources:
             VolumeType: !Ref EbsVolumeType
             Encrypted: true
             DeleteOnTermination: true
-        ImageId: 
-          'Fn::ImportValue':
-            'Fn::Sub': '${DesktopStack}-Ami'
+        ImageId: !If 
+          - OverrideAMI
+          - !Ref UbuntuAMIOverride
+          - !FindInMap 
+            - !Ref 'AWSUbuntuAMIType'
+            - !Ref 'AWS::Region'
+            - AMI
         EbsOptimized: !Ref EBSOptimized
         KeyName: 
           'Fn::ImportValue':
@@ -525,7 +593,7 @@ Resources:
                     python3 -m venv aws_neuron_venv_pytorch && \
                     source aws_neuron_venv_pytorch/bin/activate && \
                     pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
-                    pip3 install neuronx-cc torch-neuronx torchvision tensorboard && \
+                    pip3 install neuronx-cc torch-neuronx torchvision tensorboard neuronx_distributed && \
                     deactivate && \
                     chown -R ubuntu:ubuntu /home/ubuntu/aws_neuron_venv_pytorch
                 else
