@@ -590,37 +590,6 @@ Resources:
             - AMI
         EbsOptimized: !Ref EBSOptimized
 
-  EfaSecurityGroup:
-    Condition: EfaEnabled
-    Type: 'AWS::EC2::SecurityGroup'
-    Properties:
-      GroupDescription: Efa security group
-      VpcId: !Ref DesktopVpcId
-      Tags:
-        - Key: Name
-          Value: !Ref 'AWS::StackName'
-
-  EfaSecurityGroupIngressSelf: 
-    Condition: EfaEnabled
-    Type: 'AWS::EC2::SecurityGroupIngress'
-    Properties:
-      Description: Ingress from self security group
-      GroupId: !Ref EfaSecurityGroup
-      IpProtocol: "-1"
-      FromPort: 0
-      ToPort: 65535
-      SourceSecurityGroupId: !Ref EfaSecurityGroup
-  
-  EfaSecurityGroupEgressSelf:
-    Condition: EfaEnabled
-    Type: 'AWS::EC2::SecurityGroupEgress'
-    Properties:
-      Description: Egress rule for out bound traffic
-      GroupId: !Ref EfaSecurityGroup
-      IpProtocol: "-1"
-      FromPort: 0
-      ToPort: 65535
-      DestinationSecurityGroupId: !Ref EfaSecurityGroup
 
   EfaDesktopLaunchTemplate:
     Condition: EfaEnabled
@@ -637,7 +606,6 @@ Resources:
           DeviceIndex: 0
           DeleteOnTermination: true
           Groups:
-            - !Ref EfaSecurityGroup
             - !If
               - CreateNewSecurityGroup
               - !GetAtt DesktopSecurityGroup.GroupId

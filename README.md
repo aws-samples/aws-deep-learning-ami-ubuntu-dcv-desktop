@@ -5,15 +5,15 @@ This project is a tutorial on how to launch an AWS deep learning desktop with [N
 * [Ubuntu Pro 22.04 LTS](https://aws.amazon.com/marketplace/pp/prodview-uy7jg4dds3qjw) (Default)
 * [Ubuntu Pro 20.04 LTS](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo)
 
-
-Using either Ubuntu Pro AMI above, you can launch a deep learning desktop. Following deep-learning frameworks are automatically installed in the desktop as [conda](https://docs.conda.io/en/latest/miniconda.html) environments : [Tensorflow 2.12.1](https://www.tensorflow.org/), and [PyTorch 2.0.1](https://pytorch.org/). [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) are installed in both the framework environments. [Visual Studio Code](https://code.visualstudio.com/) is automatically installed, as well.
-
 Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), GPU enabled [g3](https://aws.amazon.com/ec2/instance-types/g3/), [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), and [r5](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
 
-If you select Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) instance, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) is automatically installed. 
+For Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) instance type, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) with PyTorch support is automatically installed in a virtual environment named `aws_neuron_venv_pytorch`.  For all other types of EC2 instances, [conda](https://docs.conda.io/en/latest/miniconda.html) environment for [Tensorflow 2.12.1](https://www.tensorflow.org/) is installed in a conda environment `tensorflow`, and [PyTorch 2.0.1](https://pytorch.org/) is installed in a conda environment named `pytorch`. Both conda environments have [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) installed. 
 
-If you select Amazon EC2 GPU enabled instance, [CUDA](https://developer.nvidia.com/cuda-toolkit) and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed. *Automatic or manual upgrades to CUDA may require new [CUDA Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/index.html) packages to be installed.* Currently, CUDA Compatibility versions 12.1 and 12.2 packages are automatically installed in the GPU enabled instances.
+ For Amazon EC2 GPU enabled instance types, [CUDA](https://developer.nvidia.com/cuda-toolkit) and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed. **NOTE:** *Automatic or manual upgrades to CUDA may require new [CUDA Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/index.html) packages to be installed.* Currently, CUDA Compatibility versions 12.1 and 12.2 packages are automatically installed in the GPU enabled instances.
 
+[Visual Studio Code](https://code.visualstudio.com/) IDE is installed for code development.
+
+The deep-learning desktop can be used for standalone development, and can be also used as a head node for working with one or more [deep-learning clusters](#launching-deep-learning-cluster-with-efa-and-open-mpi) enabled with [Elastic Fabric Adapter (EFA)](https://aws.amazon.com/hpc/efa/) and [Open MPI](https://www.open-mpi.org/). 
 
 ## Step by Step Tutorial
 
@@ -73,16 +73,113 @@ For SageMaker examples that require you to specify a [subnet](https://docs.aws.a
 
 You may safely reboot, stop, and restart the desktop instance at any time. The desktop will automatically mount the EFS file-system at restart. If FSx for Luster file-system is enabled, it is automatically mounted, as well.
 
-## Deleting the Stack
+## Launching Deep-learning Cluster with EFA and Open MPI
 
-When you no longer need the desktop instance, you may delete the AWS CloudFormation stack from the AWS CloudFormation console. Deleting the stack will terminate the desktop instance, and delete the root EBS volume attached to the desktop. If the FSx for Lustre file-system is enabled, it is automatically deleted when you delete the stack.
+The CloudFormation stack template for [deep-learning cluster enabled with EFA and Open MPI](deep-learning-ubuntu-efa-cluster.yaml) can be launched after the desktop CloudFormation Stack launch is successfully completed. See [Reference](#reference) for cluster CloudFormation template input parameters.
+
+### Using Open MPI on the Desktop Head Node
+
+To be able to run the Open MPI `mpirun` command on the desktop head node, we need to configure password-less `ssh` to the cluster nodes. Ideally, we want to do this without storing the SSH private key on the desktop head node. To accomplish this objective, we recommend using SSH agent-forwarding on your laptop. To use SSH agent-forwarding, first add your SSH private key to the SSH forwarding agent on your laptop, using the following command:
+
+	ssh-add ~/.ssh/id_rsa
+
+
+If your private key is not stored in the default `~/.ssh/id_rsa` file, change the previous command, accordingly. 
+
+Next, add following configuration to the `~/.ssh/config` file on the desktop head node,:
+
+	Host *
+    	ForwardAgent yes
+	Host *
+		StrictHostKeyChecking no
+
+To run the `mpirun` command on the desktop head node, `ssh` from your laptop to the desktop head node as follows:
+
+	ssh -A ubuntu@desktop-ec2-public-address
+
+Now you can run the `mpirun` command from the desktop head node, targeting any deep-learning cluster. 
+
+To run the `mpirun` command, you will need a `hostfile` containing the host IP addresses and slots for each node in your target cluster. Following  `bash` code can help you create your `hostfile`, where the `ec2-autoscaling-group-name` argument below is the EC2 auto-scaling group name for your deep-learning cluster, and is available in cluster stack output:
+
+	#!/bin/bash
+
+	[[ $# != 2 ]] && echo "usage: $0 aws-region ec2-autoscaling-group-name" && exit
+
+	region=$1
+	asg=$2
+
+	for ID in $(aws autoscaling describe-auto-scaling-instances --region $region --query "AutoScalingInstances[?AutoScalingGroupName=='$asg'].InstanceId" --output text);
+	do
+		host=$(aws ec2 describe-instances --instance-ids $ID --region $region --query "Reservations[].Instances[].PrivateIpAddress" --output text)
+		echo "$host	slots=1"
+	done
+
+#### Open MPI Examples
+
+Before you run the MPI examples, `ssh` into each instance in your `hostfile`, and make sure you see the message `Cluster node is ready!`. If you do not see this message, exit and `ssh` again in about 10 minutes to verify the cluster node is ready.
+
+##### Neuron PyTorch Example
+
+The `mpirun` example below targets the `aws_neuron_venv_pytorch` virtual environment on a 2-node `trn1.32xlarge` cluster. It is assumed that the cluster `hostfile` is stored in `/home/ubuntu/efs/openmpi/hostfile`, and the output directory `/home/ubuntu/efs/logs` exits. 
+
+**NOTE:** The `PATH` and `LD_LIBRARY_PATH` defined below apply to  the cluster nodes.
+
+	#!/bin/bash
+
+	NUM_PARALLEL=2
+	DATE=`date '+%Y-%m-%d-%H-%M-%S'`
+	export JOB_ID=mpirun-test-$DATE
+
+	mpirun -np $NUM_PARALLEL --verbose \
+	--hostfile /home/ubuntu/efs/openmpi/hostfile \
+	-bind-to none -map-by slot \
+	--mca plm_rsh_no_tree_spawn 1 -mca pml ob1 -mca btl ^openib -mca btl_tcp_if_exclude lo,docker0 \
+	--mca hwloc_base_binding_policy none --mca rmaps_base_mapping_policy slot \
+	--mca orte_keep_fqdn_hostnames t \
+	--output-filename /home/ubuntu/efs/logs/${JOB_ID} \
+	--display-map --tag-output --timestamp-output \
+	-wdir /home/ubuntu \
+	-x PATH='/opt/aws/neuron/bin:/opt/amazon/openmpi/bin:/opt/amazon/efa/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin' \
+	-x LD_LIBRARY_PATH='/opt/aws/neuron/lib:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib' \
+	bash -c "source /home/ubuntu/aws_neuron_venv_pytorch/bin/activate && hostname && env"
+
+#### CUDA TensorFlow Example
+
+The `mpirun` example below targets the conda `tensorFlow` environment on a 2-node CUDA GPU cluster. 
+
+**NOTE:** The `PATH` and `LD_LIBRARY_PATH` defined below apply to  the cluster nodes.
+
+	#!/bin/bash
+
+
+	NUM_PARALLEL=2
+	DATE=`date '+%Y-%m-%d-%H-%M-%S'`
+	export JOB_ID=mpirun-test-$DATE
+
+	mpirun -np $NUM_PARALLEL --verbose \
+	--hostfile /home/ubuntu/efs/openmpi/hostfile \
+	-bind-to none -map-by slot \
+	--mca plm_rsh_no_tree_spawn 1 -mca pml ob1 -mca btl ^openib -mca btl_tcp_if_exclude lo,docker0 \
+	--mca hwloc_base_binding_policy none --mca rmaps_base_mapping_policy slot \
+	--mca orte_keep_fqdn_hostnames t \
+	--output-filename /home/ubuntu/efs/logs/${JOB_ID} \
+	--display-map --tag-output --timestamp-output \
+	-wdir /home/ubuntu \
+	-x PATH='/usr/local/cuda-11.8/bin:/opt/amazon/openmpi/bin:/opt/amazon/efa/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin' \
+	-x LD_LIBRARY_PATH='/usr/local/cuda-12.2/compat:/usr/local/cuda-12.1/compat:/usr/local/cuda-11.8/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib' \
+	bash -c "source /home/ubuntu/miniconda3/etc/profile.d/conda.sh  && conda activate tensorflow && hostname && env"
+
+
+## Deleting the Stacks
+
+When you no longer need the stacks, you may delete the AWS CloudFormation stacks from the AWS CloudFormation console. Deleting the stack will terminate the EC2 instances, and delete the root EBS volume attached to the instances. If the FSx for Lustre file-system is enabled, it is also automatically deleted when you delete the stack.
 
 The EFS file system is **not** automatically deleted when you delete the stack.
 
 ## <a name="Reference"></a> Reference
 
-### AWS CloudFormation Template Input Parameters
-Below, we describe the AWS CloudFormation template input parameters.
+### Desktop CloudFormation Template Input Parameters
+Below, we describe the AWS CloudFormation template input parameters for the deep-learning desktop.
 
 | Parameter Name | Parameter Description |
 | --- | ----------- |
@@ -90,9 +187,9 @@ Below, we describe the AWS CloudFormation template input parameters.
 | DesktopAccessCIDR | This parameter specifies the public IP CIDR range from where you need access to your deep learning desktop, e.g. 1.2.3.4/32, or 7.8.0.0/16. This parameter is *ignored* if you specify the optional parameter  DesktopSecurityGroupId.|
 | DesktopHasPublicIpAddress | This is a **required** parameter whereby you specify if the desktop has a public internet address. Unless you have AWS [VPN](https://aws.amazon.com/vpn/) or [DirectConnect](https://aws.amazon.com/directconnect) access enabled, you must set this parameter to "true".
 | DesktopInstanceType | This is a **required** parameter whereby you select an Amazon EC2 instance type. G3, G4, P3 and P4 instance types are GPU enabled.  |
-| DesktopSecurityGroupId | This is an *optional* advanced parameter whereby you specify Amazon EC2 security group for your desktop. The specified security group must allow inbound access over ports 22 (SSH) and 8443 (DCV) from ```DesktopAccessCIDR```, access to EFS TCP port 2049, and required network access from within the security group for running distributed SageMaker training jobs. Leave it blank to automatically create a new security group, which enables access for SSH, DCV, EFS, and running **any** distributed SageMaker training job. |
+| DesktopSecurityGroupId | This is an *optional* advanced parameter whereby you specify Amazon EC2 security group for your desktop. The specified security group must allow inbound access over ports 22 (SSH) and 8443 (DCV) from ```DesktopAccessCIDR```, access to EFS and FSx for Lustre, and allow all inbound and outbound network traffic within the security group. Leave it blank to automatically create a new security group, which enables access for SSH, DCV, EFS, FSx for Lustre, and allows all inbound and outbound network traffic within the security group. |
 | DesktopVpcId | This is a **required** parameter whereby you select your Amazon VPC id.|
-| DesktopVpcSubnetId | This is a **required** parameter whereby you select your Amazon VPC subnet. The specified subnet must be public if you plan to access your desktop over the Internet. |
+| DesktopVpcSubnetId | This is a **required** parameter whereby you select your Amazon VPC subnet. The specified subnet must be public with Internet Gateway access enabled if you plan to access your desktop over the Internet, or private with NAT gateway access enabled. |
 | EBSOptimized | This is a **required** parameter whereby you select if you want your desktop instance to be [network optimized for EBS](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html) (default is **true**)|
 | EFSFileSystemId | This is an *optional* advanced parameter whereby you specify an existing EFS file-system id with an [existing network mount target](https://docs.aws.amazon.com/efs/latest/ug/how-it-works.html#how-it-works-ec2)  accessible from your DesktopVpcSubnetId. If you specify this parameter, do it in conjunction with DesktopSecurityGroupId. Leave it blank to create a new EFS file-system.  |
 | EFSMountPath | Absolute path for the directory where EFS file-system is mounted (default is ```/home/ubuntu/efs```).   |
@@ -106,16 +203,46 @@ Below, we describe the AWS CloudFormation template input parameters.
 | S3Import | This is an **optional** parameter whereby you specify S3 import prefix for FSx file-system. See ```FSxForLustre``` parameter to enable FSx for Lustre file-system.  |
 | UbuntuAMIOverride | This is an *optional* advanced parameter to override the AMI. Leave blank to use default AMIs for your region. See parameter ```AWSUbuntuAMIType```. |
 
+### Desktop CloudFormation Stack Outputs
+Below, we describe the Desktop CloudFormation Stack outputs. All output variables are exported prefixed with the stack name.
+
+| Output Key | Output Description |
+| --- | ----------- |
+| Ami | Desktop AMI id. |
+| VpcId | Desktop VPC id |
+| KeyPairName | Desktop EC2 key pair name |
+| InstanceProfileArn | Desktop EC2 Instance Profile ARN |
+| SecurityGroupId | Desktop security group id. |
+| EfsId | Desktop EFS file-system Id. |
+| EfsMountPath | Desktop EFS file-system mount path. |
+| FsxId | Desktop FSx Lustre file-system id, if FSx Luster is enabled. |
+| FsxMountName | Desktop FSx Lustre file-system mount name, if FSx Luster is enabled. |
+| FsxMountPath | Desktop FSx Lustre file-system mount path, if FSx Luster is enabled. |
+
+### Cluster CloudFormation Template Input Parameters
+Below, we describe the AWS CloudFormation template input parameters for the deep-learning desktop.
+
+| Parameter Name | Parameter Description |
+| --- | ----------- |
+| AWSUbuntuAMIType | This is a **required** parameter that selects the AMI type. Default AMI type is [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5). |
+| ASGMaxSize | This is a **required** parameter that specifies maximum size for the cluster's EC2 auto-scaling group. |
+| ASGDesiredSize | This is a **required** parameter that specifies the current desired size for the the cluster's EC2 auto-scaling group. |
+| ClusterInstanceType | This is a **required** parameter whereby you select an Amazon EC2 instance type. G3, G4, P3 and P4 instance types are GPU enabled.  |
+| ClusterSubnetId | This is a **required** parameter whereby you select your Amazon VPC subnet. The specified subnet must be private with NAT gateway access enabled. |
+| ClusterSubnetAZ | This is a **required** parameter whereby you specify the AZ used by the `ClusterSubnetId` subnet. |
+| EBSOptimized | This is a **required** parameter whereby you select if you want your desktop instance to be [network optimized for EBS](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html) (default is **true**)|
+| EFSFileSystemId | This is an *optional* advanced parameter whereby you specify an existing EFS file-system id with an [existing network mount target](https://docs.aws.amazon.com/efs/latest/ug/how-it-works.html#how-it-works-ec2)  accessible from your DesktopVpcSubnetId. If you specify this parameter, do it in conjunction with DesktopSecurityGroupId. Leave it blank to create a new EFS file-system.  |
+| EFSMountPath | Absolute path for the directory where EFS file-system is mounted (default is ```/home/ubuntu/efs```).   |
+| EbsVolumeSize | This is a **required** parameter whereby you specify the size of the EBS volume (default size is 200 GB). Typically, the default size is sufficient.|
+| EbsVolumeType | This is a **required** parameter whereby you select the [EBS volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html) (default is gp3). |
+| UbuntuAMIOverride | This is an *optional* advanced parameter to override the AMI. Leave blank to use default AMIs for your region. See parameter ```AWSUbuntuAMIType```. |
+
 ### AWS CloudFormation Stack Outputs
 Below, we describe the AWS CloudFormation Stack outputs.
 
 | Output Key | Output Description |
 | --- | ----------- |
-| DesktopInstanceId | This is the Amazon EC2 instance id for the desktop. |
-| DesktopRole | This is the AWS ARN for the IAM Role automatically created and attached to the desktop instance profile. |
-| DesktopSecurityGroup | This is the security group attached to the desktop instance, which is either specified in the Stack input parameters, or is automatically created. |
-| EFSFileSystemId | This is the EFS file system attached to the desktop instance, which is either specified in the Stack input parameters, or is automatically created. |
-
+| Asg | EC2 auto-scaling group for the cluster. |
 
 ## Security
 
