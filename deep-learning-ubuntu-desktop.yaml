@@ -554,7 +554,21 @@ Resources:
                   - 'autoscaling:DescribeAutoScalingInstances'
                   - 'ec2:DescribeInstances'
                 Resource: '*'
-        
+        - PolicyName: ecr-policy
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ecr:SetRepositoryPolicy"
+                  - "ecr:CompleteLayerUpload"
+                  - "ecr:BatchDeleteImage"
+                  - "ecr:UploadLayerPart"
+                  - "ecr:DeleteRepositoryPolicy"
+                  - "ecr:InitiateLayerUpload"
+                  - "ecr:DeleteRepository"
+                  - "ecr:PutImage"
+                Resource: '*'
+
   InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
