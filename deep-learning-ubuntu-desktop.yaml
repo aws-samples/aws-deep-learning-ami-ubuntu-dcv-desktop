@@ -160,6 +160,10 @@ Parameters:
       - trn1.2xlarge
       - trn1.32xlarge
       - trn1n.32xlarge
+      - inf2.xlarge
+      - inf2.8xlarge
+      - inf2.24xlarge
+      - inf2.48xlarge
     ConstraintDescription: Must be a valid CPU, or GPU instance type.
   DesktopAccessCIDR:
     Description: >-
@@ -700,7 +704,8 @@ Resources:
               
               # check if we have a Trainium  instance
               [[ -z $(lspci -v | grep NVIDIA) ]] && update-pciids
-              if [[ ! -z $(lspci -v | grep Trainium) ]] && [[ ! -x "$(command -v /opt/aws/neuron/neuron-ls)" ]]
+              if  ( [[ ! -z $(lspci -v | grep Trainium) ]] || [[ ! -z $(lspci -v | grep Inferentia2) ]] ) \
+                && [[ ! -x "$(command -v /opt/aws/neuron/neuron-ls)" ]]
               then
                 echo "deb https://apt.repos.neuron.amazonaws.com ${VERSION_CODENAME} main" > /etc/apt/sources.list.d/neuron.list
                 wget -qO - https://apt.repos.neuron.amazonaws.com/GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB | apt-key add -
@@ -1017,7 +1022,8 @@ Resources:
               fi
 
               if [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1) ]] || \
-                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1n) ]]
+                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1n) ]] || \
+                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep inf2) ]]
               then
                   apt-get install -y python3-pip && \
                   apt-get install -y python3-venv && \
