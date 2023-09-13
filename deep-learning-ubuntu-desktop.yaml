@@ -967,9 +967,9 @@ Resources:
               sysctl -w kernel.yama.ptrace_scope=0
 
               curl -O https://efa-installer.amazonaws.com/aws-efa-installer-latest.tar.gz
-              wget https://efa-installer.amazonaws.com/aws-efa-installer.key && gpg --import aws-efa-installer.key
-              cat aws-efa-installer.key | gpg --fingerprint
-              wget https://efa-installer.amazonaws.com/aws-efa-installer-latest.tar.gz.sig && gpg --verify ./aws-efa-installer-latest.tar.gz.sig
+              # wget https://efa-installer.amazonaws.com/aws-efa-installer.key && gpg --import aws-efa-installer.key
+              # cat aws-efa-installer.key | gpg --fingerprint
+              # wget https://efa-installer.amazonaws.com/aws-efa-installer-latest.tar.gz.sig && gpg --verify ./aws-efa-installer-latest.tar.gz.sig
               tar -xvf aws-efa-installer-latest.tar.gz
               cd aws-efa-installer && bash efa_installer.sh --yes
               cd / && rm -rf aws-efa-installer-latest.tar.gz aws-efa-installer
