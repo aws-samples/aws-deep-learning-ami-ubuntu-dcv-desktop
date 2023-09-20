@@ -1107,10 +1107,6 @@ Resources:
               
                 echo "conda activate" >> /home/ubuntu/.bashrc
               fi
-              
-              # install nodejs 20.x
-              curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-              apt-get install -y nodejs
 
               # install aws cli
               apt-get -y install awscli
