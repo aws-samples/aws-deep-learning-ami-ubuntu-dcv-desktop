@@ -75,7 +75,7 @@ You may safely reboot, stop, and restart the desktop instance at any time. The d
 
 ## Launching Deep-learning Cluster with EFA and Open MPI
 
-The CloudFormation stack template for [deep-learning cluster enabled with EFA and Open MPI](deep-learning-ubuntu-efa-cluster.yaml) can be launched after the desktop CloudFormation Stack launch is successfully completed. See [Reference](#reference) for cluster CloudFormation template input parameters.
+The CloudFormation stack template for [deep-learning cluster enabled with EFA and Open MPI](deep-learning-ubuntu-efa-cluster.yaml) can be launched after the desktop CloudFormation Stack launch is successfully completed. See [Reference](#Reference) for cluster CloudFormation template input parameters.
 
 ### Using Open MPI on the Desktop Head Node
 
