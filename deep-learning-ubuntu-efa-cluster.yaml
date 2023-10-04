@@ -435,8 +435,13 @@ Resources:
                 [[ -z $(lspci -v | grep NVIDIA) ]] && update-pciids
                 if [[ ! -z $(lspci -v | grep Trainium) ]] && [[ ! -x "$(command -v /opt/aws/neuron/neuron-ls)" ]]
                 then
-                  echo "deb https://apt.repos.neuron.amazonaws.com ${VERSION_CODENAME} main" > /etc/apt/sources.list.d/neuron.list
-                  wget -qO - https://apt.repos.neuron.amazonaws.com/GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB | apt-key add -
+                  wget -qO - https://apt.repos.neuron.amazonaws.com/GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB > ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
+                  gpg --no-default-keyring --keyring ./aws_neuron_keyring.gpg --import  ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
+                  gpg --no-default-keyring --keyring ./aws_neuron_keyring.gpg  --export >  ./aws_neuron.gpg
+                  mv ./aws_neuron.gpg /etc/apt/trusted.gpg.d/
+                  rm ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
+
+                  add-apt-repository "deb https://apt.repos.neuron.amazonaws.com ${VERSION_CODENAME} main"
 
                   # Update OS packages 
                   apt-get -y update
@@ -461,8 +466,12 @@ Resources:
                 fi
 
                 # setup software repo for fsx-lustre client
-                wget -O - https://fsx-lustre-client-repo-public-keys.s3.amazonaws.com/fsx-ubuntu-public-key.asc | apt-key add -
-                
+                wget -qO - https://fsx-lustre-client-repo-public-keys.s3.amazonaws.com/fsx-ubuntu-public-key.asc > ./fsx-ubuntu-public-key.asc
+                gpg --no-default-keyring --keyring ./fsx_keyring.gpg --import  ./fsx-ubuntu-public-key.asc
+                gpg --no-default-keyring --keyring ./fsx_keyring.gpg  --export > ./fsx.gpg
+                mv ./fsx.gpg /etc/apt/trusted.gpg.d/
+                rm ./fsx-ubuntu-public-key.asc
+  
                 # update and install required packages
                 apt-get update
 
@@ -478,14 +487,16 @@ Resources:
 
                 if [[ "$VERSION_ID" == "20.04" ]]
                 then
-                  bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu focal main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
+                   add-apt-repository "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu focal main"
                 elif [[ "$VERSION_ID" == "22.04" ]]
                 then   
-                  bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
+                  add-apt-repository "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main"
                 else
                   echo "Ubuntu $VERSION_ID is not supported; must be one of 20.04, or 22.04"
                   exit 1
                 fi
+
+                apt-get update
 
                 # install nfs-common
                 apt-get -y install nfs-common

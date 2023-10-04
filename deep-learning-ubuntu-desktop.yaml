@@ -721,9 +721,13 @@ Resources:
               if  ( [[ ! -z $(lspci -v | grep Trainium) ]] || [[ ! -z $(lspci -v | grep Inferentia2) ]] ) \
                 && [[ ! -x "$(command -v /opt/aws/neuron/neuron-ls)" ]]
               then
-                echo "deb https://apt.repos.neuron.amazonaws.com ${VERSION_CODENAME} main" > /etc/apt/sources.list.d/neuron.list
-                wget -qO - https://apt.repos.neuron.amazonaws.com/GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB | apt-key add -
+                wget -qO - https://apt.repos.neuron.amazonaws.com/GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB > ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
+                gpg --no-default-keyring --keyring ./aws_neuron_keyring.gpg --import  ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
+                gpg --no-default-keyring --keyring ./aws_neuron_keyring.gpg  --export >  ./aws_neuron.gpg
+                mv ./aws_neuron.gpg /etc/apt/trusted.gpg.d/
+                rm ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
 
+                add-apt-repository "deb https://apt.repos.neuron.amazonaws.com ${VERSION_CODENAME} main"
                 # Update OS packages 
                 apt-get -y update
 
@@ -747,19 +751,36 @@ Resources:
               fi
 
               # setup software repo for docker
-              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-              apt-key fingerprint 0EBFCD88
+              wget -qO - https://download.docker.com/linux/ubuntu/gpg > ./GPG_DOCKER.PUB
+              gpg --no-default-keyring --keyring ./docker_keyring.gpg --import  ./GPG_DOCKER.PUB
+              gpg --no-default-keyring --keyring ./docker_keyring.gpg  --export > ./docker.gpg
+              mv ./docker.gpg /etc/apt/trusted.gpg.d/
+              rm ./GPG_DOCKER.PUB
+
+              
               add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
    
               # setup software repo for fsx-lustre client
-              wget -O - https://fsx-lustre-client-repo-public-keys.s3.amazonaws.com/fsx-ubuntu-public-key.asc | apt-key add -
-              
+              wget -qO - https://fsx-lustre-client-repo-public-keys.s3.amazonaws.com/fsx-ubuntu-public-key.asc > ./fsx-ubuntu-public-key.asc
+              gpg --no-default-keyring --keyring ./fsx_keyring.gpg --import  ./fsx-ubuntu-public-key.asc
+              gpg --no-default-keyring --keyring ./fsx_keyring.gpg  --export > ./fsx.gpg
+              mv ./fsx.gpg /etc/apt/trusted.gpg.d/
+              rm ./fsx-ubuntu-public-key.asc
+
               # add key for NICE-DCV
-              wget https://d1uj6qtbmh3dt5.cloudfront.net/NICE-GPG-KEY
-              gpg --import NICE-GPG-KEY
+              wget -qO - https://d1uj6qtbmh3dt5.cloudfront.net/NICE-GPG-KEY > ./NICE-GPG-KEY
+              gpg --no-default-keyring --keyring ./nice_dcv_keyring.gpg --import  ./NICE-GPG-KEY
+              gpg --no-default-keyring --keyring ./nice_dcv_keyring.gpg  --export > ./nice_dcv.gpg
+              mv ./nice_dcv.gpg /etc/apt/trusted.gpg.d/
+              rm ./NICE-GPG-KEY
 
               # add  visual code repository
-              wget -q https://packages.microsoft.com/keys/microsoft.asc -O- | apt-key add -
+              wget -qO - https://packages.microsoft.com/keys/microsoft.asc > ./microsoft.asc
+              gpg --no-default-keyring --keyring ./microsoft_keyring.gpg --import  ./microsoft.asc
+              gpg --no-default-keyring --keyring ./microsoft_keyring.gpg --export >  ./microsoft.gpg
+              mv ./microsoft.gpg /etc/apt/trusted.gpg.d/
+              rm ./microsoft.asc
+
               add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main"
 
               # update and install required packages
@@ -776,7 +797,12 @@ Resources:
                 # install nvidia container toolkit if we have a nvidia GPU
                 if [[ -x "$(command -v nvidia-smi)" ]]
                 then
-                  curl -s -L https://nvidia.github.io/nvidia-container-runtime/gpgkey |  apt-key add -
+                  wget -qO - https://nvidia.github.io/nvidia-container-runtime/gpgkey > ./gpg_nvidia_container_runtime.pub
+                  gpg --no-default-keyring --keyring ./nvidia_container_runtime_keyring.gpg --import  ./gpg_nvidia_container_runtime.pub
+                  gpg --no-default-keyring --keyring ./nvidia_container_runtime_keyring.gpg --export >  ./nvidia_container_runtime.gpg
+                  mv ./nvidia_container_runtime.gpg /etc/apt/trusted.gpg.d/
+                  rm ./gpg_nvidia_container_runtime.pub
+
                   distribution=$ID$VERSION_ID
                   curl -s -L https://nvidia.github.io/nvidia-container-runtime/$distribution/nvidia-container-runtime.list | \
                     tee /etc/apt/sources.list.d/nvidia-container-runtime.list
@@ -798,7 +824,7 @@ Resources:
 
               if [[ "$VERSION_ID" == "20.04" ]]
               then
-                bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu focal main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
+                add-apt-repository "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu focal main"
 
                 if [[ ! -x "$(command -v dcv)" ]]
                 then
@@ -827,7 +853,7 @@ Resources:
                 fi
               elif [[ "$VERSION_ID" == "22.04" ]]
               then   
-                bash -c 'echo "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main" > /etc/apt/sources.list.d/fsxlustreclientrepo.list && apt-get update'
+                add-apt-repository "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main"
                
                 if [[ ! -x "$(command -v dcv)" ]]
                 then
