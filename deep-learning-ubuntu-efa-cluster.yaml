@@ -411,9 +411,10 @@ Resources:
                 export DEBIAN_FRONTEND=noninteractive
                 export DEBCONF_NONINTERACTIVE_SEEN=true
 
-                CUDA=11.8
-                CUDA_DASH=11-8
-                CUDNN=8.9.2.26
+                CUDA=12.1
+                CUDA_DASH=${CUDA//\./-}
+                CUDA_11=11.8
+                CUDA_11_DASH=${CUDA_11//\./-}
 
                 # check if we have a GPU and if Nvidia drivers and CUDA need to be installed
                 [[ ! -z $(lspci -v | grep NVIDIA) ]] && \
@@ -423,12 +424,14 @@ Resources:
                 dpkg -i cuda-keyring_1.0-1_all.deb && \
                 apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
                 apt-get -y install cuda-${CUDA_DASH} && \
-                apt-get -y install libcudnn8=${CUDNN}-1+cuda${CUDA} && \
-                apt-get -y install libcudnn8-dev=${CUDNN}-1+cuda${CUDA} && \
-                apt-get -y install cuda-compat-12-1 && \
-                apt-get -y install cuda-compat-12-2 && \
-                echo "export PATH=/usr/local/cuda-${CUDA}/bin:$PATH" >> /home/ubuntu/.bashrc && \
-                echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.2/compat:/usr/local/cuda-12.1/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
+                apt-get -y install cuda-${CUDA_11_DASH} && \
+                apt-get -y install libcudnn8 && \
+                apt-get -y install libcudnn8-dev && \
+                echo "export PATH=/usr/local/cuda-${CUDA}/bin:/usr/local/cuda-${CUDA_11}/bin:$PATH" >> /home/ubuntu/.bashrc && \
+                CUDA_COMPAT=$(nvidia-smi | grep CUDA | awk '{print $(NF - 1)}') && \
+                CUDA_COMPAT_DASH=${CUDA_COMPAT//\./-} && \
+                apt-get -y install cuda-compat-${CUDA_COMPAT_DASH} && \
+                echo "export LD_LIBRARY_PATH=/usr/local/cuda-${CUDA_COMPAT}/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
                 reboot
                 
                 # check if we have a Trainium  instance
@@ -454,14 +457,15 @@ Resources:
 
                   # install Neuron Driver
                   apt-get -y install aws-neuronx-dkms
-
-                  # Install Neuron Tools 
-                  apt-get -y install aws-neuronx-tools
+                  apt-get -y install aws-neuronx-oci-hook
 
                   # Install Neuron Runtime 
                   apt-get -y install aws-neuronx-collectives
                   apt-get -y install aws-neuronx-runtime-lib
 
+                  # Install Neuron Tools 
+                  apt-get -y install aws-neuronx-tools
+                
                   echo "export PATH=/opt/aws/neuron/bin:$PATH" >> /home/ubuntu/.bashrc
                 fi
 
@@ -604,7 +608,7 @@ Resources:
                     python3 -m venv aws_neuron_venv_pytorch && \
                     source aws_neuron_venv_pytorch/bin/activate && \
                     pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
-                    pip3 install neuronx-cc torch-neuronx torchvision tensorboard neuronx_distributed && \
+                    pip3 install torch-neuronx neuronx-cc torchvision neuronx-distributed && \
                     deactivate && \
                     chown -R ubuntu:ubuntu /home/ubuntu/aws_neuron_venv_pytorch
                 else
@@ -631,7 +635,7 @@ Resources:
                     conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.10 && \
                     conda activate tensorflow && \
                     pip3 install --upgrade pip && \
-                    pip3 install tensorflow==2.12.1 && \
+                    pip3 install tensorflow==2.14.0 && \
                     pip3 install datasets && \
                     pip3 install transformers && \
                     conda install -y ipykernel && \
@@ -641,17 +645,9 @@ Resources:
                     conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.10 && \
                     conda activate pytorch && \
                     pip3 install --upgrade pip && \
-                    pip3 install torch==2.0.1 torchvision && \
+                    pip3 install torch==2.1.0 torchvision && \
                     pip3 install datasets && \
                     pip3 install transformers && \
-                    conda install -y ipykernel && \
-                    conda install -y boto3 && \
-                    conda deactivate
-
-                    conda create -y --prefix /home/ubuntu/miniconda3/envs/mxnet python=3.10 && \
-                    conda activate mxnet && \
-                    pip3 install --upgrade pip && \
-                    pip3 install mxnet && \
                     conda install -y ipykernel && \
                     conda install -y boto3 && \
                     conda deactivate
@@ -665,6 +661,17 @@ Resources:
              
                 # install aws cli
                 apt-get -y install awscli
+
+                # DISABLE source destination check on the attached ENIs
+                TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"` 
+                macs=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/network/interfaces/macs/)
+                macs="${macs//$'\n'/ }"
+                IFS=' ' read -r -a mac_array <<< "$macs"
+                for mac in "${mac_array[@]}"
+                do
+                  eni=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/network/interfaces/macs/$mac/interface-id)
+                  aws ec2 modify-network-interface-attribute --region $AWS_REGION --no-source-dest-check --network-interface-id $eni 
+                done
 
                 echo "Cluster node is ready!" > /etc/motd
 
