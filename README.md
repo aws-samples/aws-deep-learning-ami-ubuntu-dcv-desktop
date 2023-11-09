@@ -1,15 +1,17 @@
 # AWS Deep Learning Desktop with NICE DCV
 
-This project is a tutorial on how to launch an AWS deep learning desktop with [NICE DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models. To launch the deep learning desktop, you have a choice of two [Ubuntu Pro AMIs](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html):
+This project is a tutorial on how to launch an AWS deep learning desktop with [NICE DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models. To launch the deep learning desktop, you have a choice of two AMIs:
 
-* [Ubuntu Pro 22.04 LTS](https://aws.amazon.com/marketplace/pp/prodview-uy7jg4dds3qjw) (Default)
-* [Ubuntu Pro 20.04 LTS](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo)
+* Ubuntu Server Pro, 22.04 LTS, Version 20231025 (Default)
+* Ubuntu Server Pro, 20.04 LTS, Version 20231030
 
 Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), [inf2](https://aws.amazon.com/ec2/instance-types/inf2/), GPU enabled [g3](https://aws.amazon.com/ec2/instance-types/g3/), [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), and [r5](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
 
-For Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) and [inf2](https://aws.amazon.com/ec2/instance-types/inf2/) instance types, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) with PyTorch support is automatically installed in a virtual environment named `aws_neuron_venv_pytorch`.  For all other types of EC2 instances, [conda](https://docs.conda.io/en/latest/miniconda.html) environment for [Tensorflow 2.12.1](https://www.tensorflow.org/) is installed in a conda environment `tensorflow`, and [PyTorch 2.0.1](https://pytorch.org/) is installed in a conda environment named `pytorch`. Both conda environments have [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) installed. 
+For Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) and [inf2](https://aws.amazon.com/ec2/instance-types/inf2/) instance types, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) with PyTorch support is automatically installed in a virtual environment named `aws_neuron_venv_pytorch`.  For all other types of EC2 instances, [conda](https://docs.conda.io/en/latest/miniconda.html) environment for [Tensorflow 2.14.0](https://www.tensorflow.org/) is installed in a conda environment `tensorflow`, and [PyTorch 2.1.0](https://pytorch.org/) is installed in a conda environment named `pytorch`. Both conda environments have [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) installed. 
 
- For Amazon EC2 GPU enabled instance types, [CUDA](https://developer.nvidia.com/cuda-toolkit) and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed. **NOTE:** *Automatic or manual upgrades to CUDA may require new [CUDA Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/index.html) packages to be installed.* Currently, CUDA Compatibility versions 12.1 and 12.2 packages are automatically installed in the GPU enabled instances.
+For Amazon EC2 GPU enabled instance types, CUDA Compatibility package compatible with the CUDA driver, [CUDA](https://developer.nvidia.com/cuda-toolkit), and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed.
+
+**NOTE:** *Automatic or manual upgrades to CUDA driver may require new [CUDA Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/index.html) package to be manually installed.*
 
 [Visual Studio Code](https://code.visualstudio.com/) IDE is installed for code development.
 
@@ -23,7 +25,6 @@ This tutorial assumes you have an [AWS Account](https://aws.amazon.com/account/)
 To get started:
 
 * Select your [AWS Region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). The AWS Regions supported by this project include, us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, ap-northeast-2, and ap-south-1. Note that not all Amazon EC2 instance types are available in all [AWS Availability Zones](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) in an AWS Region.
-* Subscribe to the [Ubuntu Pro 22.04 LTS](https://aws.amazon.com/marketplace/pp/prodview-uy7jg4dds3qjw) or the [Ubuntu Pro 20.04 LTS](https://aws.amazon.com/marketplace/pp/prodview-zvdilnwnuopoo) AMI 
 * If you do not already have an Amazon EC2 key pair, [create a new Amazon EC2 key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair). You will need the key pair name to specify the ```KeyName``` parameter when creating the CloudFormation stack below.
 * You will need an [Amazon S3](https://aws.amazon.com/s3/) bucket. If you don't have one, [create a new Amazon S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in the AWS region you selected. The S3 bucket can be empty at this point.
 * Use [AWS check ip](http://checkip.amazonaws.com/) to get your public IP address. This will be the IP address you will need to specify ```DesktopAccessCIDR``` parameter in the stack. 
