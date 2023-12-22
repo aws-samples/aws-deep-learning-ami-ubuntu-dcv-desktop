@@ -100,6 +100,12 @@ Parameters:
     Default: '/home/ubuntu/fsx'
     ConstraintDescription: Should be a valid file-system directory path
 
+  FSxLustreVersion:
+    Description: FSx file-system type version
+    Type: String
+    Default: '2.15'
+    ConstraintDescription: Should be a valid FSx for Lustre version
+
   KeyName:
     Description: >-
       Name of an existing Amazon EC2 KeyPair to enable SSH and DCV access to the
@@ -206,25 +212,25 @@ Mappings:
       AMI: ami-02acd68454c0247e4
   UbuntuPro2204LTS:
     us-east-1:
-      AMI: ami-08662cc7aed840314
+      AMI: ami-0c460fdf6a8a1edef
     us-east-2:
-      AMI: ami-0417ae6382a2d8010
+      AMI: ami-0bddc40b31973ff95
     us-west-2:
-      AMI: ami-03d115410b9815c8e
+      AMI: ami-058168290d30b9c52
     eu-west-1:
-      AMI: ami-0b5967467506b81a2
+      AMI: ami-0a0aadde3561fdc1e
     eu-central-1:
-      AMI: ami-06dc33c2de6b53749
+      AMI: ami-04bd4f5e1a831e002
     ap-southeast-1:
-      AMI: ami-05084e19c42e504d3
+      AMI: ami-0fd4144f52678fe37
     ap-southeast-2:
-      AMI: ami-0f0a869881f32b3ba
+      AMI: ami-0ac438f9a63fdd525
     ap-south-1:
-      AMI: ami-0b066a424632b6605
+      AMI: ami-05205cb302b6dca6f
     ap-northeast-1:
-      AMI: ami-0019e93cc76f0a409
+      AMI: ami-096d2286904664854
     ap-northeast-2:
-      AMI: ami-0272f9d2f3adaeea1
+      AMI: ami-00324b863a508e247
 
 Conditions:
   OverrideAMI: !Not 
@@ -496,6 +502,7 @@ Resources:
     Type: AWS::FSx::FileSystem
     Properties:
       FileSystemType: 'LUSTRE'
+      FileSystemTypeVersion: !Ref FSxLustreVersion
       LustreConfiguration:
         DeploymentType: SCRATCH_2
         AutoImportPolicy: NEW_CHANGED
@@ -695,6 +702,9 @@ Resources:
               # setup graphics desktop
               export DEBIAN_FRONTEND=noninteractive
               export DEBCONF_NONINTERACTIVE_SEEN=true
+
+              dpkg -l | grep linux | awk -F' ' '{print $2}' > /tmp/dpkg.out
+              for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
 
               CUDA=12.1
               CUDA_DASH=${CUDA//\./-}
@@ -996,13 +1006,13 @@ Resources:
               # disable ptrace
               sysctl -w kernel.yama.ptrace_scope=0
 
-              curl -O https://efa-installer.amazonaws.com/aws-efa-installer-latest.tar.gz
+              curl -O https://efa-installer.amazonaws.com/aws-efa-installer-1.30.0.tar.gz
               wget https://efa-installer.amazonaws.com/aws-efa-installer.key && gpg --import aws-efa-installer.key
               cat aws-efa-installer.key | gpg --fingerprint
-              wget https://efa-installer.amazonaws.com/aws-efa-installer-latest.tar.gz.sig && gpg --verify ./aws-efa-installer-latest.tar.gz.sig
-              tar -xvf aws-efa-installer-latest.tar.gz
-              cd aws-efa-installer && bash efa_installer.sh --yes
-              cd / && rm -rf aws-efa-installer-latest.tar.gz aws-efa-installer
+              wget https://efa-installer.amazonaws.com/aws-efa-installer-1.30.0.tar.gz.sig && gpg --verify ./aws-efa-installer-1.30.0.tar.gz.sig
+              tar -xf aws-efa-installer-1.30.0.tar.gz
+              cd aws-efa-installer && ./efa_installer.sh --yes
+              cd ../ && rm -rf aws-efa-installer-1.30.0.tar.gz aws-efa-installer
               
               fi
 
