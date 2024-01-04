@@ -835,7 +835,7 @@ Resources:
               echo "install DCV server..."
               apt-get -y install ubuntu-desktop
 
-              if [[ "$VERSION_ID" == "20.04" ]]
+              if [[ "$VERSION_ID" == 20.04* ]]
               then
                 add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu focal main"
 
@@ -864,7 +864,7 @@ Resources:
                   apt-get -y install ./nice-dcv-server_2023.0.15022-1_amd64.ubuntu2004.deb
                   reboot
                 fi
-              elif [[ "$VERSION_ID" == "22.04" ]]
+              elif [[ "$VERSION_ID" == 22.04* ]]
               then   
                 add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main"
                
@@ -1092,6 +1092,21 @@ Resources:
                     pip3 install torch-neuronx neuronx-cc torchvision neuronx-distributed && \
                     deactivate && \
                     chown -R ubuntu:ubuntu /home/ubuntu/aws_neuron_venv_pytorch
+
+                  [[ ! -d /home/ubuntu/aws_neuron_nemo_megatron ]] && \
+                    HOME=/home/ubuntu && \
+                    cd $HOME && \
+                    python3 -m venv aws_neuron_nemo_megatron && \
+                    source aws_neuron_nemo_megatron/bin/activate && \
+                    pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
+                    pip3 install torch-neuronx neuronx-cc  && \
+                    ( [[ -d neuronx-nemo-megatron ]] || git clone https://github.com/aws-neuron/neuronx-nemo-megatron.git ) && \
+                    cd neuronx-nemo-megatron && pip3 install wheel && ./build.sh && pip3 install ./build/*.whl && \
+                    pip3 install Cython && pip3 install -r requirements.txt torch==1.13.1 protobuf==3.20.3 && \
+                    python3 -c "from nemo.collections.nlp.data.language_modeling.megatron.dataset_utils import compile_helper; compile_helper()" && \
+                    deactivate && \
+                    chown -R ubuntu:ubuntu /home/ubuntu/aws_neuron_nemo_megatron
+                    
               else
                 # install miniconda3 if anaconda3, or miniconda3 are not installed
                 if [[ ! -d "/home/ubuntu/anaconda3" ]] && [[ ! -d "/home/ubuntu/miniconda3" ]]
