@@ -1098,6 +1098,7 @@ Resources:
                     cd $HOME && \
                     python3 -m venv aws_neuron_nemo_megatron && \
                     source aws_neuron_nemo_megatron/bin/activate && \
+                    pip3 install --upgrade pip && \
                     pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
                     pip3 install torch-neuronx neuronx-cc  && \
                     ( [[ -d neuronx-nemo-megatron ]] || git clone https://github.com/aws-neuron/neuronx-nemo-megatron.git ) && \
