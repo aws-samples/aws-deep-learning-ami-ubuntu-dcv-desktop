@@ -635,6 +635,7 @@ Resources:
               - CreateNewSecurityGroup
               - !GetAtt DesktopSecurityGroup.GroupId
               - !Ref DesktopSecurityGroupId
+          SubnetId: !Ref DesktopVpcSubnetId
           InterfaceType: efa
         BlockDeviceMappings:
         - DeviceName: "/dev/sda1"
@@ -1010,9 +1011,9 @@ Resources:
               wget https://efa-installer.amazonaws.com/aws-efa-installer.key && gpg --import aws-efa-installer.key
               cat aws-efa-installer.key | gpg --fingerprint
               wget https://efa-installer.amazonaws.com/aws-efa-installer-1.30.0.tar.gz.sig && gpg --verify ./aws-efa-installer-1.30.0.tar.gz.sig
-              tar -xf aws-efa-installer-1.30.0.tar.gz
-              cd aws-efa-installer && ./efa_installer.sh --yes
-              cd ../ && rm -rf aws-efa-installer-1.30.0.tar.gz aws-efa-installer
+              tar -xf aws-efa-installer-1.31.0.tar.gz
+              cd aws-efa-installer &&  ( ./efa_installer.sh --yes || echo "Verify EFA Security Group." )
+              cd ../ && rm -rf aws-efa-installer-1.31.0.tar.gz aws-efa-installer
               
               fi
 
