@@ -1004,31 +1004,21 @@ Resources:
               if [[ "$EFA_ENABLED"  == "true" ]]
               then
               # Install EFA software
-              # disable ptrace
               sysctl -w kernel.yama.ptrace_scope=0
-
-              curl -O https://efa-installer.amazonaws.com/aws-efa-installer-1.30.0.tar.gz
+              curl -O https://efa-installer.amazonaws.com/aws-efa-installer-1.32.0.tar.gz
               wget https://efa-installer.amazonaws.com/aws-efa-installer.key && gpg --import aws-efa-installer.key
               cat aws-efa-installer.key | gpg --fingerprint
-              wget https://efa-installer.amazonaws.com/aws-efa-installer-1.30.0.tar.gz.sig && gpg --verify ./aws-efa-installer-1.30.0.tar.gz.sig
-              tar -xf aws-efa-installer-1.31.0.tar.gz
-              cd aws-efa-installer &&  ( ./efa_installer.sh --yes || echo "Verify EFA Security Group." )
-              cd ../ && rm -rf aws-efa-installer-1.31.0.tar.gz aws-efa-installer
-              
+              wget https://efa-installer.amazonaws.com/aws-efa-installer-1.32.0.tar.gz.sig && gpg --verify ./aws-efa-installer-1.32.0.tar.gz.sig
+              tar -xf aws-efa-installer-1.32.0.tar.gz
+              cd aws-efa-installer &&  ( ./efa_installer.sh --yes || echo "Verify EFA" )
+              cd ../ && rm -rf aws-efa-installer-1.32.0.tar.gz aws-efa-installer
               fi
 
               # Create EFS  mount script
               cat >/usr/local/bin/mount-efs.sh <<EOL
               #!/bin/bash
-
-              if [[ ! -d $EFS_MOUNT_PATH ]]
-              then
-                mkdir $EFS_MOUNT_PATH
-              fi
-              
-              # Mount EFS
+              mkdir -p $EFS_MOUNT_PATH
               mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport $EFS_FS_ID.efs.$AWS_REGION.amazonaws.com:/ $EFS_MOUNT_PATH
-
               EOL
               chmod u+x /usr/local/bin/mount-efs.sh
               /usr/local/bin/mount-efs.sh
@@ -1036,17 +1026,9 @@ Resources:
               # Create FSx  mount script
               cat >/usr/local/bin/mount-fsx.sh <<EOL
               #!/bin/bash
-
-              echo "FSx for Lustre is enabled: $FSX_ENABLED"
-              # Mount FSX
               if [[ "$FSX_ENABLED"  == "true" ]]
               then
-
-                if [[ ! -d $FSX_MOUNT_PATH ]]
-                then
-                  mkdir $FSX_MOUNT_PATH
-                fi
-              
+                mkdir -p $FSX_MOUNT_PATH
                 apt-get -y install lustre-client-modules-$(uname -r)
                 mount -t lustre -o noatime,flock $FSX_FS_ID.fsx.$AWS_REGION.amazonaws.com@tcp:/$FSX_MOUNT_NAME $FSX_MOUNT_PATH
               fi
