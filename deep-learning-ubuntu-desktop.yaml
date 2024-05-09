@@ -1119,20 +1119,20 @@ Resources:
                   conda deactivate
 
                   # create conda environments
-                  conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.10 && \
+                  conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.12 && \
                   conda activate tensorflow && \
                   pip3 install --upgrade pip && \
-                  pip3 install tensorflow==2.14.0 && \
+                  pip3 install tensorflow==2.16.1 && \
                   pip3 install datasets && \
                   pip3 install transformers && \
                   conda install -y ipykernel && \
                   conda install -y boto3 && \
                   conda deactivate
 
-                  conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.10 && \
+                  conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.12 && \
                   conda activate pytorch && \
                   pip3 install --upgrade pip && \
-                  pip3 install torch==2.1.0 torchvision && \
+                  pip3 install torch==2.3.0 torchvision && \
                   pip3 install datasets && \
                   pip3 install transformers && \
                   conda install -y ipykernel && \
