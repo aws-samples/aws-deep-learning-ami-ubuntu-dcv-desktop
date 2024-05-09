@@ -437,6 +437,9 @@ Resources:
                 apt-get -y install cuda-compat-${CUDA_COMPAT_DASH} && \
                 echo "export LD_LIBRARY_PATH=/usr/local/cuda-${CUDA_COMPAT}/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
                 reboot
+
+                dpkg -l | grep nvidia | awk -F' ' '{print $2}' > /tmp/dpkg.out
+                for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
                 
                 # check if we have a Trainium  instance
                 [[ -z $(lspci -v | grep NVIDIA) ]] && update-pciids
