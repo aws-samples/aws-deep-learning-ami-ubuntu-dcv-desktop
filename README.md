@@ -2,7 +2,7 @@
 
 This project is a tutorial on how to launch an AWS deep learning desktop with [NICE DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models. To launch the deep learning desktop, you have a choice of two AMIs:
 
-* Ubuntu Server Pro, 22.04 LTS, Version 20231025 (Default)
+* Ubuntu Server Pro, 22.04 LTS, Version 20240927 (Default)
 * Ubuntu Server Pro, 20.04 LTS, Version 20231030
 
 Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), [inf2](https://aws.amazon.com/ec2/instance-types/inf2/), GPU enabled [g3](https://aws.amazon.com/ec2/instance-types/g3/), [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), and [r5](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
