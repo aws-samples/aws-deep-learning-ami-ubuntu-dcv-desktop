@@ -84,10 +84,11 @@ Parameters:
   
   FSxForLustre:
     Description: >-
-      Advanced option to enable, disable FSx for Lustre file-system. If enabled, a FSx for Lustre 
-      file-system is created and mounted on the desktop. The FSx for Lustre file-system 
+      Advanced option to enable, disable FSx for Lustre file-system. 
+      Requires UbuntuAMIOverride to specify FSx for Lustre client compatible AMI.
+      The FSx for Lustre file-system 
       automatically imports data from s3://S3bucket/S3Import. 
-      See S3Bucket and S3Import parameters.
+      See UbuntuAMIOverride, S3Bucket and S3Import parameters.
     Type: String
     Default: 'disabled'
     AllowedValues:
@@ -158,6 +159,22 @@ Parameters:
       - g5.16xlarge
       - g5.24xlarge
       - g5.48xlarge
+      - g6.xlarge
+      - g6.2xlarge
+      - g6.4xlarge
+      - g6.8xlarge
+      - g6.12xlarge
+      - g6.16xlarge
+      - g6.24xlarge
+      - g6.48xlarge
+      - g6e.xlarge
+      - g6e.2xlarge
+      - g6e.4xlarge
+      - g6e.8xlarge
+      - g6e.12xlarge
+      - g6e.16xlarge
+      - g6e.24xlarge
+      - g6e.48xlarge
       - p3.2xlarge
       - p3.8xlarge
       - p3.16xlarge
@@ -293,6 +310,20 @@ Conditions:
       - !Ref DesktopInstanceType
       - 'g5.48xlarge'
 
+  EfaG6eInstances: !Or
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'g6e.12xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'g6e.16xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'g6e.24xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'g6e.48xlarge'
+
   EfaPInstances: !Or
     - !Equals 
       - !Ref DesktopInstanceType
@@ -312,6 +343,7 @@ Conditions:
   EfaEnabled: !Or
     - !Condition EfaCpuInstances
     - !Condition EfaGInstances
+    - !Condition EfaG6eInstances
     - !Condition EfaPInstances
     - !Condition EfaTrn132Instances
 
@@ -716,8 +748,8 @@ Resources:
               [[ ! -z $(lspci -v | grep NVIDIA) ]] && \
               [[ ! -x "$(command -v nvidia-smi)" ]] && \
               apt-get -y install linux-headers-$(uname -r) && \
-              wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.0-1_all.deb && \
-              dpkg -i cuda-keyring_1.0-1_all.deb && \
+              wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.1-1_all.deb && \
+              dpkg -i cuda-keyring_1.1-1_all.deb && \
               apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
               apt-get -y install cuda-${CUDA_DASH} && \
               apt-get -y install cuda-${CUDA_11_DASH} && \
