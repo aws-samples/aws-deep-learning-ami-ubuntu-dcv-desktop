@@ -722,9 +722,7 @@ Resources:
               MIME-Version: 1.0
               Content-Transfer-Encoding: 7bit
               Content-Disposition: attachment; filename="userdata.txt"
-
               #!/bin/bash -xe
-
               echo "Cloud init in progress!" > /etc/motd
               . /etc/os-release
 
@@ -744,60 +742,47 @@ Resources:
               CUDA_11=11.8
               CUDA_11_DASH=${CUDA_11//\./-}
 
-              # check if we have a GPU and if Nvidia drivers and CUDA need to be installed
-              [[ ! -z $(lspci -v | grep NVIDIA) ]] && \
-              [[ ! -x "$(command -v nvidia-smi)" ]] && \
-              apt-get -y install linux-headers-$(uname -r) && \
-              wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.1-1_all.deb && \
-              dpkg -i cuda-keyring_1.1-1_all.deb && \
-              apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
-              apt-get -y install cuda-${CUDA_DASH} && \
-              apt-get -y install cuda-${CUDA_11_DASH} && \
-              apt-get -y install libcudnn8 && \
-              apt-get -y install libcudnn8-dev && \
-              echo "export PATH=/usr/local/cuda-${CUDA}/bin:/usr/local/cuda-${CUDA_11}/bin:$PATH" >> /home/ubuntu/.bashrc && \
-              CUDA_COMPAT=$(nvidia-smi | grep CUDA | awk '{print $(NF - 1)}') && \
-              CUDA_COMPAT_DASH=${CUDA_COMPAT//\./-} && \
-              apt-get -y install cuda-compat-${CUDA_COMPAT_DASH} && \
-              echo "export LD_LIBRARY_PATH=/usr/local/cuda-${CUDA_COMPAT}/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
-              reboot
+            - OVERRIDE_AMI=
+            - !Ref UbuntuAMIOverride
+            - |+
 
-              dpkg -l | grep nvidia | awk -F' ' '{print $2}' > /tmp/dpkg.out
-              for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
-              
-              # check if we have a Trainium  instance
-              [[ -z $(lspci -v | grep NVIDIA) ]] && update-pciids
-              if  ( [[ ! -z $(lspci -v | grep Trainium) ]] || [[ ! -z $(lspci -v | grep Inferentia2) ]] ) \
-                && [[ ! -x "$(command -v /opt/aws/neuron/neuron-ls)" ]]
-              then
-                wget -qO - https://apt.repos.neuron.amazonaws.com/GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB > ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
-                gpg --no-default-keyring --keyring ./aws_neuron_keyring.gpg --import  ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
-                gpg --no-default-keyring --keyring ./aws_neuron_keyring.gpg  --export >  ./aws_neuron.gpg
-                mv ./aws_neuron.gpg /etc/apt/trusted.gpg.d/
-                rm ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
+              if [[ -z "${OVERRIDE_AMI}" ]]; then
+                [[ ! -z $(lspci -v | grep NVIDIA) ]] && \
+                [[ ! -x "$(command -v nvidia-smi)" ]] && \
+                apt-get -y install linux-headers-$(uname -r) && \
+                wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.1-1_all.deb && \
+                dpkg -i cuda-keyring_1.1-1_all.deb && \
+                apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
+                apt-get -y install cuda-${CUDA_DASH} && \
+                apt-get -y install cuda-${CUDA_11_DASH} && \
+                apt-get -y install libcudnn8 && \
+                apt-get -y install libcudnn8-dev && \
+                echo "export PATH=/usr/local/cuda-${CUDA}/bin:/usr/local/cuda-${CUDA_11}/bin:$PATH" >> /home/ubuntu/.bashrc && \
+                CUDA_COMPAT=$(nvidia-smi | grep CUDA | awk '{print $(NF - 1)}') && \
+                CUDA_COMPAT_DASH=${CUDA_COMPAT//\./-} && \
+                apt-get -y install cuda-compat-${CUDA_COMPAT_DASH} && \
+                echo "export LD_LIBRARY_PATH=/usr/local/cuda-${CUDA_COMPAT}/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
+                reboot
 
-                add-apt-repository -y  "deb https://apt.repos.neuron.amazonaws.com ${VERSION_CODENAME} main"
-                # Update OS packages 
-                apt-get -y update
+                dpkg -l | grep nvidia | awk -F' ' '{print $2}' > /tmp/dpkg.out
+                for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
+                
+                [[ -z $(lspci -v | grep NVIDIA) ]] && update-pciids
+                if  ( [[ ! -z $(lspci -v | grep Trainium) ]] || [[ ! -z $(lspci -v | grep Inferentia2) ]] ) \
+                  && [[ ! -x "$(command -v /opt/aws/neuron/neuron-ls)" ]]
+                then
+                  wget -qO - https://apt.repos.neuron.amazonaws.com/GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB > ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
+                  gpg --no-default-keyring --keyring ./aws_neuron_keyring.gpg --import  ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
+                  gpg --no-default-keyring --keyring ./aws_neuron_keyring.gpg  --export >  ./aws_neuron.gpg
+                  mv ./aws_neuron.gpg /etc/apt/trusted.gpg.d/
+                  rm ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
 
-                # Install OS headers 
-                apt-get -y install linux-headers-$(uname -r)
-
-                # install git
-                apt-get -y install git
-
-                # install Neuron Driver
-                apt-get -y install aws-neuronx-dkms
-                apt-get -y install aws-neuronx-oci-hook
-
-                # Install Neuron Runtime 
-                apt-get -y install aws-neuronx-collectives
-                apt-get -y install aws-neuronx-runtime-lib
-
-                # Install Neuron Tools 
-                apt-get -y install aws-neuronx-tools
-
-                echo "export PATH=/opt/aws/neuron/bin:$PATH" >> /home/ubuntu/.bashrc
+                  add-apt-repository -y  "deb https://apt.repos.neuron.amazonaws.com ${VERSION_CODENAME} main"
+                  apt-get -y update
+                  apt-get -y install linux-headers-$(uname -r) git
+                  apt-get -y install aws-neuronx-dkms aws-neuronx-oci-hook aws-neuronx-collectives aws-neuronx-runtime-lib aws-neuronx-tools
+                  echo "export PATH=/opt/aws/neuron/bin:$PATH" >> /home/ubuntu/.bashrc
+                fi
               fi
 
               # setup software repo for docker
@@ -859,7 +844,7 @@ Resources:
                   apt-get -y install nvidia-container-toolkit
                 fi
               fi
-
+              
               apt-get -y install tzdata
               apt-get -y install keyboard-configuration
               apt-get -y install gnupg2
