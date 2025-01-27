@@ -1172,7 +1172,7 @@ Resources:
               # install visual code 
               apt-get -y install code
  
-              echo "NICE DCV server is enabled!" > /etc/motd
+              echo "Amazon DCV server is enabled!" > /etc/motd
 Outputs:
   Ami:
     Description: AMI

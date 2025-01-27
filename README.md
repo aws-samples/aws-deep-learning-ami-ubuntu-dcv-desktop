@@ -1,13 +1,13 @@
-# AWS Deep Learning Desktop with NICE DCV
+# AWS Deep Learning Desktop with Amazon DCV
 
-This project is a tutorial on how to launch an AWS deep learning desktop with [NICE DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models. To launch the deep learning desktop, you have a choice of two AMIs:
+This project is a tutorial on how to launch an AWS deep learning desktop with [Amazon DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models. To launch the deep learning desktop, you have a choice of two AMIs:
 
 * Ubuntu Server Pro, 22.04 LTS, Version 20240927 (Default)
 * Ubuntu Server Pro, 20.04 LTS, Version 20231030
 
-Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), [inf2](https://aws.amazon.com/ec2/instance-types/inf2/), GPU enabled [g3](https://aws.amazon.com/ec2/instance-types/g3/), [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), and [r5](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
+Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), [inf2](https://aws.amazon.com/ec2/instance-types/inf2/), GPU enabled [g3](https://aws.amazon.com/ec2/instance-types/g3/), [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [g6](https://aws.amazon.com/ec2/instance-types/g6/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), and [r5](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
 
-For Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) and [inf2](https://aws.amazon.com/ec2/instance-types/inf2/) instance types, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) with PyTorch support is automatically installed in a virtual environment named `aws_neuron_venv_pytorch`.  For all other types of EC2 instances, [conda](https://docs.conda.io/en/latest/miniconda.html) environment for [Tensorflow 2.16.1](https://www.tensorflow.org/) is installed in a conda environment `tensorflow`, and [PyTorch 2.3.0](https://pytorch.org/) is installed in a conda environment named `pytorch`. Both conda environments have [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) installed. 
+For Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) and [inf2](https://aws.amazon.com/ec2/instance-types/inf2/) instance types, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) with PyTorch support is automatically installed in a virtual environment named `aws_neuron_venv_pytorch`.  For all other types of EC2 instances, [conda](https://docs.conda.io/en/latest/miniconda.html) environment for [Tensorflow 2.17.0](https://www.tensorflow.org/) is installed in a conda environment `tensorflow`, and [PyTorch 2.5.1](https://pytorch.org/) is installed in a conda environment named `pytorch`. Both conda environments have [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) installed. 
 
 For Amazon EC2 GPU enabled instance types, CUDA Compatibility package compatible with the CUDA driver, [CUDA](https://developer.nvidia.com/cuda-toolkit), and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed.
 
@@ -25,9 +25,11 @@ This tutorial assumes you have an [AWS Account](https://aws.amazon.com/account/)
 To get started:
 
 * Select your [AWS Region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). The AWS Regions supported by this project include, us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, ap-northeast-2, and ap-south-1. Note that not all Amazon EC2 instance types are available in all [AWS Availability Zones](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) in an AWS Region.
+* [Create a new VPC](https://docs.aws.amazon.com/vpc/latest/userguide/create-vpc.html#create-vpc-only), or use an existing VPC in your selected region.
+* In your selected VPC, if needed, [create three public subnets](https://docs.aws.amazon.com/vpc/latest/userguide/create-subnets.html) in three different AWS Availability Zones. 
 * If you do not already have an Amazon EC2 key pair, [create a new Amazon EC2 key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair). You will need the key pair name to specify the ```KeyName``` parameter when creating the CloudFormation stack below.
 * You will need an [Amazon S3](https://aws.amazon.com/s3/) bucket. If you don't have one, [create a new Amazon S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in the AWS region you selected. The S3 bucket can be empty at this point.
-* Use [AWS check ip](http://checkip.amazonaws.com/) to get your public IP address. This will be the IP address you will need to specify ```DesktopAccessCIDR``` parameter in the stack. 
+* Use [AWS check ip](http://checkip.amazonaws.com/) to get your public IP address. This will be the IP address you will need to specify the ```DesktopAccessCIDR``` parameter in the stack. 
 * Clone this Git repository on your laptop using [```git clone ```](https://git-scm.com/book/en/v2/Git-Basics-Getting-a-Git-Repository).
 
 ### Step 2. Create AWS CloudFormation Stack
@@ -39,16 +41,16 @@ The template [deep-learning-ubuntu-desktop.yaml](deep-learning-ubuntu-desktop.ya
 ### Step 3. Connect to Desktop using SSH
 
 * Once the stack status in CloudFormation console is ```CREATE_COMPLETE```, find the deep learning desktop instance launched in your stack in the Amazon EC2 console, and [connect to the instance using SSH](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstancesLinux.html) as user ```ubuntu```, using your SSH key pair.
-* When you connect using SSH, and you see the message ```"Cloud init in progress. Machine will REBOOT after cloud init is complete!!"```, disconnect and try later after about 15 minutes. The desktop installs the NICE DCV server on first-time startup, and reboots after the install is complete.
-* If you see the message ```NICE DCV server is enabled!```, run the command ```sudo passwd ubuntu``` to set a new password for user ```ubuntu```. Now you are ready to connect to the desktop using the [NICE DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html)
+* When you connect using SSH, and you see the message ```"Cloud init in progress. Machine will REBOOT after cloud init is complete!!"```, disconnect and try later after about 15 minutes. The desktop installs the Amazon DCV server on first-time startup, and reboots after the install is complete.
+* If you see the message ```Amazon DCV server is enabled!```, run the command ```sudo passwd ubuntu``` to set a new password for user ```ubuntu```. Now you are ready to connect to the desktop using the [Amazon DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html)
 
 #### NOTE
 The deep-learning desktop uses EC2 [user-data](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html) to automatically install the required software in the desktop instance. The log output of this automatic installation is available in `/var/log/cloud-init-output.log` file. Most *transient* failures in the automatic user-data installation can be fixed by rebooting the instance.
 
-### Step 4. Connect to Desktop using NICE DCV Client
-* Download and install the [NICE DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html) on your laptop.
-* Use the NICE DCV Client to login to the desktop as user ```ubuntu```
-* When you first login to the desktop using the NICE DCV client, you will be asked if you would like to upgrade the OS version. **Do not upgrade the OS version** .
+### Step 4. Connect to Desktop using Amazon DCV Client
+* Download and install the [Amazon DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html) on your laptop.
+* Use the Amazon DCV Client to login to the desktop as user ```ubuntu```
+* When you first login to the desktop using the Amazon DCV client, you will be asked if you would like to upgrade the OS version. **Do not upgrade the OS version** .
 
 ## Generative AI Inference Testing
 
