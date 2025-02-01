@@ -62,7 +62,11 @@ The deep learning desktop is pre-configured to use [Amazon SageMaker AI](https:/
 	
 This will start a ```jupyter-lab``` notebook server in the terminal, and open a tab in your web browser. 
 
-For inference examples, navigate to `amazon-sagemaker-examples/advanced_functionality/large-model-inference-testing/large_model_inference.ipynb` notebook in Jupyter Lab. For training examples, navigate to `amazon-sagemaker-examples/advanced_functionality/distributed-training-pipeline/dist_training_pipeline.ipynb` notebook in Jupyter Lab.  Use the `base` kernel in the notebook. You can skip straight to the cell titled **Initialize SageMaker session**.
+For inference examples, navigate to `amazon-sagemaker-examples/advanced_functionality/large-model-inference-testing/large_model_inference.ipynb` notebook in Jupyter Lab. Use the `base` kernel in the notebook. You can skip straight to the cell titled **Initialize SageMaker session**.
+
+**For advanced users**:
+
+if you have FSx for Lustre enabled in the deep learning desktop, you can navigate to `amazon-sagemaker-examples/advanced_functionality/distributed-training-pipeline/dist_training_pipeline.ipynb` notebook in Jupyter Lab and run training examples. Use the `base` kernel in the notebook. You can skip straight to the cell titled **Initialize SageMaker session**.
 
 ## Local Generative AI Inference Testing
 
