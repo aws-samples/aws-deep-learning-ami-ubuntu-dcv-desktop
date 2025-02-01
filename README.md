@@ -52,37 +52,41 @@ The deep-learning desktop uses EC2 [user-data](https://docs.aws.amazon.com/AWSEC
 * Use the Amazon DCV Client to login to the desktop as user ```ubuntu```
 * When you first login to the desktop using the Amazon DCV client, you will be asked if you would like to upgrade the OS version. **Do not upgrade the OS version** .
 
-## Generative AI Inference Testing
+## Using Amazon SageMaker AI
+The deep learning desktop is pre-configured to use [Amazon SageMaker AI](https://aws.amazon.com/sagemaker-ai/). To get started with Generative AI training and inference examples in Amazon SageMaker AI, execute following steps in a desktop terminal:
 
-For Generative AI inference testing, follow this [tutorial](./gen-ai-inference-testing/README.md).
+	mkdir ~/git
+	cd ~/git
+	git clone -b distributed-training-pipeline https://github.com/aws/amazon-sagemaker-examples.git
+	jupyter-lab 1>lab.out 2>&1 &
+	
+This will start a ```jupyter-lab``` notebook server in the terminal, and open a tab in your web browser. 
 
-## Working with Data
+For inference examples, navigate to `amazon-sagemaker-examples/advanced_functionality/large-model-inference-testing/large_model_inference.ipynb` notebook in Jupyter Lab. For training examples, navigate to `amazon-sagemaker-examples/advanced_functionality/distributed-training-pipeline/dist_training_pipeline.ipynb` notebook in Jupyter Lab.  Use the `base` kernel in the notebook. You can skip straight to the cell titled **Initialize SageMaker session**.
 
-The deep learning desktop instance has access to the S3 bucket you specified when you create the CloudFormation stack. You can verify the access to your S3 bucket by running the command ```aws s3 ls your-bucket-name```. If you do not have access to the S3 bucket, you will see an error message. If your S3 bucket is empty, the previous command will produce no output, which is normal. 
+## Local Generative AI Inference Testing
+
+For local Generative AI inference testing on the deep learning desktop, follow this [tutorial](./gen-ai-inference-testing/README.md).
+
+## Accessing Data
+
+The deep learning desktop instance has access to the S3 bucket you specified when you create the CloudFormation stack. You can verify the access to your S3 bucket by running following command 
+
+	aws s3 ls your-bucket-name 
+
+If you do not have access to the S3 bucket, you will see an error message. If your S3 bucket is empty, the previous command will produce no output, which is normal. 
 
 There is an [Amazon EBS](https://aws.amazon.com/ebs/) root volume attached to the instance. In addition, an [Amazon EFS](https://aws.amazon.com/efs/) file-system is mounted on your desktop at ```EFSMountPath```, which by default is ```/home/ubuntu/efs```. Optionally, an [Amazon FSx for Lustre](https://aws.amazon.com/fsx/) file-system can be mounted on your desktop at ```FSxMountPath```, which by default is ```/home/ubuntu/fsx```.  See ```FSxForLustre``` parameter in [Reference](#Reference) section to learn how to enable FSx for Lustre file-system.
 
 The Amazon EBS volume attached to the instance is deleted when the deep learning instance is terminated. However, the EFS file-system persists after you terminate the desktop instance. 
 
-## Using Amazon SageMaker from deep learning desktop
-The deep learning desktop is pre-configured to use [Amazon SageMaker](https://aws.amazon.com/sagemaker/) machine learning platform. To get started with [Amazon SageMaker examples](https://github.com/aws/amazon-sagemaker-examples) in a [JupyterLab](https://jupyterlab.readthedocs.io/en/stable/getting_started/overview.html) notebook, execute following steps in a desktop terminal:
-
-	mkdir ~/git
-	cd ~/git
-	git clone https://github.com/aws/amazon-sagemaker-examples.git
-	jupyter-lab
-	
-This will start a ```jupyter-lab``` notebook server in the terminal, and open a tab in your web browser. You can now explore the Amazon SageMaker examples. 
-
-For SageMaker examples that require you to specify a [subnet](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#vpc-subnet-basics), and a [security group](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html), use the pre-configured environment variables  ```desktop_subnet_id``` and ```desktop_sg_id```, respectively. If FSx for Lustre is enabled, pre-configured environment variable  ```fsx_fs_id``` contains FSx for Lustre file-system id, and ```fsx_mount_name``` variable contains the mount name.
-
 ## Stopping and Restarting the Desktop
 
 You may safely reboot, stop, and restart the desktop instance at any time. The desktop will automatically mount the EFS file-system at restart. If FSx for Luster file-system is enabled, it is automatically mounted, as well.
 
-## Launching Deep-learning Cluster with EFA and Open MPI
+## Launching Deep-learning Cluster with EFA and Open MPI (Advanced)
 
-The CloudFormation stack template for [deep-learning cluster enabled with EFA and Open MPI](deep-learning-ubuntu-efa-cluster.yaml) can be launched after the desktop CloudFormation Stack launch is successfully completed. See [Reference](#Reference) for deep-learning cluster CloudFormation template input parameters.
+For advanced users, the CloudFormation stack template for [deep-learning cluster enabled with EFA and Open MPI](deep-learning-ubuntu-efa-cluster.yaml) can be launched after the desktop CloudFormation Stack launch is successfully completed. See [Reference](#Reference) for deep-learning cluster CloudFormation template input parameters.
 
 ### Using Open MPI on the Desktop Head Node
 
@@ -200,7 +204,7 @@ Below, we describe the AWS CloudFormation template input parameters for the deep
 | EBSOptimized | This is a **required** parameter whereby you select if you want your desktop instance to be [network optimized for EBS](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html) (default is **true**)|
 | EFSFileSystemId | This is an *optional* advanced parameter whereby you specify an existing EFS file-system id with an [existing network mount target](https://docs.aws.amazon.com/efs/latest/ug/how-it-works.html#how-it-works-ec2)  accessible from your DesktopVpcSubnetId. If you specify this parameter, do it in conjunction with DesktopSecurityGroupId. Leave it blank to create a new EFS file-system.  |
 | EFSMountPath | Absolute path for the directory where EFS file-system is mounted (default is ```/home/ubuntu/efs```).   |
-| EbsVolumeSize | This is a **required** parameter whereby you specify the size of the EBS volume (default size is 200 GB). Typically, the default size is sufficient.|
+| EbsVolumeSize | This is a **required** parameter whereby you specify the size of the EBS volume (default size is 500 GB). Typically, the default size is sufficient.|
 | EbsVolumeType | This is a **required** parameter whereby you select the [EBS volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html) (default is gp3). |
 | FSxCapacity | This is an **optional** parameter whereby you specify the capacity of the FSx for Lustre file-system. This capacity must be in multiples of 1200 GB. Default capacity is 1200 GB. See ```FSxForLustre``` parameter to enable FSx for Lustre file-system. | 
 | FSxForLustre | This is an **optional** parameter whereby you  enable, disable FSx for Lustre file-system. By default, it is disabled. If enabled, a FSx for Lustre file-system is created and mounted on the desktop. The FSx for Lustre file-system automatically imports data from ```s3://S3bucket/S3Import```. See ```S3Bucket``` and ```S3Import``` parameters. |

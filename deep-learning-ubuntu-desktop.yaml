@@ -39,10 +39,10 @@ Parameters:
      - "true"
      - "false"
   EbsVolumeSize:
-    Default: 200
+    Default: 500
     Description: Ebs volume size (GB)
     Type: Number
-    MinValue: 200
+    MinValue: 500
   EbsVolumeType:
     Default: 'gp3'
     Description: Ebs volume type
@@ -115,7 +115,7 @@ Parameters:
   DesktopInstanceType:
     Description: EC2 instance type for desktop
     Type: String
-    Default: g4dn.xlarge
+    Default: g6.xlarge
     AllowedValues:
       - m5d.2xlarge
       - m5d.4xlarge
