@@ -51,6 +51,7 @@ The deep-learning desktop uses EC2 [user-data](https://docs.aws.amazon.com/AWSEC
 * Download and install the [Amazon DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html) on your laptop.
 * Use the Amazon DCV Client to login to the desktop as user ```ubuntu```
 * When you first login to the desktop using the Amazon DCV client, you will be asked if you would like to upgrade the OS version. **Do not upgrade the OS version** .
+* Configure the desktop application **Software Updater** settings to only allow automatic download and application of security updates. Do not apply any non-security updates, unless you are an advanced user.
 
 ## Using Amazon SageMaker AI
 The deep learning desktop is pre-configured to use [Amazon SageMaker AI](https://aws.amazon.com/sagemaker-ai/). To get started with Generative AI training and inference examples in Amazon SageMaker AI, execute following steps in a desktop terminal:
