@@ -84,11 +84,10 @@ Parameters:
   
   FSxForLustre:
     Description: >-
-      Advanced option to enable, disable FSx for Lustre file-system. 
-      Requires UbuntuAMIOverride to specify FSx for Lustre client compatible AMI.
+      Advanced option to enable, disable FSx for Lustre file-system.
       The FSx for Lustre file-system 
       automatically imports data from s3://S3bucket/S3Import. 
-      See UbuntuAMIOverride, S3Bucket and S3Import parameters.
+      See S3Bucket and S3Import parameters.
     Type: String
     Default: 'disabled'
     AllowedValues:
