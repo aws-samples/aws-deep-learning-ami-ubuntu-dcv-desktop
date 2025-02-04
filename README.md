@@ -54,7 +54,7 @@ The deep-learning desktop uses EC2 [user-data](https://docs.aws.amazon.com/AWSEC
 * Configure the desktop application **Software Updater** settings to only allow automatic download and application of security updates. Do not apply any non-security updates, unless you are an advanced user.
 
 ## Using Amazon SageMaker AI
-The deep learning desktop is pre-configured to use [Amazon SageMaker AI](https://aws.amazon.com/sagemaker-ai/). To get started with Generative AI training and inference examples in Amazon SageMaker AI, execute following steps in a desktop terminal:
+The deep learning desktop is pre-configured to use [Amazon SageMaker AI](https://aws.amazon.com/sagemaker-ai/). To get started with Generative AI training and inference examples in Amazon SageMaker AI, execute following commands in a desktop terminal (for AWS AI accelerator based workstation, first run `source /home/ubuntu/aws_neuron_venv_pytorch/bin/activate` in the terminal):
 
 	mkdir ~/git
 	cd ~/git
@@ -63,7 +63,7 @@ The deep learning desktop is pre-configured to use [Amazon SageMaker AI](https:/
 	
 This will start a ```jupyter-lab``` notebook server in the terminal, and open a tab in your web browser. 
 
-For inference examples, navigate to `amazon-sagemaker-examples/advanced_functionality/large-model-inference-testing/large_model_inference.ipynb` notebook in Jupyter Lab. Use the `base` kernel in the notebook. You can skip straight to the cell titled **Initialize SageMaker session**, and set `s3_bucket` to the S3 bucket you used to launch the deep learning desktop.
+For inference examples, navigate to `amazon-sagemaker-examples/advanced_functionality/large-model-inference-testing/large_model_inference.ipynb` notebook in Jupyter Lab. Use any Python kernel in the notebook. You can skip straight to the cell titled **Initialize SageMaker session**, and set `s3_bucket` to the S3 bucket you used to launch the deep learning desktop.
 
 **For advanced users**:
 
