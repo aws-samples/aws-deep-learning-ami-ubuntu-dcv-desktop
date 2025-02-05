@@ -75,8 +75,8 @@ To launch, execute this on `g5.48xlarge`:
 
 To test:
 
-    ./triton-server/tests/test-triton-vllm.sh
-    ./triton-server/tests/test-triton-vllm-concurrent.sh
+    ./triton-server/tests/test-triton-trtllm.sh
+    ./triton-server/tests/test-triton-trtllm-concurrent.sh
 
 To stop:
 

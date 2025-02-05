@@ -31,19 +31,17 @@ examples/llama/convert_checkpoint.py \
 --tp_size=$TP_SIZE 
 fi
 
-cd /opt/tensorrtllm_backend
 mkdir -p /cache/$MODEL_ID
 ENGINE_DIR=/cache/$MODEL_ID/trtllm_engine
+[[ -d $ENGINE_DIR ]] && rm -rf $RNGINE_DIR
 
-if [ ! -d $ENGINE_DIR ]
-then
+cd /opt/tensorrtllm_backend
+
 echo "Build TensorRT-LLM engine"
 
 trtllm-build \
 --checkpoint_dir ${CKPT_PATH} \
 --max_num_tokens 32768 \
---tp_size ${TP_SIZE} \
---pp_size ${PP_SIZE} \
 --gpus_per_node 8 \
 --remove_input_padding enable \
 --gemm_plugin float16 \
@@ -51,11 +49,9 @@ trtllm-build \
 --paged_kv_cache enable \
 --context_fmha enable \
 --output_dir ${ENGINE_DIR} \
---max_batch_size 8 \
---use_custom_all_reduce disable
+--max_batch_size 8
 
-mpirun --allow-run-as-root -np $TP_SIZE python3 examples/run.py --tokenizer_dir $MODEL_PATH --engine_dir $ENGINE_DIR --max_output_len 128
-fi
+mpirun --allow-run-as-root -np $TP_SIZE python3 /opt/TensorRT-LLM/examples/run.py --tokenizer_dir $MODEL_PATH --engine_dir $ENGINE_DIR --max_output_len 128
 
 MODEL_REPO=/opt/ml/model/model_repo
 mkdir -p $MODEL_REPO
@@ -69,6 +65,7 @@ MAX_BATCH_SIZE=8
 INSTANCE_COUNT=1
 MAX_QUEUE_DELAY_MS=100
 FILL_TEMPLATE_SCRIPT=tools/fill_template.py
+encoder_input_features_data_type=TYPE_BF16
 
 MODEL_NAME=model
 cp -r all_models/inflight_batcher_llm/preprocessing $MODEL_REPO/${MODEL_NAME}_preprocessing
@@ -80,7 +77,7 @@ python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}_preprocessing/con
 python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}_postprocessing/config.pbtxt tokenizer_dir:${TOKENIZER_DIR},tokenizer_type:${TOKENIZER_TYPE},triton_max_batch_size:${MAX_BATCH_SIZE},postprocessing_instance_count:${INSTANCE_COUNT}
 python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}_tensorrt_llm_bls/config.pbtxt triton_max_batch_size:${MAX_BATCH_SIZE},decoupled_mode:${DECOUPLED_MODE},bls_instance_count:${INSTANCE_COUNT},tensorrt_llm_model_name:${MODEL_NAME}_tensorrt_llm
 python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}/config.pbtxt triton_max_batch_size:${MAX_BATCH_SIZE}
-python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}_tensorrt_llm/config.pbtxt triton_max_batch_size:${MAX_BATCH_SIZE},decoupled_mode:${DECOUPLED_MODE},engine_dir:${ENGINE_DIR},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MS},batching_strategy:inflight_fused_batching
+python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}_tensorrt_llm/config.pbtxt triton_max_batch_size:${MAX_BATCH_SIZE},decoupled_mode:${DECOUPLED_MODE},engine_dir:${ENGINE_DIR},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MS},batching_strategy:inflight_fused_batching,encoder_input_features_data_type:${encoder_input_features_data_type},triton_backend:tensorrtllm
 sed -i 's/name: "preprocessing"/name: "model_preprocessing"/1' ${MODEL_REPO}/${MODEL_NAME}_preprocessing/config.pbtxt
 sed -i 's/name: "postprocessing"/name: "model_postprocessing"/1' ${MODEL_REPO}/${MODEL_NAME}_postprocessing/config.pbtxt
 sed -i 's/name: "tensorrt_llm_bls"/name: "model_tensorrt_llm_bls"/1' ${MODEL_REPO}/${MODEL_NAME}_tensorrt_llm_bls/config.pbtxt
