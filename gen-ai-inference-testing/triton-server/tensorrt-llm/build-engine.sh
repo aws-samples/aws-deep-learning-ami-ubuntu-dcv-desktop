@@ -51,8 +51,6 @@ trtllm-build \
 --output_dir ${ENGINE_DIR} \
 --max_batch_size 8
 
-mpirun --allow-run-as-root -np $TP_SIZE python3 /opt/TensorRT-LLM/examples/run.py --tokenizer_dir $MODEL_PATH --engine_dir $ENGINE_DIR --max_output_len 128
-
 MODEL_REPO=/opt/ml/model/model_repo
 mkdir -p $MODEL_REPO
 
