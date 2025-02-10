@@ -2,7 +2,7 @@
 
 
 [ $# -ne 1 ] && echo "usage: $0 <up/down>" && exit 1
-export IMAGE=docker.io/library/tritonserver-neuronx:latest
+export IMAGE=docker.io/library/tritonserver-neuronx-vllm:latest
 export COMMAND="/scripts/triton-vllm-neuronx.sh"
 export HF_HOME=/snapshots/huggingface
 

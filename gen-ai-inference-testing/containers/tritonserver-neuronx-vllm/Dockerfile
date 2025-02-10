@@ -74,29 +74,29 @@ RUN apt-get -y install aws-neuronx-collectives=2.*
 RUN apt-get -y install aws-neuronx-runtime-lib=2.*
 RUN apt-get -y install aws-neuronx-tools=2.*
 
-RUN pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com
-RUN pip3 install awscli
-RUN pip3 install neuronx-cc==2.16.* torch-neuronx==2.5.* torchvision transformers-neuronx
+RUN pip3 install awscli --extra-index-url https://pip.repos.neuron.amazonaws.com
+RUN pip3 install --extra-index-url https://pip.repos.neuron.amazonaws.com neuronx-cc==2.16.* torch-neuronx==2.5.* torchvision transformers-neuronx optimum[neuronx]
 
 RUN pip3 install ray
 
 RUN cp -r /server/build/opt/* /opt/
 RUN rm -rf /server
 
-RUN pip3 install --extra-index-url https://pip.repos.neuron.amazonaws.com optimum[neuronx]
-RUN git clone https://github.com/deepjavalibrary/djl-serving.git /opt/djl-serving
-RUN cd /opt/djl-serving && git fetch origin c343d60b35f0d42f96f678570a553953f055ab32
-RUN cd /opt/djl-serving && git reset --hard c343d60b35f0d42f96f678570a553953f055ab32
-RUN cd /opt/djl-serving/engines/python/setup  && pip3 install -e .
-
 ENV VLLM_TARGET_DEVICE=neuron
-RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm
-RUN cd /opt/vllm && git fetch origin 5b734fb7edfdf3f8a836a3ddee81eba506230fdd
-RUN cd /opt/vllm && git reset --hard 5b734fb7edfdf3f8a836a3ddee81eba506230fdd
+RUN git clone https://github.com/aws-neuron/upstreaming-to-vllm.git /opt/vllm
+RUN cd /opt/vllm && git fetch origin 22c56ee68f8ee367db854d7dbb0bbfcf594a3599
+RUN cd /opt/vllm && git reset --hard 22c56ee68f8ee367db854d7dbb0bbfcf594a3599
 RUN pip3 install -r /opt/vllm/requirements-neuron.txt
 RUN cd /opt/vllm && pip3 install -e .
 
-RUN pip3 install triton==2.2.0 pynvml==11.5.3 transformers==4.44.2
+RUN git clone https://github.com/triton-inference-server/vllm_backend.git /opt/vllm_backend
+RUN cd /opt/vllm_backend && git fetch origin 507e4dccabf85c3b7821843261bcea7ea5828802
+RUN cd /opt/vllm_backend && git reset --hard 507e4dccabf85c3b7821843261bcea7ea5828802
+
+RUN mkdir -p /opt/tritonserver/backends/vllm
+RUN cp -r /opt/vllm_backend/src/* /opt/tritonserver/backends/vllm/
+
+RUN pip3 install pynvml==11.5.3 transformers==4.48.3
 
 COPY resources /opt/program
 RUN chmod u+x /opt/program/serve

@@ -30,6 +30,9 @@ def get_conf(num_servers):
 
             location / {
                 proxy_pass http://backend;
+                proxy_connect_timeout 60s; 
+                proxy_read_timeout 120s;
+                proxy_send_timeout 120s;
             }
         }
     }

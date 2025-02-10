@@ -5,7 +5,7 @@
 scripts_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 DIR=$scripts_dir/..
 
-export IMAGE="deepjavalibrary/djl-serving:0.29.0-tensorrt-llm"
+export IMAGE="deepjavalibrary/djl-serving:0.31.0-tensorrt-llm"
 export COMMAND="/scripts/djl-lmi-tensorrt-llm.sh"
 export HF_HOME=/snapshots/huggingface
 
