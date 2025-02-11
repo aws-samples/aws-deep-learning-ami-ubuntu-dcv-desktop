@@ -254,7 +254,7 @@ class TritonPythonModel:
           f"requests: {len(self.__requests)} != results: {len(self.__results)}"
 
       except Exception as e:
-        self.logger.log_error(f"Unpexpected error: {e}. Inflight requests discarded. Reset engine.")
+        self.logger.log_error(f"Unexpected error: {e}. Inflight requests discarded. Reset engine.")
         self.reset()
 
   def reset(self):

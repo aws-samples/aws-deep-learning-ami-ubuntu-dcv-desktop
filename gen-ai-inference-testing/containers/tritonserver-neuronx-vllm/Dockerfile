@@ -83,9 +83,11 @@ RUN cp -r /server/build/opt/* /opt/
 RUN rm -rf /server
 
 ENV VLLM_TARGET_DEVICE=neuron
-RUN git clone https://github.com/aws-neuron/upstreaming-to-vllm.git /opt/vllm
-RUN cd /opt/vllm && git fetch origin 22c56ee68f8ee367db854d7dbb0bbfcf594a3599
-RUN cd /opt/vllm && git reset --hard 22c56ee68f8ee367db854d7dbb0bbfcf594a3599
+RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm
+RUN cd /opt/vllm && git fetch origin a2c71c5405fdd8822956bcd785e72149c1cfb655
+RUN cd /opt/vllm && git reset --hard a2c71c5405fdd8822956bcd785e72149c1cfb655
+COPY patch /opt/patch
+RUN cd /opt/vllm && git apply --ignore-whitespace /opt/patch/vllm-neuron-issue-1.patch
 RUN pip3 install -r /opt/vllm/requirements-neuron.txt
 RUN cd /opt/vllm && pip3 install -e .
 
