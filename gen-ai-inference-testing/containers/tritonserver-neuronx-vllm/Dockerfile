@@ -87,7 +87,7 @@ RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm
 RUN cd /opt/vllm && git fetch origin 2339d59f9260499599d60599f83978fad1827999
 RUN cd /opt/vllm && git reset --hard 2339d59f9260499599d60599f83978fad1827999
 COPY patch /opt/patch
-RUN cd /opt/vllm && git apply --ignore-whitespace /opt/patch/vllm-neuron-issue-1.patch
+RUN cd /opt/vllm && git apply --ignore-whitespace /opt/patch/vllm-neuron-0.6.6.post1.patch
 RUN pip3 install -r /opt/vllm/requirements-neuron.txt
 RUN cd /opt/vllm && pip3 install -e .
 
