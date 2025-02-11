@@ -84,8 +84,8 @@ RUN rm -rf /server
 
 ENV VLLM_TARGET_DEVICE=neuron
 RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm
-RUN cd /opt/vllm && git fetch origin a2c71c5405fdd8822956bcd785e72149c1cfb655
-RUN cd /opt/vllm && git reset --hard a2c71c5405fdd8822956bcd785e72149c1cfb655
+RUN cd /opt/vllm && git fetch origin 2339d59f9260499599d60599f83978fad1827999
+RUN cd /opt/vllm && git reset --hard 2339d59f9260499599d60599f83978fad1827999
 COPY patch /opt/patch
 RUN cd /opt/vllm && git apply --ignore-whitespace /opt/patch/vllm-neuron-issue-1.patch
 RUN pip3 install -r /opt/vllm/requirements-neuron.txt
