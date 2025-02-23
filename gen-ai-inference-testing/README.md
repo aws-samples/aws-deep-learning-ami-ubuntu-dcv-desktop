@@ -45,6 +45,7 @@ To test:
     ./djl-serving/tests/test-djl-lmi-concurrent.sh
 
 To stop:
+
     HF_TOKEN=your-token MODEL_ID=hf-model-id \
         ./djl-serving/tensorrt-llm/compose-djl-lmi-tensorrt-llm.sh down
 
@@ -61,6 +62,7 @@ To test:
     ./djl-serving/tests/test-djl-lmi-concurrent.sh
 
 To stop:
+
     HF_TOKEN=your-token MODEL_ID=hf-model-id \
         ./djl-serving/transformers-neuronx/compose-djl-lmi-transformers-neuronx.sh down
 
@@ -79,6 +81,7 @@ To test:
     ./triton-server/tests/test-triton-trtllm-concurrent.sh
 
 To stop:
+
     HF_TOKEN=your-token MODEL_ID=hf-model-id \
         ./triton-server/tensorrt-llm/compose-triton-tensorrt-llm.sh down
 
@@ -95,6 +98,7 @@ To test:
     ./triton-server/tests/test-triton-vllm-concurrent.sh
 
 To stop:
+
     HF_TOKEN=your-token MODEL_ID=hf-model-id \
         ./triton-server/vllm/compose-triton-vllm-cuda.sh down
 
@@ -111,6 +115,7 @@ To test:
     ./triton-server/tests/test-triton-vllm-concurrent.sh
 
 To stop:
+
     HF_TOKEN=your-token MODEL_ID=hf-model-id \
         ./triton-server/vllm/compose-triton-vllm-neuronx.sh down
 
@@ -128,6 +133,7 @@ To test:
     ./triton-server/tests/test-triton-djl-lmi-neuronx-concurrent.sh
 
 To stop the server:
+
     HF_TOKEN=your-token MODEL_ID=hf-model-id \
         ./triton-server/djl-lmi/compose-triton-djl-lmi-neuronx.sh down
 
