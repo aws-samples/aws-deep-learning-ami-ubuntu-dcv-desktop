@@ -46,7 +46,8 @@ To test:
 
 To stop:
 
-    ./djl-serving/tensorrt-llm/compose-djl-lmi-tensorrt-llm.sh down
+    HF_TOKEN=your-token MODEL_ID=hf-model-id \
+        ./djl-serving/tensorrt-llm/compose-djl-lmi-tensorrt-llm.sh down
 
 #### Transformers Neuronx LMI Engine
 
@@ -62,7 +63,8 @@ To test:
 
 To stop:
 
-    ./djl-serving/transformers-neuronx/compose-djl-lmi-transformers-neuronx.sh down
+    HF_TOKEN=your-token MODEL_ID=hf-model-id \
+        ./djl-serving/transformers-neuronx/compose-djl-lmi-transformers-neuronx.sh down
 
 ### Triton Inference Server
 
@@ -80,7 +82,8 @@ To test:
 
 To stop:
 
-    ./triton-server/tensorrt-llm/compose-triton-tensorrt-llm.sh down
+    HF_TOKEN=your-token MODEL_ID=hf-model-id \
+        ./triton-server/tensorrt-llm/compose-triton-tensorrt-llm.sh down
 
 #### vLLM Backend on CUDA
 
@@ -96,7 +99,8 @@ To test:
 
 To stop:
 
-    ./triton-server/vllm/compose-triton-vllm-cuda.sh down
+    HF_TOKEN=your-token MODEL_ID=hf-model-id \
+        ./triton-server/vllm/compose-triton-vllm-cuda.sh down
 
 #### vLLM Backend on Neuronx
 
@@ -112,7 +116,8 @@ To test:
 
 To stop:
 
-    ./triton-server/vllm/compose-triton-vllm-neuronx.sh down
+    HF_TOKEN=your-token MODEL_ID=hf-model-id \
+        ./triton-server/vllm/compose-triton-vllm-neuronx.sh down
 
 
 #### DJL-LMI Neuronx Backend
@@ -129,5 +134,6 @@ To test:
 
 To stop the server:
 
-    ./triton-server/djl-lmi/compose-triton-djl-lmi-neuronx.sh down
+    HF_TOKEN=your-token MODEL_ID=hf-model-id \
+        ./triton-server/djl-lmi/compose-triton-djl-lmi-neuronx.sh down
 
