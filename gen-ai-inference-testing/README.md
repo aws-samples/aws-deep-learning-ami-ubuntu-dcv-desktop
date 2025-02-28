@@ -2,8 +2,8 @@
 
 This tutorial shows how to do Gen AI inference testing with [Deep Java Library (DJL) Large Model Inference (LMI) Server](https://docs.djl.ai/master/docs/serving/serving/docs/lmi/index.html), or [Triton Inference Server](https://github.com/triton-inference-server), on [AWS Deep Learning Desktop](https://github.com/aws-samples/aws-deep-learning-ami-ubuntu-dcv-desktop). 
 
-This solution is general purpose, but it has only been tested with `MODEL_ID=meta-llama/Meta-Llama-3-8B-Instruct`. You will need to adapt the test prompts in the [djl-serving/tests](./djl-serving/tests/) and [triton-server/tests](./triton-server/tests/) so they are consistent with the Hugging Face model you specify in `MODEL_ID` below. The default tests will only work for `MODEL_ID=meta-llama/Meta-Llama-3-8B-Instruct`.
 
+<<<<<<< HEAD
 ## Tutorial Steps
 
 ### Step 1. Launch Deep Learning Ubuntu Desktop
@@ -136,4 +136,8 @@ To stop the server:
 
     HF_TOKEN=your-token MODEL_ID=hf-model-id \
         ./triton-server/djl-lmi/compose-triton-djl-lmi-neuronx.sh down
+=======
+## Tutorial
+>>>>>>> 2b18283 (add locust testing notebook)
 
+Launch Visual Code, and open [load_testing.ipynb](./locust-testing/load_testing.ipynb) notebook.
