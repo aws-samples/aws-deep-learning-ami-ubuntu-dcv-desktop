@@ -182,6 +182,7 @@ Parameters:
       - trn1.2xlarge
       - trn1.32xlarge
       - trn1n.32xlarge
+      - trn2.48xlarge
       - inf2.xlarge
       - inf2.8xlarge
       - inf2.24xlarge
@@ -331,20 +332,23 @@ Conditions:
       - !Ref DesktopInstanceType
       - 'p3dn.24xlarge'
 
-  EfaTrn132Instances: !Or
+  EfaTrnInstances: !Or
     - !Equals 
       - !Ref DesktopInstanceType
       - 'trn1.32xlarge'
     - !Equals 
       - !Ref DesktopInstanceType
       - 'trn1n.32xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'trn2.48xlarge'
 
   EfaEnabled: !Or
     - !Condition EfaCpuInstances
     - !Condition EfaGInstances
     - !Condition EfaG6eInstances
     - !Condition EfaPInstances
-    - !Condition EfaTrn132Instances
+    - !Condition EfaTrnInstances
 
 Resources:
   
