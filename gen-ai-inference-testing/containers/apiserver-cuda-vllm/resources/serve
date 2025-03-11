@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+
+import copy
+import os
+import signal
+import subprocess
+import sys
+
+from jinja2 import Template
+import re
+
+def get_conf(num_servers):
+
+    template = Template("""
+    worker_processes 1;
+
+    events {
+        worker_connections   2000;
+    }
+
+    http {
+        upstream backend {
+            {%- for server in servers %}
+            server localhost:{{ server.port }};
+            {%- endfor %}
+        }
+
+        server {
+            listen 8080;
+
+            location / {
+                proxy_pass http://backend;
+                proxy_connect_timeout 60s; 
+                proxy_read_timeout 120s;
+                proxy_send_timeout 120s;
+            }
+        }
+    }
+    """)
+
+    servers = [ { "port": (8000+x*8)} for x in range(num_servers) ]
+    data = { "servers": servers}
+
+    nginx_conf = template.render(data)
+    server_ports = [ {"http": (8000+8*x)} for x in range(num_servers)]
+
+    return nginx_conf, server_ports
+
+def get_core_groups():
+    """Lists files in a directory that start with a given prefix."""
+
+    directory = "/dev"
+    prefix = "nvidia"
+    files = []
+    for filename in os.listdir(directory):
+        if re.search(f'^{prefix}\\d+', filename):
+            files.append(filename)
+    
+    num_cores = len(files)
+    model_server_cores = int(os.environ.get("MODEL_SERVER_CORES", num_cores))
+     
+    cores = [ x for x in range(num_cores)]
+    core_groups = [cores[x:x+model_server_cores] for x in range(0, len(cores), model_server_cores)]
+    core_groups = core_groups[: (num_cores// model_server_cores)]
+    return core_groups
+
+def sigterm_handler(*pids):
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+
+    sys.exit(0)
+
+def start_server():
+    core_groups = get_core_groups()
+    print(f"Inference server core groups; {core_groups}")
+    num_servers = len(core_groups)
+
+    nginx_conf, apiserver_ports = get_conf(num_servers=num_servers)
+    print(f"nginx.conf: {nginx_conf}")
+    print(f"apiserver ports: {apiserver_ports}")
+
+    with open("/opt/program/nginx.conf", "w+" ) as f:
+        f.write(nginx_conf)
+
+    # link the log streams to stdout/err so they will be logged to the container logs
+    subprocess.check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
+    subprocess.check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])
+    nginx = subprocess.Popen(['nginx', '-c', '/opt/program/nginx.conf'])
+    
+    pids = [nginx.pid]
+    
+    for i, ports in enumerate(apiserver_ports):
+        env_copy = copy.deepcopy(os.environ)
+        group = core_groups[i]
+        env_copy['CUDA_VISIBLE_DEVICES']=",".join(str(x) for x in group)
+        http = ports['http']
+        print(f"server instance: {i}: http: {http}")
+        print(f"server instance: {i}: CUDA_VISIBLE_DEVICES={env_copy['CUDA_VISIBLE_DEVICES']}")
+        model_id = os.getenv("MODEL_ID", None)
+        assert model_id is not None, "MODEL_ID env variarable is required"
+        accelerator_count = len(group)
+        gpu_memory_utilization = float(os.getenv("GPU_MEMORY_UTILIZATION", 0.9))
+        max_model_len = int(os.getenv("MAX_MODEL_LEN", 4096))
+        dtype = os.getenv("DTYPE", "auto")
+        max_num_seqs = int(os.getenv("MAX_NUM_SEQS", 8))
+        enable_trust_remote_code = os.getenv("ENABLE_TRUST_REMOTE_CODE", False)
+        enforce_eager = os.getenv("ENFORCE_EAGER", False)
+        enable_lora = os.getenv("ENABLE_LORA", False)
+        model_type = os.getenv("MODEL_TYPE", None)
+        tokenizer = os.getenv("TOKENIZER", model_id)
+        vllm_args = [
+            "python3",
+            "-m",
+            "vllm.entrypoints.api_server",
+            "--host=0.0.0.0",
+            f"--port={http}",
+            f"--model={model_id}",
+            f"--tokenizer={tokenizer}",
+            f"--tensor-parallel-size={accelerator_count}",
+            "--swap-space=16",
+            f"--gpu-memory-utilization={gpu_memory_utilization}",
+            f"--max-model-len={max_model_len}",
+            f"--dtype={dtype}",
+            f"--max-num-seqs={max_num_seqs}",
+            "--disable-log-stats",
+            "--trust-remote-code",
+            "--enforce-eager",
+        ]
+
+        if enable_trust_remote_code:
+            vllm_args.append("--trust-remote-code")
+        if enforce_eager:
+            vllm_args.append("--enforce-eager")
+        if enable_lora:
+            max_loras = int(os.getenv("MAX_LORAS", 1))
+            max_cpu_loras = int(os.getenv("MAX_CPU_LORAS", 8))
+            vllm_args.append("--enable-lora")
+            vllm_args.append(f"--max-cpu-loras={max_cpu_loras}")
+            vllm_args.append(f"--max-loras={max_loras}")
+        if model_type:
+            vllm_args.append(f"--model-type={model_type}")
+
+        server = subprocess.Popen(vllm_args, env=env_copy)
+        pids.append(server.pid)
+
+    signal.signal(signal.SIGTERM, lambda a, b: sigterm_handler(*pids))
+
+    # Exit the inference server upon exit of either subprocess
+    pids = set(pids)
+    while True:
+        pid, _ = os.wait()
+        if pid in pids:
+            break
+
+    sigterm_handler(nginx.pid)
+    print('apiserver exiting')
+
+# The main routine to invoke the start function.
+
+if __name__ == '__main__':
+    start_server()

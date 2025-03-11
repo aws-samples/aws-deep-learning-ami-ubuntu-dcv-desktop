@@ -30,8 +30,9 @@ class EndpointClient:
         self.kwargs = json.loads(os.getenv('PROMPT_KWARGS', "{}"))
 
     def __inference_request(self, request_meta:dict):
-        text_input = next(self.text_input_generator)
-        data= { "text_input": text_input }
+        prompt = next(self.text_input_generator)
+        prompt_key = os.getenv('PROMPT_KEY', "text_input")
+        data= { prompt_key: prompt }
         data.update(self.kwargs)
 
         body = json.dumps(data).encode("utf-8")
