@@ -1,6 +1,0 @@
-endpoint_url: "http://localhost:8080/generate"
-module_name: "llama3_prompt_generator"
-module_dir: "modules/inst-semeval2017"
-prompt_generator: "PromptGenerator"
-prompt_kwargs: { "max_tokens": 2048, "top_k": 50}
-prompt_key: "prompt"
