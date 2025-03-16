@@ -1,0 +1,6 @@
+endpoint_url: "http://localhost:8080/v1/chat/completions"
+module_name: "llama3_prompt_generator"
+module_dir: "modules/inst-semeval2017"
+prompt_generator: "PromptGenerator"
+template: { "model": "", "max_tokens": 2048, "top_k": 50, "messages": [ { "role": "user", "content": [ {"type" : "text", "text": ""} ] } ] }
+template_keys: [ "model", "messages.[0].content.[0].text"]

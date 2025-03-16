@@ -5,6 +5,10 @@
 
 [  -z "$MODEL_ID"  ] && echo "MODEL_ID environment variable must exist" && exit 1
 
+: ${TENSOR_PARALLEL_SIZE:=8}
+: ${MAX_MODEL_LEN:=8192}
+: ${OMP_NUM_THRADS:=16}
+
 MODEL_PATH=/snapshots/$MODEL_ID
 if [ ! -d $MODEL_PATH ]
 then
@@ -69,10 +73,10 @@ cat > /tmp/model.json <<EOF
 {
   "model": "$MODEL_PATH",
   "disable_log_requests": true,
-  "tensor_parallel_size": 8,
+  "tensor_parallel_size": $TENSOR_PARALLEL_SIZE,
   "max_num_seqs": 4,
   "dtype": "float16",
-  "max_model_len": 8192,
+  "max_model_len": $MAX_MODEL_LEN,
   "block_size": 8192,
   "use_v2_block_manager": true
 }
@@ -87,10 +91,8 @@ mkdir -p $MODEL_REPO/$MODEL_NAME/$VERSION
 cp /tmp/model.json $MODEL_REPO/$MODEL_NAME/$VERSION/model.json
 cp /tmp/config.pbtxt $MODEL_REPO/$MODEL_NAME/config.pbtxt
 
-export NEURON_CC_FLAGS="--model-type=transformer"
+export NEURON_CC_FLAGS="--model-type=transformer --enable-fast-loading-neuron-binaries"
 export NEURON_COMPILE_CACHE_URL="$CACHE_DIR"
-export OMP_NUM_THREADS=32
-export MODEL_SERVER_CORES=8
 export FI_EFA_FORK_SAFE=1
 /opt/program/serve \
 && /bin/bash -c "trap : TERM INT; sleep infinity & wait"

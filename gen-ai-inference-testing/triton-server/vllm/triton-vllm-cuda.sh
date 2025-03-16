@@ -4,6 +4,9 @@
 
 [  -z "$MODEL_ID"  ] && echo "MODEL_ID environment variable must exist" && exit 1
 
+: ${TENSOR_PARALLEL_SIZE:=8}
+: ${MAX_MODEL_LEN:=8192}
+: ${OMP_NUM_THRADS:=16}
 
 cat > /tmp/config.pbtxt <<EOF
 backend: "vllm"
@@ -58,10 +61,10 @@ cat > /tmp/model.json <<EOF
 {
   "model": "$MODEL_ID",
   "disable_log_requests": true,
-  "tensor_parallel_size": 8,
+  "tensor_parallel_size": $TENSOR_PARALLEL_SIZE,
   "max_num_seqs": 8,
   "dtype": "float16",
-  "max_model_len": 8192,
+  "max_model_len": $MAX_MODEL_LEN,
   "block_size": 8192,
   "use_v2_block_manager": true
 }
@@ -75,6 +78,5 @@ MODEL_NAME=model
 mkdir -p $MODEL_REPO/$MODEL_NAME/$VERSION
 cp /tmp/model.json $MODEL_REPO/$MODEL_NAME/$VERSION/model.json
 cp /tmp/config.pbtxt $MODEL_REPO/$MODEL_NAME/config.pbtxt
-export MODEL_SERVER_CORES=8
 /opt/program/serve \
 && /bin/bash -c "trap : TERM INT; sleep infinity & wait"

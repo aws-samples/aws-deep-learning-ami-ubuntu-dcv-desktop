@@ -1,4 +1,6 @@
+import copy
 from importlib import import_module
+import re
 import time
 import os
 import json
@@ -29,11 +31,37 @@ class EndpointClient:
 
         self.kwargs = json.loads(os.getenv('PROMPT_KWARGS', "{}"))
 
+    def _fill_template(self, template: dict, template_keys:list, inputs:list) -> dict:
+        
+        assert len(template_keys) == len(inputs), f"template_keys: {template_keys}, prompts: {inputs}"
+        for i, template_key in enumerate(template_keys):
+            _template = template
+            keys = template_key.split(".")
+            for key in keys[:-1]:
+                m = re.match(r'\[(\d+)\]', key)
+                if m:
+                    key = int(m.group(1))
+                _template = _template[key]
+
+            _template[keys[-1]] = inputs[i]
+        
+        return template
+
     def __inference_request(self, request_meta:dict):
-        prompt = next(self.text_input_generator)
-        prompt_key = os.getenv('PROMPT_KEY', "text_input")
-        data= { prompt_key: prompt }
-        data.update(self.kwargs)
+        inputs = next(self.text_input_generator)
+        inputs = [inputs] if isinstance(inputs, str) else inputs
+
+        template = os.getenv('TEMPLATE', "{}")
+        template = json.loads(template)
+        assert template
+
+        template_keys = os.getenv('TEMPLATE_KEYS', "[]")
+        template_keys = json.loads(template_keys)
+        assert template_keys
+
+        if "model" in template_keys:
+            inputs.insert(0, os.getenv("MODEL", ""))
+        data = self._fill_template(template=template, template_keys=template_keys, inputs=inputs)
 
         body = json.dumps(data).encode("utf-8")
         headers = {"Content-Type":  self.content_type}

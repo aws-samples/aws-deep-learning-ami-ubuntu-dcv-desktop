@@ -35,6 +35,8 @@ def get_conf(num_servers):
                 proxy_send_timeout 120s;
             }
         }
+                        
+        client_max_body_size 200M;
     }
     """)
 
@@ -57,7 +59,7 @@ def get_core_groups():
             files.append(filename)
     
     num_cores = len(files)
-    model_server_cores = int(os.environ.get("MODEL_SERVER_CORES", num_cores))
+    model_server_cores = int(os.environ.get("TENSOR_PARALLEL_SIZE", num_cores))
      
     cores = [ x for x in range(num_cores)]
     core_groups = [cores[x:x+model_server_cores] for x in range(0, len(cores), model_server_cores)]

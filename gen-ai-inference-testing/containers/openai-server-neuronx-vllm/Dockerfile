@@ -55,10 +55,6 @@ RUN apt update -q=2 \
       && apt-get update -q=2 \
       && apt-get install -y --no-install-recommends cmake=3.27.7* cmake-data=3.27.7*
 
-RUN git clone https://github.com/triton-inference-server/server.git /server
-RUN cd /server && git fetch origin bf86c27169ad4027202c76cf609ce42a2ec7b533
-RUN cd /server && git reset --hard bf86c27169ad4027202c76cf609ce42a2ec7b533
-RUN cd /server && ./build.py -v --no-container-build --build-dir=/server/build --backend=python --enable-metrics --enable-logging --enable-stats --endpoint="http" --endpoint="grpc" --filesystem="s3"
 
 RUN apt-get -y install gnupg2
 RUN wget -qO - https://apt.repos.neuron.amazonaws.com/GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB > ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
@@ -75,30 +71,16 @@ RUN apt-get -y install aws-neuronx-runtime-lib=2.*
 RUN apt-get -y install aws-neuronx-tools=2.*
 
 RUN pip3 install awscli --extra-index-url https://pip.repos.neuron.amazonaws.com
-RUN pip3 install --extra-index-url https://pip.repos.neuron.amazonaws.com neuronx-cc==2.16.* torch-neuronx==2.5.* torchvision transformers-neuronx optimum[neuronx]
-
-RUN pip3 install ray
-
-RUN cp -r /server/build/opt/* /opt/
-RUN rm -rf /server
+RUN pip3 install --extra-index-url https://pip.repos.neuron.amazonaws.com neuronx-cc==2.16.* torch-neuronx==2.5.* torchvision
 
 ENV VLLM_TARGET_DEVICE=neuron
 RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm
-RUN cd /opt/vllm && git fetch origin 2339d59f9260499599d60599f83978fad1827999
-RUN cd /opt/vllm && git reset --hard 2339d59f9260499599d60599f83978fad1827999
+RUN cd /opt/vllm && git fetch origin 0408efc6d0c17fba17b2be38d0d0f02e96d2bf9d
+RUN cd /opt/vllm && git reset --hard 0408efc6d0c17fba17b2be38d0d0f02e96d2bf9d
 COPY patch /opt/patch
-RUN cd /opt/vllm && git apply --ignore-whitespace /opt/patch/vllm-neuron-0.6.6.post1.patch
-RUN pip3 install -r /opt/vllm/requirements-neuron.txt
+RUN cd /opt/vllm && git apply --ignore-whitespace /opt/patch/vllm-neuron-0.7.2.patch
+RUN pip3 install --extra-index-url https://pip.repos.neuron.amazonaws.com -r /opt/vllm/requirements-neuron.txt
 RUN cd /opt/vllm && pip3 install -e .
-
-RUN git clone https://github.com/triton-inference-server/vllm_backend.git /opt/vllm_backend
-RUN cd /opt/vllm_backend && git fetch origin 507e4dccabf85c3b7821843261bcea7ea5828802
-RUN cd /opt/vllm_backend && git reset --hard 507e4dccabf85c3b7821843261bcea7ea5828802
-
-RUN mkdir -p /opt/tritonserver/backends/vllm
-RUN cp -r /opt/vllm_backend/src/* /opt/tritonserver/backends/vllm/
-
-RUN pip3 install pynvml==11.5.3 transformers==4.48.3
 
 COPY resources /opt/program
 RUN chmod u+x /opt/program/serve

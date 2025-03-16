@@ -2,6 +2,5 @@ endpoint_url: "http://localhost:8080/v2/models/model/generate"
 module_name: "llama3_prompt_generator"
 module_dir: "modules/inst-semeval2017"
 prompt_generator: "PromptGenerator"
-prompt_key: "text_input"
-prompt_kwargs:
-  max_tokens: 2048
+template: { "text_input": "" , "max_tokens": 2048 }
+template_keys: [ "text_input" ]

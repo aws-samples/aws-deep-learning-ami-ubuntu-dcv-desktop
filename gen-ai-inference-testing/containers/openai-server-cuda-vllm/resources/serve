@@ -35,6 +35,8 @@ def get_conf(num_servers):
                 proxy_send_timeout 120s;
             }
         }
+                        
+        client_max_body_size 200M;
     }
     """)
 
@@ -57,7 +59,7 @@ def get_core_groups():
             files.append(filename)
     
     num_cores = len(files)
-    model_server_cores = int(os.environ.get("MODEL_SERVER_CORES", num_cores))
+    model_server_cores = int(os.environ.get("TENSOR_PARALLEL_SIZE", num_cores))
      
     cores = [ x for x in range(num_cores)]
     core_groups = [cores[x:x+model_server_cores] for x in range(0, len(cores), model_server_cores)]
@@ -78,9 +80,9 @@ def start_server():
     print(f"Inference server core groups; {core_groups}")
     num_servers = len(core_groups)
 
-    nginx_conf, apiserver_ports = get_conf(num_servers=num_servers)
+    nginx_conf, openai_server_ports = get_conf(num_servers=num_servers)
     print(f"nginx.conf: {nginx_conf}")
-    print(f"apiserver ports: {apiserver_ports}")
+    print(f"openai_server ports: {openai_server_ports}")
 
     with open("/opt/program/nginx.conf", "w+" ) as f:
         f.write(nginx_conf)
@@ -92,7 +94,7 @@ def start_server():
     
     pids = [nginx.pid]
     
-    for i, ports in enumerate(apiserver_ports):
+    for i, ports in enumerate(openai_server_ports):
         env_copy = copy.deepcopy(os.environ)
         group = core_groups[i]
         env_copy['CUDA_VISIBLE_DEVICES']=",".join(str(x) for x in group)
@@ -112,12 +114,11 @@ def start_server():
         model_type = os.getenv("MODEL_TYPE", None)
         tokenizer = os.getenv("TOKENIZER", model_id)
         vllm_args = [
-            "python3",
-            "-m",
-            "vllm.entrypoints.api_server",
+            "vllm",
+            "serve",
+            f"{model_id}",
             "--host=0.0.0.0",
             f"--port={http}",
-            f"--model={model_id}",
             f"--tokenizer={tokenizer}",
             f"--tensor-parallel-size={accelerator_count}",
             "--swap-space=16",
@@ -156,7 +157,7 @@ def start_server():
             break
 
     sigterm_handler(nginx.pid)
-    print('apiserver exiting')
+    print('openai_server exiting')
 
 # The main routine to invoke the start function.
 

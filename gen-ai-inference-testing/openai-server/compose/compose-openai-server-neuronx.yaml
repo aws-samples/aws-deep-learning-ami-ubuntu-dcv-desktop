@@ -7,7 +7,6 @@ services:
       - HF_HOME=/snapshots/huggingface
       - HF_TOKEN=${HF_TOKEN}
       - OMP_NUM_THREADS=16
-      - MAX_MODEL_LEN=${MAX_MODEL_LEN}
       - TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE}
     devices:
      - /dev/neuron0:/dev/neuron0
@@ -28,7 +27,7 @@ services:
      - /dev/neuron15:/dev/neuron15
     shm_size: 32Gb
     volumes:
-      - ${HOME}/scripts/triton:/scripts:ro
+      - ${HOME}/scripts/openai-server:/scripts:ro
       - ${HOME}/snapshots:/snapshots:rw
       - ${HOME}/cache:/cache:rw
     ports:

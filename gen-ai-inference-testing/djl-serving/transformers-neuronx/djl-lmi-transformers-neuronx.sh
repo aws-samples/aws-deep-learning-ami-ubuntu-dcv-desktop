@@ -24,7 +24,7 @@ option.trust_remote_code=true
 
 EOF
 
-export NEURON_CC_FLAGS="--model-type=transformer"
+export NEURON_CC_FLAGS="--model-type=transformer --enable-fast-loading-neuron-binaries"
 export NEURON_COMPILE_CACHE_URL="$CACHE_DIR"
 /usr/local/bin/dockerd-entrypoint.sh serve \
 && /bin/bash -c "trap : TERM INT; sleep infinity & wait"

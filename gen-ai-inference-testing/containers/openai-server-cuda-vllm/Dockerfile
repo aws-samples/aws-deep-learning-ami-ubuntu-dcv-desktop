@@ -1,6 +1,8 @@
 ARG BASE_IMAGE="nvcr.io/nvidia/tritonserver:25.01-vllm-python-py3"
 FROM ${BASE_IMAGE}
 
+RUN pip install vllm==0.7.2
+
 RUN apt-get -y update && apt-get install -y --no-install-recommends \
          wget \
          nginx \

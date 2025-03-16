@@ -70,10 +70,8 @@ mkdir -p $MODEL_REPO/$MODEL_NAME/$VERSION
 cp /scripts/tnx_lmi_backend.py $MODEL_REPO/$MODEL_NAME/$VERSION/model.py
 cp /tmp/model.json $MODEL_REPO/$MODEL_NAME/$VERSION/model.json
 cp /tmp/config.pbtxt $MODEL_REPO/$MODEL_NAME/config.pbtxt
-export NEURON_CC_FLAGS="--model-type=transformer"
+export NEURON_CC_FLAGS="--model-type=transformer --enable-fast-loading-neuron-binaries"
 export NEURON_COMPILE_CACHE_URL="$CACHE_DIR"
-export OMP_NUM_THREADS=32
-export MODEL_SERVER_CORES=8
 export FI_EFA_FORK_SAFE=1
 /opt/program/serve \
 && /bin/bash -c "trap : TERM INT; sleep infinity & wait"
