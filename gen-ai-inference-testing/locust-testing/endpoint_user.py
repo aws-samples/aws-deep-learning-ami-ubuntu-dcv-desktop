@@ -49,8 +49,6 @@ class EndpointClient:
 
     def __inference_request(self, request_meta:dict):
         inputs = next(self.text_input_generator)
-        inputs = [inputs] if isinstance(inputs, str) else inputs
-
         template = os.getenv('TEMPLATE', "{}")
         template = json.loads(template)
         assert template

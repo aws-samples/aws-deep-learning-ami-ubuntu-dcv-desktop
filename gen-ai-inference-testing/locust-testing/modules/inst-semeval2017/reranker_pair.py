@@ -16,5 +16,5 @@ class RerankerPair:
             keyphrases = ", ".join(example["extractive_keyphrases"])
             batch_size = random.randint(1, self.max_dynamic_batch_size) if self.dynamic_batching else self.max_dynamic_batch_size
             pairs = [ [ keyphrases, text ] for _ in range(batch_size) ]
-            yield pairs
+            yield [pairs]
             

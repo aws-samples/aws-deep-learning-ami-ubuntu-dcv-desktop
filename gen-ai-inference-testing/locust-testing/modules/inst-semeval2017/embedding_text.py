@@ -15,4 +15,4 @@ class EmbeddingText:
             text = " ".join(example["document"])
             batch_size = random.randint(1, self.max_dynamic_batch_size) if self.dynamic_batching else self.max_dynamic_batch_size
             texts = [ text  for _ in range(batch_size) ]
-            yield texts
+            yield [texts]

@@ -15,7 +15,7 @@ class PromptGenerator:
             context = example["context"]
             context = " ".join(context.split()[:512])
             prompt = f"""<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\nYou are an assistant for question-answering tasks. Use the following pieces of retrieved context in the section demarcated by "```" to answer the question. The context may contain multiple question answer pairs as an example. Only answer the final question provided in the question section below. If you dont know the answer just say that you dont know.\n\n```{context}```\n\nQuestion: {input}\n\n<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
-            yield prompt
+            yield [prompt]
             
             
     

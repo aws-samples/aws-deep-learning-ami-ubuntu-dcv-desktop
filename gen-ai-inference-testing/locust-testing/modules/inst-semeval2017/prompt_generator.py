@@ -11,7 +11,7 @@ class PromptGenerator:
             text = " ".join(example["document"])
             keyphrases = ", ".join(example["extractive_keyphrases"])
             prompt = f"[INST]Write an article based on following context: {text} The article must include following keyphrases: {keyphrases}. [/INST]"
-            yield prompt
+            yield [prompt]
             
             
     
