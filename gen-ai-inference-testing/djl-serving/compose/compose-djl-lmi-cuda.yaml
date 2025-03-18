@@ -6,6 +6,9 @@ services:
       - MODEL_ID=${MODEL_ID}
       - HF_HOME=/snapshots/huggingface
       - HF_TOKEN=${HF_TOKEN}
+      - MAX_MODEL_LEN=${MAX_MODEL_LEN}
+      - OMP_NUM_THREADS=16
+      - TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE}
     deploy:
       resources:
         reservations:

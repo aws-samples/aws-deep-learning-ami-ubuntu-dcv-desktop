@@ -14,19 +14,17 @@ mkdir -p $CACHE_DIR
 
 cat > /opt/ml/model/serving.properties <<EOF
 option.model_id=$MODEL_ID
-option.entryPoint=djl_python.transformers_neuronx
 option.tensor_parallel_degree=$TENSOR_PARALLEL_SIZE
-option.amp=f16
-option.n_positions=$MAX_MODEL_LEN
+option.dtype=fp16
+option.max_model_len=$MAX_MODEL_LEN
 option.model_loading_timeout=1800
-option.model_loader=tnx
-option.rolling_batch=auto
-option.rolling_batch_strategy=continuous_batching
+option.rolling_batch=vllm
 option.max_rolling_batch_size=8
 option.output_formatter=json
 option.trust_remote_code=true
 
 EOF
+
 
 export NEURON_CC_FLAGS="--model-type=transformer --enable-fast-loading-neuron-binaries"
 export NEURON_COMPILE_CACHE_URL="$CACHE_DIR"
