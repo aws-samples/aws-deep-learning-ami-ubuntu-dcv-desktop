@@ -5,6 +5,10 @@
 
 [  -z "$MODEL_ID"  ] && echo "MODEL_ID environment variable must exist" && exit 1
 
+: ${TENSOR_PARALLEL_SIZE:=8}
+: ${MAX_MODEL_LEN:=8192}
+: ${MAX_NUM_SEQS:=8}
+: ${OMP_NUM_THRADS:=16}
 
 CACHE_DIR=/cache
 
@@ -48,14 +52,14 @@ EOF
 cat > /tmp/model.json <<EOF
 {
   "model_id": "$MODEL_ID",
-  "tensor_parallel_degree": 8,
+  "tensor_parallel_degree": $TENSOR_PARALLEL_SIZE,
   "amp": "f16",
-  "n_positions": 8192,
+  "n_positions": $MAX_MODEL_LEN,
   "model_loading_timeout": 1800,
   "model_loader": "tnx",
   "rolling_batch": "auto",
   "rolling_batch_strategy": "continuous_batching",
-  "max_rolling_batch_size": 8,
+  "max_rolling_batch_size": $MAX_NUM_SEQS,
   "output_formatter": "json",
   "trust_remote_code": true
 }

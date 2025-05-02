@@ -10,7 +10,9 @@ mkdir -p $CACHE_DIR
 
 : ${TENSOR_PARALLEL_SIZE:=8}
 : ${MAX_MODEL_LEN:=8192}
+: ${MAX_NUM_SEQS:=8}
 : ${OMP_NUM_THRADS:=16}
+
 
 cat > /opt/ml/model/serving.properties <<EOF
 option.model_id=$MODEL_ID
@@ -22,7 +24,7 @@ option.model_loading_timeout=1800
 option.model_loader=tnx
 option.rolling_batch=auto
 option.rolling_batch_strategy=continuous_batching
-option.max_rolling_batch_size=8
+option.max_rolling_batch_size=$MAX_NUM_SEQS
 option.output_formatter=json
 option.trust_remote_code=true
 

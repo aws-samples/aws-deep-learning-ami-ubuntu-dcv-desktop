@@ -5,6 +5,7 @@
 
 : ${TENSOR_PARALLEL_SIZE:=8}
 : ${MAX_MODEL_LEN:=8192}
+: ${MAX_NUM_SEQS:=8}
 : ${OMP_NUM_THRADS:=16}
 
 /opt/program/serve \

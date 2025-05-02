@@ -6,6 +6,7 @@
 
 : ${TENSOR_PARALLEL_SIZE:=8}
 : ${MAX_MODEL_LEN:=8192}
+: ${MAX_NUM_SEQS:=8}
 : ${OMP_NUM_THRADS:=16}
 
 cat > /tmp/config.pbtxt <<EOF
@@ -62,7 +63,7 @@ cat > /tmp/model.json <<EOF
   "model": "$MODEL_ID",
   "disable_log_requests": true,
   "tensor_parallel_size": $TENSOR_PARALLEL_SIZE,
-  "max_num_seqs": 8,
+  "max_num_seqs": $MAX_NUM_SEQS,
   "dtype": "float16",
   "max_model_len": $MAX_MODEL_LEN,
   "block_size": 8192,

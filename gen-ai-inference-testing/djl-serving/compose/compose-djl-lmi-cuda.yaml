@@ -9,6 +9,7 @@ services:
       - MAX_MODEL_LEN=${MAX_MODEL_LEN}
       - OMP_NUM_THREADS=16
       - TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE}
+      - MAX_NUM_SEQS=${MAX_NUM_SEQS}
     deploy:
       resources:
         reservations:
