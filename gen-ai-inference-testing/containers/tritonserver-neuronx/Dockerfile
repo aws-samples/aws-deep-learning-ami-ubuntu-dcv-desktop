@@ -96,7 +96,7 @@ RUN cd /opt/vllm && git reset --hard 5b734fb7edfdf3f8a836a3ddee81eba506230fdd
 RUN pip3 install -r /opt/vllm/requirements-neuron.txt
 RUN cd /opt/vllm && pip3 install -e .
 
-RUN pip3 install triton==2.2.0 pynvml==11.5.3 transformers==4.44.2
+RUN pip3 install triton==2.2.0 pynvml==11.5.3 transformers==4.44.2 protobuf==3.20.3
 
 COPY resources /opt/program
 RUN chmod u+x /opt/program/serve
