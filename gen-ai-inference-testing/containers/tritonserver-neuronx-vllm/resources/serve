@@ -98,13 +98,13 @@ def start_server():
     for i, ports in enumerate(triton_server_ports):
         env_copy = copy.deepcopy(os.environ)
         group = core_groups[i]
-        env_copy['NEURON_RT_VISIBLE_CORES']=f"{group[0]}-{group[-1]}"
+        env_copy['NEURON_RT_NUM_CORES']=f"{len(group)}"
         env_copy['NEURON_RT_ROOT_COMM_ID']=f"localhost:{48620+i}"
         http = ports['http']
         grpc = ports['grpc']
         metrics = ports['metrics']
         print(f"server instance: {i}: http: {http}, grpc: {grpc}, metric: {metrics}")
-        print(f"server instance: {i}: NEURON_RT_VISIBLE_CORES={env_copy['NEURON_RT_VISIBLE_CORES']}")
+        print(f"server instance: {i}: NEURON_RT_NUM_CORES={env_copy['NEURON_RT_NUM_CORES']}")
         server = subprocess.Popen(['tritonserver', 
                                    f"--model-repository={model_repo}",
                                    f"--grpc-port={grpc}",

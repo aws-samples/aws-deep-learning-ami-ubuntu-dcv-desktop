@@ -10,6 +10,8 @@ services:
       - MAX_MODEL_LEN=${MAX_MODEL_LEN}
       - TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE}
       - MAX_NUM_SEQS=${MAX_NUM_SEQS}
+      - NEURON_CONTEXT_LENGTH_BUCKETS=${NEURON_CONTEXT_LENGTH_BUCKETS}
+      - NEURON_TOKEN_GEN_BUCKETS=${NEURON_TOKEN_GEN_BUCKETS}
     devices:
      - /dev/neuron0:/dev/neuron0
      - /dev/neuron1:/dev/neuron1

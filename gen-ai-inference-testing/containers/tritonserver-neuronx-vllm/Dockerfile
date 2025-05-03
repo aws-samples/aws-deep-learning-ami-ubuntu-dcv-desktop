@@ -84,11 +84,9 @@ RUN rm -rf /server
 
 ENV VLLM_TARGET_DEVICE=neuron
 RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm
-RUN cd /opt/vllm && git fetch origin 2339d59f9260499599d60599f83978fad1827999
-RUN cd /opt/vllm && git reset --hard 2339d59f9260499599d60599f83978fad1827999
-COPY patch /opt/patch
-RUN cd /opt/vllm && git apply --ignore-whitespace /opt/patch/vllm-neuron-0.6.6.post1.patch
-RUN pip3 install -r /opt/vllm/requirements-neuron.txt
+RUN cd /opt/vllm && git fetch origin 3015d5634e74d59704e2b39bab0dbe2e6f86a38a
+RUN cd /opt/vllm && git reset --hard 3015d5634e74d59704e2b39bab0dbe2e6f86a38a
+RUN pip3 install -r /opt/vllm/requirements/neuron.txt
 RUN cd /opt/vllm && pip3 install -e .
 
 RUN git clone https://github.com/triton-inference-server/vllm_backend.git /opt/vllm_backend

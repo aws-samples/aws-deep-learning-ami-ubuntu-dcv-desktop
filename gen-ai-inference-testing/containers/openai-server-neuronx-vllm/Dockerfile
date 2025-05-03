@@ -75,11 +75,9 @@ RUN pip3 install --extra-index-url https://pip.repos.neuron.amazonaws.com neuron
 
 ENV VLLM_TARGET_DEVICE=neuron
 RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm
-RUN cd /opt/vllm && git fetch origin 0408efc6d0c17fba17b2be38d0d0f02e96d2bf9d
-RUN cd /opt/vllm && git reset --hard 0408efc6d0c17fba17b2be38d0d0f02e96d2bf9d
-COPY patch /opt/patch
-RUN cd /opt/vllm && git apply --ignore-whitespace /opt/patch/vllm-neuron-0.7.2.patch
-RUN pip3 install --extra-index-url https://pip.repos.neuron.amazonaws.com -r /opt/vllm/requirements-neuron.txt
+RUN cd /opt/vllm && git fetch origin 3015d5634e74d59704e2b39bab0dbe2e6f86a38a
+RUN cd /opt/vllm && git reset --hard 3015d5634e74d59704e2b39bab0dbe2e6f86a38a
+RUN pip3 install --extra-index-url https://pip.repos.neuron.amazonaws.com  -r /opt/vllm/requirements/neuron.txt
 RUN cd /opt/vllm && pip3 install -e .
 
 COPY resources /opt/program
