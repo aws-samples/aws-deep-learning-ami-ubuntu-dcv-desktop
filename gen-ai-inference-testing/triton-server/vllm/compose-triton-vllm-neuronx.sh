@@ -16,7 +16,7 @@ cp $scripts_dir/triton-vllm-neuronx.sh $HOME/scripts/triton/
 chmod a+x $HOME/scripts/triton/*.sh
 mkdir -p $HOME/cache
 
-docker compose -f $DIR/compose/compose-triton-neuronx.yaml up -d 
+docker compose -f $DIR/compose/compose-triton-neuronx-${NUM_DEVICE}.yaml up -d 
 else
-docker compose -f $DIR/compose/compose-triton-neuronx.yaml down 
+docker compose -f $DIR/compose/compose-triton-neuronx-${NUM_DEVICE}.yaml down 
 fi

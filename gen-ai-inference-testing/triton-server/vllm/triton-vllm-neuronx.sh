@@ -79,7 +79,13 @@ cat > /tmp/model.json <<EOF
   "dtype": "float16",
   "max_model_len": $MAX_MODEL_LEN,
   "block_size": 8192,
-  "use_v2_block_manager": true
+  "use_v2_block_manager": true,
+  "override_neuron_config": {
+      "continuous_batching": {
+        "max_num_seqs": $MAX_NUM_SEQS,
+        "optimized_paged_attention": true
+      }
+    }
 }
 
 EOF

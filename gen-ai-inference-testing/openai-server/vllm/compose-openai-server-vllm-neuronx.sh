@@ -16,7 +16,7 @@ cp $scripts_dir/openai-server-vllm-neuronx.sh $HOME/scripts/openai-server/
 chmod a+x $HOME/scripts/openai-server/*.sh
 mkdir -p $HOME/cache
 
-docker compose -f $DIR/compose/compose-openai-server-neuronx.yaml up -d 
+docker compose -f $DIR/compose/compose-openai-server-neuronx-${NUM_DEVICE}.yaml up -d 
 else
-docker compose -f $DIR/compose/compose-openai-server-neuronx.yaml down 
+docker compose -f $DIR/compose/compose-openai-server-neuronx-${NUM_DEVICE}.yaml down 
 fi

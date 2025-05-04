@@ -15,9 +15,8 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 8
+              count: ${NUM_DEVICE}
               capabilities: [gpu]
-    shm_size: 32Gb
     volumes:
       - ${HOME}/scripts/triton:/scripts:ro
       - ${HOME}/snapshots:/snapshots:rw

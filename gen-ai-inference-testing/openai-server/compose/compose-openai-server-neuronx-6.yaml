@@ -7,15 +7,18 @@ services:
       - HF_HOME=/snapshots/huggingface
       - HF_TOKEN=${HF_TOKEN}
       - OMP_NUM_THREADS=16
+      - MAX_MODEL_LEN=${MAX_MODEL_LEN}
       - TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE}
       - MAX_NUM_SEQS=${MAX_NUM_SEQS}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: ${NUM_DEVICE}
-              capabilities: [gpu]
+      - NEURON_CONTEXT_LENGTH_BUCKETS=${NEURON_CONTEXT_LENGTH_BUCKETS}
+      - NEURON_TOKEN_GEN_BUCKETS=${NEURON_TOKEN_GEN_BUCKETS}
+    devices:
+     - /dev/neuron0:/dev/neuron0
+     - /dev/neuron1:/dev/neuron1
+     - /dev/neuron2:/dev/neuron2
+     - /dev/neuron3:/dev/neuron3
+     - /dev/neuron4:/dev/neuron4
+     - /dev/neuron5:/dev/neuron5
     volumes:
       - ${HOME}/scripts/openai-server:/scripts:ro
       - ${HOME}/snapshots:/snapshots:rw

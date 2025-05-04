@@ -7,6 +7,7 @@ services:
       - HF_HOME=/snapshots/huggingface
       - HF_TOKEN=${HF_TOKEN}
       - OMP_NUM_THREADS=16
+      - MAX_MODEL_LEN=${MAX_MODEL_LEN}
       - TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE}
       - MAX_NUM_SEQS=${MAX_NUM_SEQS}
       - NEURON_CONTEXT_LENGTH_BUCKETS=${NEURON_CONTEXT_LENGTH_BUCKETS}
@@ -24,13 +25,8 @@ services:
      - /dev/neuron9:/dev/neuron9
      - /dev/neuron10:/dev/neuron10
      - /dev/neuron11:/dev/neuron11
-     - /dev/neuron12:/dev/neuron12
-     - /dev/neuron13:/dev/neuron13
-     - /dev/neuron14:/dev/neuron14
-     - /dev/neuron15:/dev/neuron15
-    shm_size: 32Gb
     volumes:
-      - ${HOME}/scripts/openai-server:/scripts:ro
+      - ${HOME}/scripts/triton:/scripts:ro
       - ${HOME}/snapshots:/snapshots:rw
       - ${HOME}/cache:/cache:rw
     ports:
