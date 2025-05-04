@@ -14,6 +14,7 @@ services:
       - NEURON_TOKEN_GEN_BUCKETS=${NEURON_TOKEN_GEN_BUCKETS}
     devices:
      - /dev/neuron0:/dev/neuron0
+    shm_size: 32Gb
     volumes:
       - ${HOME}/scripts/triton:/scripts:ro
       - ${HOME}/snapshots:/snapshots:rw

@@ -16,6 +16,7 @@ services:
             - driver: nvidia
               count: ${NUM_DEVICE}
               capabilities: [gpu]
+    shm_size: 32Gb
     volumes:
       - ${HOME}/scripts/openai-server:/scripts:ro
       - ${HOME}/snapshots:/snapshots:rw

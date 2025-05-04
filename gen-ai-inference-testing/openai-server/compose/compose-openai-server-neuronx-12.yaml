@@ -25,6 +25,7 @@ services:
      - /dev/neuron9:/dev/neuron9
      - /dev/neuron10:/dev/neuron10
      - /dev/neuron11:/dev/neuron11
+    shm_size: 32Gb
     volumes:
       - ${HOME}/scripts/openai-server:/scripts:ro
       - ${HOME}/snapshots:/snapshots:rw

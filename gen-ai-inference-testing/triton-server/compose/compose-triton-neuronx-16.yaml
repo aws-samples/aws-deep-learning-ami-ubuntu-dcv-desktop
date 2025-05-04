@@ -29,6 +29,7 @@ services:
      - /dev/neuron13:/dev/neuron13
      - /dev/neuron14:/dev/neuron14
      - /dev/neuron15:/dev/neuron15
+    shm_size: 32Gb
     volumes:
       - ${HOME}/scripts/triton:/scripts:ro
       - ${HOME}/snapshots:/snapshots:rw
