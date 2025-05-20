@@ -140,10 +140,6 @@ Parameters:
       - c5d.18xlarge
       - c5n.18xlarge
       - c5d.24xlarge
-      - g3s.xlarge
-      - g3.4xlarge
-      - g3.8xlarge
-      - g3.16xlarge
       - g4dn.xlarge
       - g4dn.2xlarge
       - g4dn.4xlarge
@@ -1174,7 +1170,7 @@ Resources:
               fi
 
               # install aws cli
-              apt-get -y install awscli
+              snap install aws-cli --classic
 
               # install visual code 
               apt-get -y install code
