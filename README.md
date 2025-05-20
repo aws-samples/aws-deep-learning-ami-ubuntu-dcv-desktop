@@ -2,14 +2,17 @@
 
 This project is a tutorial on how to launch an AWS deep learning desktop with [Amazon DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models. To launch the deep learning desktop, you have a choice of two AMIs:
 
-* Ubuntu Server Pro, 22.04 LTS, Version 20240927 (Default)
+* Ubuntu Server Pro, 22.04 LTS, Version 20250305 (Default)
 * Ubuntu Server Pro, 20.04 LTS, Version 20231030
 
-Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), [inf2](https://aws.amazon.com/ec2/instance-types/inf2/), GPU enabled [g3](https://aws.amazon.com/ec2/instance-types/g3/), [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [g6](https://aws.amazon.com/ec2/instance-types/g6/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), and [r5](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
+Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), [inf2](https://aws.amazon.com/ec2/instance-types/inf2/), GPU enabled [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [g6](https://aws.amazon.com/ec2/instance-types/g6/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), and [p4](https://aws.amazon.com/ec2/instance-types/p4/), and selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), and [r5](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
 
-For Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) and [inf2](https://aws.amazon.com/ec2/instance-types/inf2/) instance types, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) with PyTorch support is automatically installed in a virtual environment named `aws_neuron_venv_pytorch`.  For all other types of EC2 instances, [conda](https://docs.conda.io/en/latest/miniconda.html) environment for [Tensorflow 2.17.0](https://www.tensorflow.org/) is installed in a conda environment `tensorflow`, and [PyTorch 2.5.1](https://pytorch.org/) is installed in a conda environment named `pytorch`. Both conda environments have [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) installed. 
+For Amazon EC2 GPU enabled instances:
 
-For Amazon EC2 GPU enabled instance types, CUDA Compatibility package compatible with the CUDA driver, [CUDA](https://developer.nvidia.com/cuda-toolkit), and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed.
+* [CUDA](https://developer.nvidia.com/cuda-toolkit), CUDA Compatibility package compatible with the CUDA driver, and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed.
+* [Conda](https://docs.conda.io/en/latest/miniconda.html) environments for [Tensorflow](https://www.tensorflow.org/) and [PyTorch](https://pytorch.org/) are installed in `tensorflow` and `pytorch`, respectively.
+
+For Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) and [inf2](https://aws.amazon.com/ec2/instance-types/inf2/) instance types, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) with PyTorch support is automatically installed in a virtual environment named `aws_neuron_venv_pytorch`.
 
 **NOTE:** *Automatic or manual upgrades to CUDA driver may require new [CUDA Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/index.html) package to be manually installed.*
 
