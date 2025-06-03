@@ -3,11 +3,11 @@ Description: AWS Deep Learning Ubuntu EFA MPI cluster.
 Parameters:
 
   AWSUbuntuAMIType:
-    Description: Ubuntu Pro 22.04 LTS, Ubuntu Pro 20.04 LTS.
+    Description: Ubuntu Pro 22.04 LTS, Ubuntu Pro 24.04 LTS.
     Type: String
-    Default: "UbuntuPro2204LTS"
+    Default: "UbuntuPro2404LTS"
     AllowedValues:
-      - "UbuntuPro2004LTS"
+      - "UbuntuPro2404LTS"
       - "UbuntuPro2204LTS"
   
   UbuntuAMIOverride:
@@ -66,11 +66,14 @@ Parameters:
       - g6e.16xlarge
       - g6e.24xlarge
       - g6e.48xlarge
-      - p3dn.24xlarge
       - p4d.24xlarge
       - p4de.24xlarge
+      - p5.48xlarge
+      - p5e.48xlarge
+      - p5en.48xlarge
       - trn1.32xlarge
       - trn1n.32xlarge
+      - trn2.48xlarge
     ConstraintDescription: Must be a valid CPU, or GPU instance type
 
   EBSOptimized:
@@ -97,48 +100,48 @@ Parameters:
     MaxValue: 32
 
 Mappings:
-  UbuntuPro2004LTS:
-    us-east-1:
-      AMI: ami-0c7167c7f19b42827
-    us-east-2:
-      AMI: ami-0cb8bd12ae00545d8
-    us-west-2:
-      AMI: ami-08a6c204633ef5cee
-    eu-west-1:
-      AMI: ami-0adab63e5043085d1
-    eu-central-1:
-      AMI: ami-0a7314af79e1386c7
-    ap-southeast-1:
-      AMI: ami-0b489de3fab3a7e3b
-    ap-southeast-2:
-      AMI: ami-03a8bb8234272744b
-    ap-south-1:
-      AMI: ami-009c3d26336b8d5c4
-    ap-northeast-1:
-      AMI: ami-0df434ac8f8cdeb9f
-    ap-northeast-2:
-      AMI: ami-02acd68454c0247e4
   UbuntuPro2204LTS:
     us-east-1:
-      AMI: ami-005fc0f236362e99f
+      AMI: ami-0f9de6e2d2f067fca
     us-east-2:
-      AMI: ami-00eb69d236edcfaf8
+      AMI: ami-0c3b809fcf2445b6a
     us-west-2:
-      AMI: ami-0b8c6b923777519db
+      AMI: ami-03f8acd418785369b
     eu-west-1:
-      AMI: ami-0a422d70f727fe93e
+      AMI: ami-0f0c3baa60262d5b9
     eu-central-1:
-      AMI: ami-0745b7d4092315796
+      AMI: ami-04a5bacc58328233d
     ap-southeast-1:
-      AMI: ami-03fa85deedfcac80b
+      AMI: ami-0c1907b6d738188e5
     ap-southeast-2:
-      AMI: ami-040e71e7b8391cae4
+      AMI: ami-0a2e29e3b4fc39212
     ap-south-1:
-      AMI: ami-09b0a86a2c84101e1
+      AMI: ami-06b6e5225d1db5f46
     ap-northeast-1:
-      AMI: ami-0ac6b9b2908f3e20d
+      AMI: ami-0f415cc2783de6675
     ap-northeast-2:
-      AMI: ami-042e76978adeb8c48
+      AMI: ami-05a7f3469a7653972
+  UbuntuPro2404LTS:
+    us-east-1:
+      AMI: ami-084568db4383264d4
+    us-east-2:
+      AMI: ami-04f167a56786e4b09
+    us-west-2:
+      AMI: ami-075686beab831bb7f
+    eu-west-1:
+      AMI: ami-0df368112825f8d8f
+    eu-central-1:
+      AMI: ami-03250b0e01c28d196
+    ap-southeast-1:
+      AMI: ami-01938df366ac2d954
+    ap-southeast-2:
+      AMI: ami-0f5d1713c9af4fe30
+    ap-south-1:
+      AMI: ami-0e35ddab05955cf57
+    ap-northeast-1:
+      AMI: ami-026c39f4021df9abe
+    ap-northeast-2:
+      AMI: ami-0d5bb3742db8fc264
 
 Conditions:
   OverrideAMI: !Not 
@@ -419,10 +422,8 @@ Resources:
                 dpkg -l | grep linux | awk -F' ' '{print $2}' > /tmp/dpkg.out
                 for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
 
-                CUDA=12.4
+                CUDA=12.6
                 CUDA_DASH=${CUDA//\./-}
-                CUDA_11=11.8
-                CUDA_11_DASH=${CUDA_11//\./-}
 
               - OVERRIDE_AMI=
               - !Ref UbuntuAMIOverride
@@ -436,10 +437,9 @@ Resources:
                   dpkg -i cuda-keyring_1.1-1_all.deb && \
                   apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
                   apt-get -y install cuda-${CUDA_DASH} && \
-                  apt-get -y install cuda-${CUDA_11_DASH} && \
                   apt-get -y install libcudnn8 && \
                   apt-get -y install libcudnn8-dev && \
-                  echo "export PATH=/usr/local/cuda-${CUDA}/bin:/usr/local/cuda-${CUDA_11}/bin:$PATH" >> /home/ubuntu/.bashrc && \
+                  echo "export PATH=/usr/local/cuda-${CUDA}/bin:$PATH" >> /home/ubuntu/.bashrc && \
                   CUDA_COMPAT=$(nvidia-smi | grep CUDA | awk '{print $(NF - 1)}') && \
                   CUDA_COMPAT_DASH=${CUDA_COMPAT//\./-} && \
                   apt-get -y install cuda-compat-${CUDA_COMPAT_DASH} && \
@@ -483,18 +483,18 @@ Resources:
                 apt-get -y install tzdata
                 apt-get -y install keyboard-configuration
                 apt-get -y install gnupg2
-                apt-get -y install lsb-core
                 apt-get -y install openmpi-bin libopenmpi-dev 
                 apt-get -y install protobuf-compiler
 
-                if [[ "$VERSION_ID" == 20.04* ]]
+                if [[ "$VERSION_ID" == 24.04* ]]
                 then
-                   add-apt-repository "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu focal main"
+                   add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu noble main"
                 elif [[ "$VERSION_ID" == 22.04* ]]
                 then   
+                  apt-get -y install lsb-core
                   add-apt-repository "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main"
                 else
-                  echo "Ubuntu $VERSION_ID is not supported; must be one of 20.04, or 22.04"
+                  echo "Ubuntu $VERSION_ID is not supported; must be one of 24.04, or 22.04"
                   exit 1
                 fi
 

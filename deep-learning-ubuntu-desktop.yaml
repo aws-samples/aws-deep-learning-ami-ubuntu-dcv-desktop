@@ -4,11 +4,12 @@ Description: >-
   Connect using a DCV Client.
 Parameters:
   AWSUbuntuAMIType:
-    Description: Ubuntu Pro 22.04 LTS, Ubuntu Pro 20.04 LTS.
+    Description: >- 
+      Ubuntu Pro 24.04 not supported with AWS Trainium/Inferentia2.
     Type: String
-    Default: "UbuntuPro2204LTS"
+    Default: "UbuntuPro2404LTS"
     AllowedValues:
-      - "UbuntuPro2004LTS"
+      - "UbuntuPro2404LTS"
       - "UbuntuPro2204LTS"
   S3Bucket:
     Description: S3 bucket name for read write access from desktop
@@ -21,7 +22,7 @@ Parameters:
     Default: ""
   UbuntuAMIOverride:
     Description: >-
-      (Optional) Advanced option to override the Ubuntu 20.04 or 22.04 AMI.  
+      (Optional) Advanced option to override the Ubuntu 24.04 or 22.04 AMI.  
       Leave blank, if unsure.
     Type: String
     AllowedPattern: '(ami-[0-9a-z]{17})?'
@@ -170,10 +171,6 @@ Parameters:
       - g6e.16xlarge
       - g6e.24xlarge
       - g6e.48xlarge
-      - p3.2xlarge
-      - p3.8xlarge
-      - p3.16xlarge
-      - p3dn.24xlarge
       - p4d.24xlarge
       - p4de.24xlarge
       - p5.48xlarge
@@ -206,27 +203,6 @@ Parameters:
       - 'true'
 
 Mappings:
-  UbuntuPro2004LTS:
-    us-east-1:
-      AMI: ami-0c7167c7f19b42827
-    us-east-2:
-      AMI: ami-0cb8bd12ae00545d8
-    us-west-2:
-      AMI: ami-08a6c204633ef5cee
-    eu-west-1:
-      AMI: ami-0adab63e5043085d1
-    eu-central-1:
-      AMI: ami-0a7314af79e1386c7
-    ap-southeast-1:
-      AMI: ami-0b489de3fab3a7e3b
-    ap-southeast-2:
-      AMI: ami-03a8bb8234272744b
-    ap-south-1:
-      AMI: ami-009c3d26336b8d5c4
-    ap-northeast-1:
-      AMI: ami-0df434ac8f8cdeb9f
-    ap-northeast-2:
-      AMI: ami-02acd68454c0247e4
   UbuntuPro2204LTS:
     us-east-1:
       AMI: ami-0f9de6e2d2f067fca
@@ -248,7 +224,27 @@ Mappings:
       AMI: ami-0f415cc2783de6675
     ap-northeast-2:
       AMI: ami-05a7f3469a7653972
-
+  UbuntuPro2404LTS:
+    us-east-1:
+      AMI: ami-084568db4383264d4
+    us-east-2:
+      AMI: ami-04f167a56786e4b09
+    us-west-2:
+      AMI: ami-075686beab831bb7f
+    eu-west-1:
+      AMI: ami-0df368112825f8d8f
+    eu-central-1:
+      AMI: ami-03250b0e01c28d196
+    ap-southeast-1:
+      AMI: ami-01938df366ac2d954
+    ap-southeast-2:
+      AMI: ami-0f5d1713c9af4fe30
+    ap-south-1:
+      AMI: ami-0e35ddab05955cf57
+    ap-northeast-1:
+      AMI: ami-026c39f4021df9abe
+    ap-northeast-2:
+      AMI: ami-0d5bb3742db8fc264
 Conditions:
   OverrideAMI: !Not 
     - !Equals 
@@ -330,7 +326,16 @@ Conditions:
       - 'p4d.24xlarge'
     - !Equals 
       - !Ref DesktopInstanceType
-      - 'p3dn.24xlarge'
+      - 'p4de.24xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'p5.48xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'p5e.48xlarge'
+    - !Equals 
+      - !Ref DesktopInstanceType
+      - 'p5en.48xlarge'
 
   EfaTrnInstances: !Or
     - !Equals 
@@ -848,7 +853,6 @@ Resources:
               apt-get -y install tzdata
               apt-get -y install keyboard-configuration
               apt-get -y install gnupg2
-              apt-get -y install lsb-core
               apt-get -y install openmpi-bin libopenmpi-dev 
               apt-get -y install protobuf-compiler
 
@@ -856,9 +860,9 @@ Resources:
               echo "install DCV server..."
               apt-get -y install ubuntu-desktop
 
-              if [[ "$VERSION_ID" == 20.04* ]]
+              if [[ "$VERSION_ID" == 24.04* ]]
               then
-                add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu focal main"
+                add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu noble main"
 
                 if [[ ! -x "$(command -v dcv)" ]]
                 then
@@ -866,27 +870,21 @@ Resources:
                   echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
                   dpkg-reconfigure gdm3
                   sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
-                  systemctl restart gdm3
 
-                  apt-get -y install mesa-utils
                   if [[ -x "$(command -v nvidia-xconfig)" ]] && [[ -x "$(command -v nvidia-smi)" ]]
                   then
                     nvidia-xconfig --preserve-busid --enable-all-gpus
                   fi
 
-                  #restart X server
-                  echo "restart X-server"
-                  systemctl set-default graphical.target
-                  systemctl isolate graphical.target
-
-                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-18131-ubuntu2004-x86_64.tgz
-                  tar -xvzf nice-dcv-2024.0-18131-ubuntu2004-x86_64.tgz
-                  cd nice-dcv-2024.0-18131-ubuntu2004-x86_64
-                  apt-get -y install ./nice-dcv-server_2024.0.18131-1_amd64.ubuntu2004.deb
+                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-19030-ubuntu2404-x86_64.tgz && \
+                  tar -xvzf nice-dcv-2024.0-19030-ubuntu2404-x86_64.tgz && \
+                  cd nice-dcv-2024.0-19030-ubuntu2404-x86_64 && \
+                  apt-get -y install ./nice-dcv-server_2024.0.19030-1_amd64.ubuntu2404.deb || echo "DCV installed failed; retry"
                   reboot
                 fi
               elif [[ "$VERSION_ID" == 22.04* ]]
               then   
+                apt-get -y install lsb-core
                 add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main"
                
                 if [[ ! -x "$(command -v dcv)" ]]
@@ -895,7 +893,6 @@ Resources:
                   echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
                   dpkg-reconfigure gdm3
                   sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
-                  systemctl restart gdm3
 
                   apt-get -y install mesa-utils
                   if [[ -x "$(command -v nvidia-xconfig)" ]] && [[ -x "$(command -v nvidia-smi)" ]]
@@ -903,19 +900,14 @@ Resources:
                     nvidia-xconfig --preserve-busid --enable-all-gpus
                   fi
 
-                  #restart X server
-                  echo "restart X-server"
-                  systemctl set-default graphical.target
-                  systemctl isolate graphical.target
-
-                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz
-                  tar -xvzf nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz
-                  cd nice-dcv-2024.0-18131-ubuntu2204-x86_64
-                  apt-get -y install ./nice-dcv-server_2024.0.18131-1_amd64.ubuntu2204.deb
+                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz && \
+                  tar -xvzf nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz && \
+                  cd nice-dcv-2024.0-18131-ubuntu2204-x86_64 && \
+                  apt-get -y install ./nice-dcv-server_2024.0.18131-1_amd64.ubuntu2204.deb || echo "DCV installed failed; retry"
                   reboot
                 fi
               else
-                echo "Ubuntu $VERSION_ID is not supported; must be one of 20.04, or 22.04"
+                echo "Ubuntu $VERSION_ID is not supported; must be one of 24.04, or 22.04"
                 exit 1
               fi
 
