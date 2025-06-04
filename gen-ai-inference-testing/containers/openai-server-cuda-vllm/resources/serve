@@ -108,9 +108,9 @@ def start_server():
         max_model_len = int(os.getenv("MAX_MODEL_LEN", 4096))
         dtype = os.getenv("DTYPE", "auto")
         max_num_seqs = int(os.getenv("MAX_NUM_SEQS", 8))
-        enable_trust_remote_code = os.getenv("ENABLE_TRUST_REMOTE_CODE", False)
-        enforce_eager = os.getenv("ENFORCE_EAGER", False)
-        enable_lora = os.getenv("ENABLE_LORA", False)
+        enable_trust_remote_code = bool(os.getenv("ENABLE_TRUST_REMOTE_CODE", False))
+        enforce_eager = bool(os.getenv("ENFORCE_EAGER", False))
+        enable_lora = bool(os.getenv("ENABLE_LORA", False))
         model_type = os.getenv("MODEL_TYPE", None)
         tokenizer = os.getenv("TOKENIZER", model_id)
         vllm_args = [
