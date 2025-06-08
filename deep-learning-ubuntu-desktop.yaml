@@ -859,9 +859,48 @@ Resources:
               apt-get -y install openmpi-bin libopenmpi-dev 
               apt-get -y install protobuf-compiler
 
-              # install DCV server
-              echo "install DCV server..."
               apt-get -y install ubuntu-desktop
+
+              if [[ ! -x "$(command -v dcv)" ]]
+              then
+              apt-get -y install gdm3
+              echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
+              dpkg-reconfigure gdm3
+              sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
+              apt-get -y install mesa-utils || echo "nameserver 8.8.8.8" >> /etc/resolv.conf && apt-get -y install mesa-utils
+              
+              if [[ -x "$(command -v nvidia-xconfig)" ]] && [[ -x "$(command -v nvidia-smi)" ]]
+              then
+              nvidia-xconfig --preserve-busid --enable-all-gpus
+              else
+              apt-get -y install xserver-xorg-video-dummy
+              cat >/etc/X11/xorg.conf <<EOL
+              Section "Device"
+                Identifier "DummyDevice"
+                Driver "dummy"
+                Option "UseEDID" "false"
+                VideoRam 512000
+              EndSection
+              Section "Monitor"
+                Identifier "DummyMonitor"
+                HorizSync 5.0 - 1000.0
+                VertRefresh 5.0 - 200.0
+                Option "ReducedBlanking"
+              EndSection
+              Section "Screen"
+                Identifier "DummyScreen"
+                Device "DummyDevice"
+                Monitor "DummyMonitor"
+                DefaultDepth 24
+                SubSection "Display"
+                  Viewport 0 0
+                  Depth 24
+                  Virtual 4096 2160
+                EndSubSection
+              EndSection
+              EOL
+              fi
+              fi
 
               if [[ "$VERSION_ID" == 24.04* ]]
               then
@@ -869,16 +908,6 @@ Resources:
 
                 if [[ ! -x "$(command -v dcv)" ]]
                 then
-                  apt-get -y install gdm3
-                  echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
-                  dpkg-reconfigure gdm3
-                  sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
-
-                  if [[ -x "$(command -v nvidia-xconfig)" ]] && [[ -x "$(command -v nvidia-smi)" ]]
-                  then
-                    nvidia-xconfig --preserve-busid --enable-all-gpus
-                  fi
-
                   wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-19030-ubuntu2404-x86_64.tgz && \
                   tar -xvzf nice-dcv-2024.0-19030-ubuntu2404-x86_64.tgz && \
                   cd nice-dcv-2024.0-19030-ubuntu2404-x86_64 && \
@@ -892,17 +921,6 @@ Resources:
                
                 if [[ ! -x "$(command -v dcv)" ]]
                 then
-                  apt-get -y install gdm3
-                  echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
-                  dpkg-reconfigure gdm3
-                  sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
-
-                  apt-get -y install mesa-utils
-                  if [[ -x "$(command -v nvidia-xconfig)" ]] && [[ -x "$(command -v nvidia-smi)" ]]
-                  then
-                    nvidia-xconfig --preserve-busid --enable-all-gpus
-                  fi
-
                   wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz && \
                   tar -xvzf nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz && \
                   cd nice-dcv-2024.0-18131-ubuntu2204-x86_64 && \
