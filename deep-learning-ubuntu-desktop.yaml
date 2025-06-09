@@ -225,25 +225,25 @@ Mappings:
       AMI: ami-08943a151bd468f4e
   UbuntuPro2404LTS:
     us-east-1:
-      AMI: ami-084568db4383264d4
+      AMI: ami-0a7620d611d3ceae4
     us-east-2:
-      AMI: ami-04f167a56786e4b09
+      AMI: ami-0cbf25dcbfefddd8b
     us-west-2:
-      AMI: ami-075686beab831bb7f
+      AMI: ami-0026a04369a3093cc
     eu-west-1:
-      AMI: ami-0df368112825f8d8f
+      AMI: ami-0286d0aea4d6c7a34
     eu-central-1:
-      AMI: ami-03250b0e01c28d196
+      AMI: ami-0ccb7fb77fc31decd
     ap-southeast-1:
-      AMI: ami-01938df366ac2d954
+      AMI: ami-07945fd9edc6f05f4
     ap-southeast-2:
-      AMI: ami-0f5d1713c9af4fe30
+      AMI: ami-08b7eb416c0794df3
     ap-south-1:
-      AMI: ami-0e35ddab05955cf57
+      AMI: ami-0cd173613e262de82
     ap-northeast-1:
-      AMI: ami-026c39f4021df9abe
+      AMI: ami-0ce9ed7bc1a296fe7
     ap-northeast-2:
-      AMI: ami-0d5bb3742db8fc264
+      AMI: ami-02501420b6298dfc3
 Conditions:
   OverrideAMI: !Not 
     - !Equals 
@@ -867,8 +867,9 @@ Resources:
               echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
               dpkg-reconfigure gdm3
               sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
+              systemctl restart gdm3
+
               apt-get -y install mesa-utils || echo "nameserver 8.8.8.8" >> /etc/resolv.conf && apt-get -y install mesa-utils
-              
               if [[ -x "$(command -v nvidia-xconfig)" ]] && [[ -x "$(command -v nvidia-smi)" ]]
               then
               nvidia-xconfig --preserve-busid --enable-all-gpus
@@ -900,6 +901,11 @@ Resources:
               EndSection
               EOL
               fi
+
+              #restart X server
+              echo "restart X-server"
+              systemctl set-default graphical.target
+              systemctl isolate graphical.target
               fi
 
               if [[ "$VERSION_ID" == 24.04* ]]
