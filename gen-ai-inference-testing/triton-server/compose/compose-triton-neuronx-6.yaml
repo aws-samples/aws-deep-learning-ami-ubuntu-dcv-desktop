@@ -12,6 +12,7 @@ services:
       - MAX_NUM_SEQS=${MAX_NUM_SEQS}
       - NEURON_CONTEXT_LENGTH_BUCKETS=${NEURON_CONTEXT_LENGTH_BUCKETS}
       - NEURON_TOKEN_GEN_BUCKETS=${NEURON_TOKEN_GEN_BUCKETS}
+      - VLLM_NEURON_FRAMEWORK=${VLLM_NEURON_FRAMEWORK}
     devices:
      - /dev/neuron0:/dev/neuron0
      - /dev/neuron1:/dev/neuron1

@@ -17,7 +17,7 @@ cp $scripts_dir/djl-lmi-transformers-neuronx.sh $HOME/scripts/djl-lmi/
 chmod a+x $HOME/scripts/djl-lmi/*.sh
 mkdir -p $HOME/cache
 
-docker compose -f $DIR/compose/compose-djl-lmi-neuronx.yaml up -d 
+docker compose -f $DIR/compose/compose-djl-lmi-neuronx-${NUM_DEVICE}.yaml up -d 
 else
-docker compose -f $DIR/compose/compose-djl-lmi-neuronx.yaml down 
+docker compose -f $DIR/compose/compose-djl-lmi-neuronx-${NUM_DEVICE}.yaml down 
 fi

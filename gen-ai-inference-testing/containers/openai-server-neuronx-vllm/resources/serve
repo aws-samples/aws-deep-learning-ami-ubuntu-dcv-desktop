@@ -92,11 +92,14 @@ def start_server():
     
     pids = [nginx.pid]
     
+    neuron_compiled_artifacts = os.getenv("NEURON_COMPILED_ARTIFACTS", None)
     for i, ports in enumerate(openai_server_ports):
         env_copy = copy.deepcopy(os.environ)
         group = core_groups[i]
         env_copy['NEURON_RT_NUM_CORES']=f"{len(group)}"
         env_copy['NEURON_RT_ROOT_COMM_ID']=f"localhost:{48620+i}"
+        if neuron_compiled_artifacts is not None:
+            env_copy["NEURON_COMPILED_ARTIFACTS"] = f"{neuron_compiled_artifacts}-{i}"
         http = ports['http']
         print(f"server instance: {i}: http: {http}")
         print(f"server instance: {i}: NEURON_RT_NUM_CORES={env_copy['NEURON_RT_NUM_CORES']}")
@@ -128,6 +131,7 @@ def start_server():
             "--disable-log-stats",
             "--trust-remote-code",
             "--enforce-eager",
+            "--generation-config=vllm"
         ]
 
         if enable_trust_remote_code:

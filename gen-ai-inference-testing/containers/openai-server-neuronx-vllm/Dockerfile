@@ -70,14 +70,17 @@ RUN apt-get -y install aws-neuronx-collectives=2.*
 RUN apt-get -y install aws-neuronx-runtime-lib=2.*
 RUN apt-get -y install aws-neuronx-tools=2.*
 
-RUN pip3 install awscli --extra-index-url https://pip.repos.neuron.amazonaws.com
-RUN pip3 install --extra-index-url https://pip.repos.neuron.amazonaws.com neuronx-cc==2.16.* torch-neuronx==2.5.* torchvision
+RUN pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com
+RUN pip3 install awscli
+RUN pip3 install neuronx-cc==2.18.* torch-neuronx==2.6.* torchvision \
+      transformers-neuronx neuronx-distributed neuronx-distributed-inference \
+      git+https://github.com/huggingface/optimum-neuron.git@v0.1.0
 
 ENV VLLM_TARGET_DEVICE=neuron
 RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm
-RUN cd /opt/vllm && git fetch origin 3015d5634e74d59704e2b39bab0dbe2e6f86a38a
-RUN cd /opt/vllm && git reset --hard 3015d5634e74d59704e2b39bab0dbe2e6f86a38a
-RUN pip3 install --extra-index-url https://pip.repos.neuron.amazonaws.com  -r /opt/vllm/requirements/neuron.txt
+RUN cd /opt/vllm && git fetch origin 5fbbfe9a4c13094ad72ed3d6b4ef208a7ddc0fd7
+RUN cd /opt/vllm && git reset --hard 5fbbfe9a4c13094ad72ed3d6b4ef208a7ddc0fd7
+RUN pip3 install -r /opt/vllm/requirements/neuron.txt
 RUN cd /opt/vllm && pip3 install -e .
 
 COPY resources /opt/program

@@ -9,15 +9,7 @@
 : ${MAX_MODEL_LEN:=8192}
 : ${MAX_NUM_SEQS:=8}
 : ${OMP_NUM_THRADS:=16}
-
-MODEL_PATH=/snapshots/$MODEL_ID
-if [ ! -d $MODEL_PATH ]
-then
-pip3 install -U "huggingface_hub[cli]"
-huggingface-cli download --repo-type model \
-    --local-dir $MODEL_PATH \
-    --token $HF_TOKEN  $MODEL_ID
-fi
+: ${VLLM_NEURON_FRAMEWORK:="neuronx-distributed-inference"}
 
 CACHE_DIR=/cache
 
@@ -72,7 +64,7 @@ EOF
 
 cat > /tmp/model.json <<EOF
 {
-  "model": "$MODEL_PATH",
+  "model": "$MODEL_ID",
   "disable_log_requests": true,
   "tensor_parallel_size": $TENSOR_PARALLEL_SIZE,
   "max_num_seqs": $MAX_NUM_SEQS,
@@ -101,5 +93,6 @@ cp /tmp/config.pbtxt $MODEL_REPO/$MODEL_NAME/config.pbtxt
 export NEURON_CC_FLAGS="--model-type=transformer --enable-fast-loading-neuron-binaries"
 export NEURON_COMPILE_CACHE_URL="$CACHE_DIR"
 export FI_EFA_FORK_SAFE=1
+export NEURON_COMPILED_ARTIFACTS=$MODEL_ID/neuron-compiled-artifacts
 /opt/program/serve \
 && /bin/bash -c "trap : TERM INT; sleep infinity & wait"

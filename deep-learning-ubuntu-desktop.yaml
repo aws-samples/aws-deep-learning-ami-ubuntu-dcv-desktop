@@ -1116,7 +1116,11 @@ Resources:
                     pip3 install jupyter notebook && \
                     pip3 install environment_kernels && \
                     pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
-                    pip3 install neuronx-cc==2.* torch-neuronx torchvision neuronx-distributed && \
+                    pip3 install neuronx-cc==2.18.* torch-neuronx==2.6.* torchvision \
+                      transformers-neuronx neuronx-distributed \
+                      neuronx-distributed-inference neuronx-distributed-training \
+                      git+https://github.com/huggingface/optimum-neuron.git@v0.1.0 \
+                      triton==3.2.0 pynvml==11.5.3 transformers==4.48.3 datasets protobuf==3.20.3 && \
                     deactivate && \
                     chown -R ubuntu:ubuntu /home/ubuntu/aws_neuron_venv_pytorch
               else
