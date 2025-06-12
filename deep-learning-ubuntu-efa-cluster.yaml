@@ -408,7 +408,7 @@ Resources:
 
                 #!/bin/bash -xe
 
-                echo "Cloud init in progress!" > /etc/motd
+                echo "Cloud init in progress! Logs: /var/log/cloud-init-output.log" > /etc/motd
                 . /etc/os-release
 
                 distro=ubuntu${VERSION_ID//[.]/""}
