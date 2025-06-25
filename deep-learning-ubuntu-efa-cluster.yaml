@@ -422,8 +422,9 @@ Resources:
                 dpkg -l | grep linux | awk -F' ' '{print $2}' > /tmp/dpkg.out
                 for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
 
-                CUDA=12.6
+                CUDA=12.8
                 CUDA_DASH=${CUDA//\./-}
+                DRIVER_VERSION=570.158.01-0ubuntu1
 
               - OVERRIDE_AMI=
               - !Ref UbuntuAMIOverride
@@ -436,15 +437,19 @@ Resources:
                   wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.1-1_all.deb && \
                   dpkg -i cuda-keyring_1.1-1_all.deb && \
                   apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
-                  apt-get -y install cuda-${CUDA_DASH} && \
-                  apt-get -y install libcudnn8 && \
-                  apt-get -y install libcudnn8-dev && \
+                  apt-get -y install build-essential && \
+                  ( ( [[ "$VERSION_ID" == 22.04* ]] && apt-get -y install gcc g++ cpp-11 gcc-11 g++-11 gcc-11-base libgcc-11-dev libstdc++-11-dev \
+                          cpp-12 gcc-12 g++-12 libgcc-12-dev libstdc++-12-dev && \
+                    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 50 --slave /usr/bin/g++ g++ /usr/bin/g++-11 && \
+                    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 --slave /usr/bin/g++ g++ /usr/bin/g++-12) || : ) && \
+                  apt-get install -y libnvidia-cfg1=$DRIVER_VERSION \
+                    nvidia-persistenced=$DRIVER_VERSION nvidia-open=$DRIVER_VERSION cuda-${CUDA_DASH} && \
                   echo "export PATH=/usr/local/cuda-${CUDA}/bin:$PATH" >> /home/ubuntu/.bashrc && \
                   CUDA_COMPAT=$(nvidia-smi | grep CUDA | awk '{print $(NF - 1)}') && \
                   CUDA_COMPAT_DASH=${CUDA_COMPAT//\./-} && \
                   apt-get -y install cuda-compat-${CUDA_COMPAT_DASH} && \
                   echo "export LD_LIBRARY_PATH=/usr/local/cuda-${CUDA_COMPAT}/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
-                  reboot
+                  sync && reboot
 
                   dpkg -l | grep nvidia | awk -F' ' '{print $2}' > /tmp/dpkg.out
                   for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done

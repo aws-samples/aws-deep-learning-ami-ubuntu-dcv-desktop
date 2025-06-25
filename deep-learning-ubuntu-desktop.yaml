@@ -744,8 +744,9 @@ Resources:
               dpkg -l | grep linux | awk -F' ' '{print $2}' > /tmp/dpkg.out
               for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
 
-              CUDA=12.6
+              CUDA=12.8
               CUDA_DASH=${CUDA//\./-}
+              DRIVER_VERSION=570.158.01-0ubuntu1
 
             - OVERRIDE_AMI=
             - !Ref UbuntuAMIOverride
@@ -758,19 +759,19 @@ Resources:
                 wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.1-1_all.deb && \
                 dpkg -i cuda-keyring_1.1-1_all.deb && \
                 apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
-                ( ( [[ "$VERSION_ID" == 22.04* ]] && apt-get -y install build-essential gcc g++ cpp-11 gcc-11 g++-11 gcc-11-base libgcc-11-dev libstdc++-11-dev \
+                apt-get -y install build-essential && \
+                ( ( [[ "$VERSION_ID" == 22.04* ]] && apt-get -y install gcc g++ cpp-11 gcc-11 g++-11 gcc-11-base libgcc-11-dev libstdc++-11-dev \
                         cpp-12 gcc-12 g++-12 libgcc-12-dev libstdc++-12-dev && \
                   update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 50 --slave /usr/bin/g++ g++ /usr/bin/g++-11 && \
                   update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 --slave /usr/bin/g++ g++ /usr/bin/g++-12) || : ) && \
-                apt-get -y install cuda-${CUDA_DASH} && \
-                apt-get -y install libcudnn8 && \
-                apt-get -y install libcudnn8-dev && \
+                apt-get install -y libnvidia-cfg1=$DRIVER_VERSION \
+                  nvidia-persistenced=$DRIVER_VERSION nvidia-open=$DRIVER_VERSION cuda-${CUDA_DASH} && \
                 echo "export PATH=/usr/local/cuda-${CUDA}/bin:$PATH" >> /home/ubuntu/.bashrc && \
                 CUDA_COMPAT=$(nvidia-smi | grep CUDA | awk '{print $(NF - 1)}') && \
                 CUDA_COMPAT_DASH=${CUDA_COMPAT//\./-} && \
                 apt-get -y install cuda-compat-${CUDA_COMPAT_DASH} && \
                 echo "export LD_LIBRARY_PATH=/usr/local/cuda-${CUDA_COMPAT}/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
-                reboot
+                sync && reboot
 
                 dpkg -l | grep nvidia | awk -F' ' '{print $2}' > /tmp/dpkg.out
                 for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
@@ -808,6 +809,13 @@ Resources:
               gpg --no-default-keyring --keyring ./fsx_keyring.gpg  --export > ./fsx.gpg
               mv ./fsx.gpg /etc/apt/trusted.gpg.d/
               rm ./fsx-ubuntu-public-key.asc
+
+              ( [[ "$VERSION_ID" == 24.04* ]] && \
+                add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu noble main" ) || \
+              ( [[ "$VERSION_ID" == 22.04* ]] && \
+                apt-get -y install lsb-core && \
+                add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main"
+              )
 
               # add key for NICE-DCV
               wget -qO - https://d1uj6qtbmh3dt5.cloudfront.net/NICE-GPG-KEY > ./NICE-GPG-KEY
@@ -863,13 +871,14 @@ Resources:
 
               if [[ ! -x "$(command -v dcv)" ]]
               then
+              sleep 60
               apt-get -y install gdm3
               echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
               dpkg-reconfigure gdm3
               sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
               systemctl restart gdm3
 
-              apt-get -y install mesa-utils || echo "nameserver 8.8.8.8" >> /etc/resolv.conf && apt-get -y install mesa-utils
+              apt-get -y install mesa-utils || (sync &&  reboot)
               if [[ -x "$(command -v nvidia-xconfig)" ]] && [[ -x "$(command -v nvidia-smi)" ]]
               then
               nvidia-xconfig --preserve-busid --enable-all-gpus
@@ -902,42 +911,20 @@ Resources:
               EOL
               fi
 
-              #restart X server
-              echo "restart X-server"
-              systemctl set-default graphical.target
-              systemctl isolate graphical.target
+              ( [[ "$VERSION_ID" == 24.04* ]] && \
+                wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-19030-ubuntu2404-x86_64.tgz && \
+                tar -xvzf nice-dcv-2024.0-19030-ubuntu2404-x86_64.tgz && \
+                cd nice-dcv-2024.0-19030-ubuntu2404-x86_64 && \
+                apt-get -y install ./nice-dcv-server_2024.0.19030-1_amd64.ubuntu2404.deb) || \
+              ( [[ "$VERSION_ID" == 22.04* ]] && \
+                wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz && \
+                tar -xvzf nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz && \
+                cd nice-dcv-2024.0-18131-ubuntu2204-x86_64 && \
+                apt-get -y install ./nice-dcv-server_2024.0.18131-1_amd64.ubuntu2204.deb) || \
+              echo "Amazon DCV install failed for Ubuntu $VERSION_ID; retrying..."
+              sync && reboot
               fi
-
-              if [[ "$VERSION_ID" == 24.04* ]]
-              then
-                add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu noble main"
-
-                if [[ ! -x "$(command -v dcv)" ]]
-                then
-                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-19030-ubuntu2404-x86_64.tgz && \
-                  tar -xvzf nice-dcv-2024.0-19030-ubuntu2404-x86_64.tgz && \
-                  cd nice-dcv-2024.0-19030-ubuntu2404-x86_64 && \
-                  apt-get -y install ./nice-dcv-server_2024.0.19030-1_amd64.ubuntu2404.deb || echo "DCV installed failed; retry"
-                  reboot
-                fi
-              elif [[ "$VERSION_ID" == 22.04* ]]
-              then   
-                apt-get -y install lsb-core
-                add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main"
-               
-                if [[ ! -x "$(command -v dcv)" ]]
-                then
-                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz && \
-                  tar -xvzf nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz && \
-                  cd nice-dcv-2024.0-18131-ubuntu2204-x86_64 && \
-                  apt-get -y install ./nice-dcv-server_2024.0.18131-1_amd64.ubuntu2204.deb || echo "DCV installed failed; retry"
-                  reboot
-                fi
-              else
-                echo "Ubuntu $VERSION_ID is not supported; must be one of 24.04, or 22.04"
-                exit 1
-              fi
-
+              
               #restart X server
               systemctl set-default graphical.target
               systemctl isolate graphical.target
@@ -1178,8 +1165,7 @@ Resources:
 
               # install visual code 
               apt-get -y install code
- 
-              echo "Amazon DCV server is enabled!" > /etc/motd
+              echo "Deep Learning Desktop is Ready!" > /etc/motd
 Outputs:
   Ami:
     Description: AMI
