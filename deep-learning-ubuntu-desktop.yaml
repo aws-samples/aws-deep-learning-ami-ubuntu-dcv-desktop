@@ -200,6 +200,10 @@ Parameters:
     AllowedValues:
       - 'false'
       - 'true'
+  CapacityReservationId:
+    Type: String
+    Description: (Optional) The ID of the capacity reservation to use.
+    Default: ""
 
 Mappings:
   UbuntuPro2204LTS:
@@ -353,6 +357,8 @@ Conditions:
     - !Condition EfaG6eInstances
     - !Condition EfaPInstances
     - !Condition EfaTrnInstances
+
+  HasCapacityReservation: !Not [!Equals [!Ref CapacityReservationId, ""]]
 
 Resources:
   
@@ -653,6 +659,15 @@ Resources:
             - !Ref 'AWS::Region'
             - AMI
         EbsOptimized: !Ref EBSOptimized
+        CapacityReservationSpecification: !If
+          - HasCapacityReservation
+          - CapacityReservationTarget:
+              CapacityReservationId: !Ref CapacityReservationId
+          - !Ref AWS::NoValue
+        InstanceMarketOptions: !If
+        - HasCapacityReservation
+        - MarketType: capacity-block
+        - !Ref AWS::NoValue
 
 
   EfaDesktopLaunchTemplate:
@@ -691,6 +706,15 @@ Resources:
             - !Ref 'AWS::Region'
             - AMI
         EbsOptimized: !Ref EBSOptimized
+        CapacityReservationSpecification: !If
+          - HasCapacityReservation
+          - CapacityReservationTarget:
+              CapacityReservationId: !Ref CapacityReservationId
+          - !Ref AWS::NoValue
+        InstanceMarketOptions: !If
+          - HasCapacityReservation
+          - MarketType: capacity-block
+          - !Ref AWS::NoValue
 
   DesktopInstance:
     Type: 'AWS::EC2::Instance'
@@ -746,7 +770,8 @@ Resources:
 
               CUDA=12.8
               CUDA_DASH=${CUDA//\./-}
-              DRIVER_VERSION=570.158.01-0ubuntu1
+              DRIVER_VERSION=570.158.01-0ubuntu1 # Nvidia driver version
+              DRIVER_MAJOR_VERSION=$(echo "$DRIVER_VERSION" | cut -d'.' -f1) # Nvidia Driver major version
 
             - OVERRIDE_AMI=
             - !Ref UbuntuAMIOverride
@@ -764,8 +789,9 @@ Resources:
                         cpp-12 gcc-12 g++-12 libgcc-12-dev libstdc++-12-dev && \
                   update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 50 --slave /usr/bin/g++ g++ /usr/bin/g++-11 && \
                   update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 --slave /usr/bin/g++ g++ /usr/bin/g++-12) || : ) && \
-                apt-get install -y libnvidia-cfg1=$DRIVER_VERSION \
-                  nvidia-persistenced=$DRIVER_VERSION nvidia-open=$DRIVER_VERSION cuda-${CUDA_DASH} && \
+                apt-get install -y libnvidia-cfg1=$DRIVER_VERSION nvidia-persistenced=$DRIVER_VERSION nvidia-open=$DRIVER_VERSION  && \
+                (apt-get install -y nvidia-fabricmanager-${DRIVER_MAJOR_VERSION} || : ) && \
+                apt-get install -y cuda-${CUDA_DASH} && \
                 echo "export PATH=/usr/local/cuda-${CUDA}/bin:$PATH" >> /home/ubuntu/.bashrc && \
                 CUDA_COMPAT=$(nvidia-smi | grep CUDA | awk '{print $(NF - 1)}') && \
                 CUDA_COMPAT_DASH=${CUDA_COMPAT//\./-} && \
@@ -876,13 +902,8 @@ Resources:
               echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
               dpkg-reconfigure gdm3
               sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
-              systemctl restart gdm3
-
-              apt-get -y install mesa-utils || (sync &&  reboot)
-              if [[ -x "$(command -v nvidia-xconfig)" ]] && [[ -x "$(command -v nvidia-smi)" ]]
-              then
-              nvidia-xconfig --preserve-busid --enable-all-gpus
-              else
+              (systemctl stop gdm3 && systemctl start gdm3 && apt-get -y install mesa-utils) || (sync &&  reboot)
+              
               apt-get -y install xserver-xorg-video-dummy
               cat >/etc/X11/xorg.conf <<EOL
               Section "Device"
@@ -909,7 +930,6 @@ Resources:
                 EndSubSection
               EndSection
               EOL
-              fi
 
               ( [[ "$VERSION_ID" == 24.04* ]] && \
                 wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-19030-ubuntu2404-x86_64.tgz && \
@@ -920,40 +940,44 @@ Resources:
                 wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz && \
                 tar -xvzf nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz && \
                 cd nice-dcv-2024.0-18131-ubuntu2204-x86_64 && \
-                apt-get -y install ./nice-dcv-server_2024.0.18131-1_amd64.ubuntu2204.deb) || \
-              echo "Amazon DCV install failed for Ubuntu $VERSION_ID; retrying..."
+                apt-get -y install ./nice-dcv-server_2024.0.18131-1_amd64.ubuntu2204.deb) || echo "Retrying DCV install..."
+                
               sync && reboot
               fi
-              
+
               #restart X server
               systemctl set-default graphical.target
               systemctl isolate graphical.target
   
               # Create DCV server configuration file
               [[ -d /opt/dcv-session-store ]] || mkdir /opt/dcv-session-store
-              echo "[license]" >> dcv.conf
-              echo "[log]" >> dcv.conf
-              echo "[session-management]" >> dcv.conf
-              echo "create-session = true" >> dcv.conf
-              echo "[session-management/defaults]" >> dcv.conf
-              echo "[session-management/automatic-console-session]" >> dcv.conf
-              echo "owner=ubuntu" >> dcv.conf
-              echo "storage-root=\"/opt/dcv-session-store/\"" >> dcv.conf
-              echo "[display]" >> dcv.conf
-              echo "[connectivity]" >> dcv.conf
-              echo "[security]" >> dcv.conf
-              echo "authentication=\"system\"" >> dcv.conf
-              echo "[clipboard]" >> dcv.conf
-              echo "primary-selection-copy=true" >> dcv.conf
-              echo "primary-selection-paste=true" >> dcv.conf
-              mv dcv.conf /etc/dcv/dcv.conf
+              cat >/etc/dcv/dcv.conf <<EOL
+              [license]
+              [log]
+              [session-management]
+              create-session=true
+              [session-management/defaults]
+              [session-management/automatic-console-session]
+              owner=ubuntu
+              storage-root="/opt/dcv-session-store/"
+              [display]
+              [connectivity]
+              [security]
+              authentication="system"
+              [clipboard]
+              primary-selection-copy=true
+              primary-selection-paste=true
+              EOL
 
               # Create DCV session permissions files
               rm -f /home/ubuntu/dcv.perms
-              echo "[permissions]" >> /home/ubuntu/dcv.perms
-              echo "%owner% allow builtin" >> /home/ubuntu/dcv.perms
+              cat >/home/ubuntu/dcv.perms <<EOL
+              [permissions]
+              %owner% allow builtin
+              EOL
 
               # Enable DCV server
+              systemctl daemon-reload
               systemctl enable dcvserver
               systemctl restart dcvserver
               
@@ -1120,6 +1144,8 @@ Resources:
                   rm /home/ubuntu/miniconda3.sh
 
                   source /home/ubuntu/miniconda3/etc/profile.d/conda.sh
+                  conda tos accept --override-channels --channel  https://repo.anaconda.com/pkgs/main
+                  conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
                   conda update -y --name base -c defaults conda
 
                   # install jupyterlab and boto3 in base env

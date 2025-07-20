@@ -98,6 +98,11 @@ Parameters:
     Default: 2
     MinValue: 0
     MaxValue: 32
+  
+  CapacityReservationId:
+    Type: String
+    Description: (Optional) The ID of the capacity reservation to use.
+    Default: ""
 
 Mappings:
   UbuntuPro2204LTS:
@@ -160,6 +165,8 @@ Conditions:
   EfaTrn1n32Instances: !Equals 
     - !Ref ClusterInstanceType
     - 'trn1n.32xlarge'
+
+  HasCapacityReservation: !Not [!Equals [!Ref CapacityReservationId, ""]]
 
 Resources:
 
@@ -375,6 +382,15 @@ Resources:
             - !Ref 'AWS::Region'
             - AMI
         EbsOptimized: !Ref EBSOptimized
+        CapacityReservationSpecification: !If
+          - HasCapacityReservation
+          - CapacityReservationTarget:
+              CapacityReservationId: !Ref CapacityReservationId
+          - !Ref AWS::NoValue
+        InstanceMarketOptions: !If
+          - HasCapacityReservation
+          - MarketType: capacity-block
+          - !Ref AWS::NoValue
         KeyName: 
           'Fn::ImportValue':
             'Fn::Sub': '${DesktopStack}-KeyPairName'
@@ -425,6 +441,7 @@ Resources:
                 CUDA=12.8
                 CUDA_DASH=${CUDA//\./-}
                 DRIVER_VERSION=570.158.01-0ubuntu1
+                DRIVER_MAJOR_VERSION=$(echo "$DRIVER_VERSION" | cut -d'.' -f1) # Nvidia Driver major version
 
               - OVERRIDE_AMI=
               - !Ref UbuntuAMIOverride
@@ -442,8 +459,9 @@ Resources:
                           cpp-12 gcc-12 g++-12 libgcc-12-dev libstdc++-12-dev && \
                     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 50 --slave /usr/bin/g++ g++ /usr/bin/g++-11 && \
                     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 --slave /usr/bin/g++ g++ /usr/bin/g++-12) || : ) && \
-                  apt-get install -y libnvidia-cfg1=$DRIVER_VERSION \
-                    nvidia-persistenced=$DRIVER_VERSION nvidia-open=$DRIVER_VERSION cuda-${CUDA_DASH} && \
+                  apt-get install -y libnvidia-cfg1=$DRIVER_VERSION nvidia-persistenced=$DRIVER_VERSION nvidia-open=$DRIVER_VERSION  && \
+                  (apt-get install -y nvidia-fabricmanager-${DRIVER_MAJOR_VERSION} || : ) && \
+                  apt-get install -y cuda-${CUDA_DASH} && \
                   echo "export PATH=/usr/local/cuda-${CUDA}/bin:$PATH" >> /home/ubuntu/.bashrc && \
                   CUDA_COMPAT=$(nvidia-smi | grep CUDA | awk '{print $(NF - 1)}') && \
                   CUDA_COMPAT_DASH=${CUDA_COMPAT//\./-} && \
@@ -599,44 +617,29 @@ Resources:
                 chown -R ubuntu:ubuntu /home/ubuntu/.aws
    
                 if [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1) ]] || \
-                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1n) ]]
+                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1n) ]] || \
+                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep inf2) ]]
                 then
-                  apt-get install -y python3-venv g++
-              
-                  [[ ! -d /home/ubuntu/aws_neuron_venv_pytorch ]] && \
-                    HOME=/home/ubuntu && \
-                    cd $HOME && \
-                    python3 -m venv aws_neuron_venv_pytorch  && \
-                    source aws_neuron_venv_pytorch/bin/activate && \
-                    python3 -m pip install -U pip  && \
-                    pip3 install ipykernel  && \
-                    python3 -m ipykernel install --user --name aws_neuron_venv_pytorch --display-name "Python (torch-neuronx)" && \
-                    pip3 install jupyter notebook && \
-                    pip3 install environment_kernels && \
-                    pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
-                    pip3 install neuronx-cc==2.* torch-neuronx torchvision neuronx-distributed && \
-                    deactivate && \
-                    chown -R ubuntu:ubuntu /home/ubuntu/aws_neuron_venv_pytorch
-
-                  [[ ! -d /home/ubuntu/aws_neuron_nemo_megatron ]] && \
-                    HOME=/home/ubuntu && \
-                    cd $HOME && \
-                    python3 -m venv aws_neuron_nemo_megatron && \
-                    source aws_neuron_nemo_megatron/bin/activate && \
-                    python3 -m pip install -U pip  && \
-                    pip3 install ipykernel  && \
-                    python3 -m ipykernel install --user --name aws_neuron_venv_pytorch --display-name "Python (torch-neuronx)" && \
-                    pip3 install jupyter notebook && \
-                    pip3 install environment_kernels && \
-                    pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
-                    pip3 install neuronx-cc==2.* torch-neuronx torchvision && \
-                    ( [[ -d neuronx-nemo-megatron ]] || git clone https://github.com/aws-neuron/neuronx-nemo-megatron.git ) && \
-                    cd neuronx-nemo-megatron && pip3 install wheel && ./build.sh && pip3 install ./build/*.whl && \
-                    pip3 install Cython && pip3 install -r requirements.txt protobuf==3.20.3 && \
-                    python3 -c "from nemo.collections.nlp.data.language_modeling.megatron.dataset_utils import compile_helper; compile_helper()" && \
-                    deactivate && \
-                    chown -R ubuntu:ubuntu /home/ubuntu/aws_neuron_nemo_megatron
-
+                    apt-get install -y python3-venv g++
+                
+                    [[ ! -d /home/ubuntu/aws_neuron_venv_pytorch ]] && \
+                      HOME=/home/ubuntu && \
+                      cd $HOME && \
+                      python3 -m venv aws_neuron_venv_pytorch  && \
+                      source aws_neuron_venv_pytorch/bin/activate && \
+                      python3 -m pip install -U pip  && \
+                      pip3 install ipykernel  && \
+                      python3 -m ipykernel install --user --name aws_neuron_venv_pytorch --display-name "Python (torch-neuronx)" && \
+                      pip3 install jupyter notebook && \
+                      pip3 install environment_kernels && \
+                      pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
+                      pip3 install neuronx-cc==2.18.* torch-neuronx==2.6.* torchvision \
+                        transformers-neuronx neuronx-distributed \
+                        neuronx-distributed-inference neuronx-distributed-training \
+                        git+https://github.com/huggingface/optimum-neuron.git@v0.1.0 \
+                        triton==3.2.0 pynvml==11.5.3 transformers==4.48.3 datasets protobuf==3.20.3 && \
+                      deactivate && \
+                      chown -R ubuntu:ubuntu /home/ubuntu/aws_neuron_venv_pytorch
                 else
                   # install miniconda3 if anaconda3, or miniconda3 are not installed
                   if [[ ! -d "/home/ubuntu/anaconda3" ]] && [[ ! -d "/home/ubuntu/miniconda3" ]]
@@ -647,6 +650,8 @@ Resources:
                     rm /home/ubuntu/miniconda3.sh
 
                     source /home/ubuntu/miniconda3/etc/profile.d/conda.sh
+                    conda tos accept --override-channels --channel  https://repo.anaconda.com/pkgs/main
+                    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
                     conda update -y --name base -c defaults conda
 
                     # install jupyterlab and boto3 in base env
@@ -661,7 +666,8 @@ Resources:
                     conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.12 && \
                     conda activate tensorflow && \
                     pip3 install --upgrade pip && \
-                    pip3 install tensorflow==2.17.0 && \
+                    pip3 install 'tensorflow[and-cuda]' && \
+                    python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))" && \
                     pip3 install datasets && \
                     pip3 install transformers && \
                     conda install -y ipykernel && \
@@ -671,7 +677,8 @@ Resources:
                     conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.12 && \
                     conda activate pytorch && \
                     pip3 install --upgrade pip && \
-                    pip3 install torch==2.5.1 torchvision && \
+                    pip3 install torch==2.7.0 torchvision torchaudio && \
+                    python3 -c "import torch; print(torch.cuda.is_available())" && \
                     pip3 install datasets && \
                     pip3 install transformers && \
                     conda install -y ipykernel && \
@@ -684,9 +691,9 @@ Resources:
                 
                   echo "conda activate" >> /home/ubuntu/.bashrc
                 fi
-             
+
                 # install aws cli
-                apt-get -y install awscli
+                snap install aws-cli --classic
 
                 # update routes if more than one ENI
                 TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"` 
