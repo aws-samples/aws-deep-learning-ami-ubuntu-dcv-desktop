@@ -440,7 +440,7 @@ Resources:
 
                 CUDA=12.8
                 CUDA_DASH=${CUDA//\./-}
-                DRIVER_VERSION=570.158.01-0ubuntu1
+                DRIVER_VERSION=$(apt-cache policy nvidia-driver-570-open | awk '/Candidate:/ {print $2}') # Nvidia driver version
                 DRIVER_MAJOR_VERSION=$(echo "$DRIVER_VERSION" | cut -d'.' -f1) # Nvidia Driver major version
 
               - OVERRIDE_AMI=
@@ -460,7 +460,7 @@ Resources:
                     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 50 --slave /usr/bin/g++ g++ /usr/bin/g++-11 && \
                     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 --slave /usr/bin/g++ g++ /usr/bin/g++-12) || : ) && \
                   apt-get install -y libnvidia-cfg1=$DRIVER_VERSION nvidia-persistenced=$DRIVER_VERSION nvidia-open=$DRIVER_VERSION  && \
-                  (apt-get install -y nvidia-fabricmanager-${DRIVER_MAJOR_VERSION} || : ) && \
+                  ( (apt-get install -y nvidia-fabricmanager-${DRIVER_MAJOR_VERSION} && systemctl enable nvidia-fabricmanager) || : ) && \
                   apt-get install -y cuda-${CUDA_DASH} && \
                   echo "export PATH=/usr/local/cuda-${CUDA}/bin:$PATH" >> /home/ubuntu/.bashrc && \
                   CUDA_COMPAT=$(nvidia-smi | grep CUDA | awk '{print $(NF - 1)}') && \
