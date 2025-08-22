@@ -10,7 +10,7 @@ mkdir -p $CACHE_DIR
 
 : ${TENSOR_PARALLEL_SIZE:=8}
 : ${MAX_MODEL_LEN:=8192}
-: ${OMP_NUM_THRADS:=16}
+: ${OMP_NUM_THREADS:=16}
 
 cat > /opt/ml/model/serving.properties <<EOF
 option.model_id=$MODEL_ID

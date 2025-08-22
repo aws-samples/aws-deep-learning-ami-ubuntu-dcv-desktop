@@ -5,20 +5,17 @@ This project is a tutorial on how to launch an AWS deep learning desktop with [A
 * Ubuntu Server Pro, 24.04 LTS, Version 20250516 (Default)
 * Ubuntu Server Pro, 22.04 LTS, Version 20250516 
 
-Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), [inf2](https://aws.amazon.com/ec2/instance-types/inf2/), GPU enabled [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [g6](https://aws.amazon.com/ec2/instance-types/g6/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), [p4](https://aws.amazon.com/ec2/instance-types/p4/), [p5](https://aws.amazon.com/ec2/instance-types/p5/), and selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), and [r5](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
+Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), [trn2](https://aws.amazon.com/ec2/instance-types/trn2/), [inf2](https://aws.amazon.com/ec2/instance-types/inf2/), GPU enabled [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [g6](https://aws.amazon.com/ec2/instance-types/g6/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), [p4](https://aws.amazon.com/ec2/instance-types/p4/), [p5](https://aws.amazon.com/ec2/instance-types/p5/), and selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), and [r5](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
 
 For Amazon EC2 GPU enabled instances:
 
 * [CUDA](https://developer.nvidia.com/cuda-toolkit), CUDA Compatibility package compatible with the CUDA driver, and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed.
-* [Conda](https://docs.conda.io/en/latest/miniconda.html) environments for [Tensorflow](https://www.tensorflow.org/) and [PyTorch](https://pytorch.org/) are installed in `tensorflow` and `pytorch`, respectively.
-
-For Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/) and [inf2](https://aws.amazon.com/ec2/instance-types/inf2/) instance types, [AWS Neuron SDK](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/) with PyTorch support is automatically installed in a virtual environment named `aws_neuron_venv_pytorch`.
 
 **NOTE:** *Automatic or manual upgrades to CUDA driver may require new [CUDA Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/index.html) package to be manually installed.*
 
 [Visual Studio Code](https://code.visualstudio.com/) IDE is installed for code development.
 
-The deep-learning desktop can be used for standalone development, and can be also used as a head node for working with one or more [deep-learning clusters](#launching-deep-learning-cluster-with-efa-and-open-mpi) enabled with [Elastic Fabric Adapter (EFA)](https://aws.amazon.com/hpc/efa/) and [Open MPI](https://www.open-mpi.org/). 
+The deep-learning desktop can be used for standalone development, or as a head node for [deep learning clusters](#launching-deep-learning-cluster-with-efa-and-open-mpi) enabled with [Elastic Fabric Adapter (EFA)](https://aws.amazon.com/hpc/efa/), and [Open MPI](https://www.open-mpi.org/). 
 
 ## Step by Step Tutorial
 
@@ -56,23 +53,7 @@ The deep-learning desktop uses EC2 [user-data](https://docs.aws.amazon.com/AWSEC
 * When you first login to the desktop using the Amazon DCV client, you will be asked if you would like to upgrade the OS version. **Do not upgrade the OS version** .
 * Configure the desktop application **Software Updater** settings to only allow automatic download and application of security updates. Do not apply any non-security updates, unless you are an advanced user.
 
-## Using Amazon SageMaker AI
-The deep learning desktop is pre-configured to use [Amazon SageMaker AI](https://aws.amazon.com/sagemaker-ai/). To get started with Generative AI training and inference examples in Amazon SageMaker AI, execute following commands in a desktop terminal (for AWS AI accelerator based workstation, first run `source /home/ubuntu/aws_neuron_venv_pytorch/bin/activate` in the terminal):
-
-	mkdir ~/git
-	cd ~/git
-	git clone -b distributed-training-pipeline https://github.com/aws/amazon-sagemaker-examples.git
-	jupyter-lab 1>lab.out 2>&1 &
-	
-This will start a `jupyter-lab` notebook server in the terminal, and open a tab in your web browser. 
-
-For inference examples, navigate to `amazon-sagemaker-examples/advanced_functionality/large-model-inference-testing/large_model_inference.ipynb` notebook in Jupyter Lab. Use any Python kernel in the notebook. You can skip straight to the cell titled **Initialize SageMaker session**, and set `s3_bucket` to the S3 bucket you used to launch the deep learning desktop.
-
-**For advanced users**:
-
-if you have FSx for Lustre enabled in the deep learning desktop, you can navigate to `amazon-sagemaker-examples/advanced_functionality/distributed-training-pipeline/dist_training_pipeline.ipynb` notebook in Jupyter Lab and run training examples. Use the `base` kernel in the notebook. You can skip straight to the cell titled **Initialize SageMaker session**, and set `s3_bucket` to the S3 bucket you used to launch the deep learning desktop.
-
-## Local Generative AI Inference Testing
+## Generative AI Inference Testing
 
 For local Generative AI inference testing on the deep learning desktop, follow this [tutorial](./gen-ai-inference-testing/README.md).
 
@@ -87,6 +68,22 @@ If you do not have access to the S3 bucket, you will see an error message. If yo
 There is an [Amazon EBS](https://aws.amazon.com/ebs/) root volume attached to the instance. In addition, an [Amazon EFS](https://aws.amazon.com/efs/) file-system is mounted on your desktop at `EFSMountPath`, which by default is `/home/ubuntu/efs`. Optionally, an [Amazon FSx for Lustre](https://aws.amazon.com/fsx/) file-system can be mounted on your desktop at `FSxMountPath`, which by default is `/home/ubuntu/fsx`.  See `FSxForLustre` parameter in [Reference](#Reference) section to learn how to enable FSx for Lustre file-system.
 
 The Amazon EBS volume attached to the instance is deleted when the deep learning instance is terminated. However, the EFS file-system persists after you terminate the desktop instance. 
+
+## Using Amazon SageMaker AI
+The deep learning desktop is pre-configured to use [Amazon SageMaker AI](https://aws.amazon.com/sagemaker-ai/). To get started with Generative AI training and inference examples in Amazon SageMaker AI, execute following commands in a desktop terminal:
+
+	mkdir ~/git
+	cd ~/git
+	git clone -b distributed-training-pipeline https://github.com/aws/amazon-sagemaker-examples.git
+	jupyter-lab 1>lab.out 2>&1 &
+	
+This will start a `jupyter-lab` notebook server in the terminal, and open a tab in your web browser. 
+
+For inference examples, navigate to `amazon-sagemaker-examples/advanced_functionality/large-model-inference-testing/large_model_inference.ipynb` notebook in Jupyter Lab. Use any Python kernel in the notebook. You can skip straight to the cell titled **Initialize SageMaker session**, and set `s3_bucket` to the S3 bucket you used to launch the deep learning desktop.
+
+**For advanced users**:
+
+if you have FSx for Lustre enabled in the deep learning desktop, you can navigate to `amazon-sagemaker-examples/advanced_functionality/distributed-training-pipeline/dist_training_pipeline.ipynb` notebook in Jupyter Lab and run training examples. Use the `base` kernel in the notebook. You can skip straight to the cell titled **Initialize SageMaker session**, and set `s3_bucket` to the S3 bucket you used to launch the deep learning desktop.
 
 ## Stopping and Restarting the Desktop
 
@@ -133,15 +130,11 @@ To run the `mpirun` command, you will need a `hostfile` containing the host IP a
 		echo "$host	slots=1"
 	done
 
-#### Open MPI Examples
+#### Open MPI Example
 
-Before you run the MPI examples, `ssh` into each instance in your `hostfile`, and make sure you see the message `Cluster node is ready!`. If you do not see this message, exit and `ssh` again in about 10 minutes to verify the cluster node is ready.
+Before you run the MPI example, `ssh` into each instance in your `hostfile`, and make sure you see the message `Cluster node is ready!`. If you do not see this message, exit and `ssh` again in about 10 minutes to verify the cluster node is ready.
 
-##### Neuron PyTorch Example
-
-The `mpirun` example below targets the `aws_neuron_venv_pytorch` virtual environment on a 2-node `trn1.32xlarge` cluster. It is assumed that the cluster `hostfile` is stored in `/home/ubuntu/efs/openmpi/hostfile`, and the output directory `/home/ubuntu/efs/logs` exits. 
-
-**NOTE:** The `PATH` and `LD_LIBRARY_PATH` defined below apply to  the cluster nodes.
+**NOTE:** The `PATH` and `LD_LIBRARY_PATH` apply to all the cluster nodes, and will need to be adjusted for your specific use case.
 
 	#!/bin/bash
 
@@ -158,35 +151,9 @@ The `mpirun` example below targets the `aws_neuron_venv_pytorch` virtual environ
 	--output-filename /home/ubuntu/efs/logs/${JOB_ID} \
 	--display-map --tag-output --timestamp-output \
 	-wdir /home/ubuntu \
-	-x PATH='/opt/aws/neuron/bin:/opt/amazon/openmpi/bin:/opt/amazon/efa/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin' \
-	-x LD_LIBRARY_PATH='/opt/aws/neuron/lib:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib' \
-	bash -c "source /home/ubuntu/aws_neuron_venv_pytorch/bin/activate && hostname && env"
-
-#### CUDA TensorFlow Example
-
-The `mpirun` example below targets the conda `tensorFlow` environment on a 2-node CUDA GPU cluster. 
-
-**NOTE:** The `PATH` and `LD_LIBRARY_PATH` defined below apply to  the cluster nodes.
-
-	#!/bin/bash
-
-
-	NUM_PARALLEL=2
-	DATE=`date '+%Y-%m-%d-%H-%M-%S'`
-	export JOB_ID=mpirun-test-$DATE
-
-	mpirun -np $NUM_PARALLEL --verbose \
-	--hostfile /home/ubuntu/efs/openmpi/hostfile \
-	-bind-to none -map-by slot \
-	--mca plm_rsh_no_tree_spawn 1 -mca pml ob1 -mca btl ^openib -mca btl_tcp_if_exclude lo,docker0 \
-	--mca hwloc_base_binding_policy none --mca rmaps_base_mapping_policy slot \
-	--mca orte_keep_fqdn_hostnames t \
-	--output-filename /home/ubuntu/efs/logs/${JOB_ID} \
-	--display-map --tag-output --timestamp-output \
-	-wdir /home/ubuntu \
-	-x PATH='/usr/local/cuda-11.8/bin:/opt/amazon/openmpi/bin:/opt/amazon/efa/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin' \
-	-x LD_LIBRARY_PATH='/usr/local/cuda-12.2/compat:/usr/local/cuda-12.1/compat:/usr/local/cuda-11.8/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib' \
-	bash -c "source /home/ubuntu/miniconda3/etc/profile.d/conda.sh  && conda activate tensorflow && hostname && env"
+	-x PATH='/usr/local/cuda-12.8/bin:/opt/amazon/openmpi/bin:/opt/amazon/efa/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin' \
+	-x LD_LIBRARY_PATH='/usr/local/cuda-12.8/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib' \
+	bash -c "source /home/ubuntu/miniconda3/etc/profile.d/conda.sh  && conda activate base && hostname && env"
 
 
 ## Deleting the Stacks

@@ -7,7 +7,7 @@
 : ${TENSOR_PARALLEL_SIZE:=8}
 : ${MAX_MODEL_LEN:=8192}
 : ${MAX_NUM_SEQS:=8}
-: ${OMP_NUM_THRADS:=16}
+: ${OMP_NUM_THREADS:=16}
 
 cat > /tmp/config.pbtxt <<EOF
 backend: "vllm"
@@ -61,13 +61,17 @@ EOF
 cat > /tmp/model.json <<EOF
 {
   "model": "$MODEL_ID",
-  "disable_log_requests": true,
+  "tokenizer": "$MODEL_ID",
+  "disable_log_stats": true,
   "tensor_parallel_size": $TENSOR_PARALLEL_SIZE,
   "max_num_seqs": $MAX_NUM_SEQS,
-  "dtype": "float16",
+  "dtype": "auto",
   "max_model_len": $MAX_MODEL_LEN,
-  "block_size": 8192,
-  "use_v2_block_manager": true
+  "gpu_memory_utilization": 0.9,
+  "enforce_eager": false,
+  "enable_prefix_caching": true,
+  "enable_chunked_prefill": true,
+  "preemption_mode": "swap"
 }
 
 EOF

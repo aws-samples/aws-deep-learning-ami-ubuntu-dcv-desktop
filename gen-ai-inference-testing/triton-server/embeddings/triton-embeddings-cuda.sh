@@ -8,7 +8,7 @@
 TENSOR_PARALLEL_SIZE=1 # Force Tensor Parallel Size to 1 for encoder
 : ${MAX_MODEL_LEN:=512}
 : ${MAX_NUM_SEQS:=4}
-: ${OMP_NUM_THRADS:=16}
+: ${OMP_NUM_THREADS:=16}
 
 CACHE_DIR=/cache
 

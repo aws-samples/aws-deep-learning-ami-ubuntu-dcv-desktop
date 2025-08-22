@@ -360,6 +360,22 @@ Conditions:
 
   HasCapacityReservation: !Not [!Equals [!Ref CapacityReservationId, ""]]
 
+Rules:
+  Ubuntu2404TrainiumInferentiaRule:
+    RuleCondition: !Equals [!Ref AWSUbuntuAMIType, "UbuntuPro2404LTS"]
+    Assertions:
+      - Assert: !Not
+        - !Or
+          - !Equals [!Ref DesktopInstanceType, "trn1.2xlarge"]
+          - !Equals [!Ref DesktopInstanceType, "trn1.32xlarge"]
+          - !Equals [!Ref DesktopInstanceType, "trn1n.32xlarge"]
+          - !Equals [!Ref DesktopInstanceType, "trn2.48xlarge"]
+          - !Equals [!Ref DesktopInstanceType, "inf2.xlarge"]
+          - !Equals [!Ref DesktopInstanceType, "inf2.8xlarge"]
+          - !Equals [!Ref DesktopInstanceType, "inf2.24xlarge"]
+          - !Equals [!Ref DesktopInstanceType, "inf2.48xlarge"]
+        AssertDescription: "Ubuntu Pro 24.04 LTS is not supported with AWS Trainium (trn*) or Inferentia2 (inf*) instance types. Please use Ubuntu Pro 22.04 LTS instead."
+        
 Resources:
   
   DesktopSecurityGroup:
@@ -768,11 +784,6 @@ Resources:
               dpkg -l | grep linux | awk -F' ' '{print $2}' > /tmp/dpkg.out
               for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
 
-              CUDA=12.8
-              CUDA_DASH=${CUDA//\./-}
-              DRIVER_VERSION=$(apt-cache policy nvidia-driver-570-open | awk '/Candidate:/ {print $2}') # Nvidia driver version
-              DRIVER_MAJOR_VERSION=$(echo "$DRIVER_VERSION" | cut -d'.' -f1) # Nvidia Driver major version
-
             - OVERRIDE_AMI=
             - !Ref UbuntuAMIOverride
             - |+
@@ -780,15 +791,18 @@ Resources:
               if [[ -z "${OVERRIDE_AMI}" ]]; then
                 [[ ! -z $(lspci -v | grep NVIDIA) ]] && \
                 [[ ! -x "$(command -v nvidia-smi)" ]] && \
-                apt-get -y install linux-headers-$(uname -r) && \
                 wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.1-1_all.deb && \
                 dpkg -i cuda-keyring_1.1-1_all.deb && \
                 apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
-                apt-get -y install build-essential && \
+                apt-get -y install linux-headers-$(uname -r) build-essential && \
                 ( ( [[ "$VERSION_ID" == 22.04* ]] && apt-get -y install gcc g++ cpp-11 gcc-11 g++-11 gcc-11-base libgcc-11-dev libstdc++-11-dev \
                         cpp-12 gcc-12 g++-12 libgcc-12-dev libstdc++-12-dev && \
                   update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 50 --slave /usr/bin/g++ g++ /usr/bin/g++-11 && \
                   update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 --slave /usr/bin/g++ g++ /usr/bin/g++-12) || : ) && \
+                CUDA=12.8 && \
+                CUDA_DASH=${CUDA//\./-} && \
+                DRIVER_VERSION=$(apt-cache policy nvidia-driver-570-open | awk '/Candidate:/ {print $2}') && \
+                DRIVER_MAJOR_VERSION=$(echo "$DRIVER_VERSION" | cut -d'.' -f1) && \
                 apt-get install -y libnvidia-cfg1=$DRIVER_VERSION nvidia-persistenced=$DRIVER_VERSION nvidia-open=$DRIVER_VERSION  && \
                 ( (apt-get install -y nvidia-fabricmanager-${DRIVER_MAJOR_VERSION} && systemctl enable nvidia-fabricmanager) || : ) && \
                 apt-get install -y cuda-${CUDA_DASH} && \
@@ -871,7 +885,7 @@ Resources:
                 usermod -aG docker ubuntu
 
                 # install nvidia container toolkit if we have a nvidia GPU
-                if [[ -x "$(command -v nvidia-smi)" ]]
+                if [[ ! -z $(lspci -v | grep NVIDIA) ]]
                 then
                   wget -qO - https://nvidia.github.io/nvidia-container-runtime/gpgkey > ./gpg_nvidia_container_runtime.pub
                   gpg --no-default-keyring --keyring ./nvidia_container_runtime_keyring.gpg --import  ./gpg_nvidia_container_runtime.pub
@@ -897,7 +911,6 @@ Resources:
 
               if [[ ! -x "$(command -v dcv)" ]]
               then
-              sleep 60
               apt-get -y install gdm3
               echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
               dpkg-reconfigure gdm3
@@ -942,7 +955,7 @@ Resources:
                 cd nice-dcv-2024.0-18131-ubuntu2204-x86_64 && \
                 apt-get -y install ./nice-dcv-server_2024.0.18131-1_amd64.ubuntu2204.deb) || echo "Retrying DCV install..."
                 
-              sync && reboot
+              systemctl daemon-reload && sync && reboot
               fi
 
               #restart X server
@@ -1110,81 +1123,32 @@ Resources:
                 echo "export fsx_mount_name=${FSX_MOUNT_NAME}" >> /home/ubuntu/.bashrc
               fi
 
-              if [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1) ]] || \
-                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep trn1n) ]] || \
-                  [[ ! -z $(/opt/aws/neuron/bin/neuron-ls | grep instance-type | grep inf2) ]]
+              # install miniconda3 if anaconda3, or miniconda3 are not installed
+              if [[ ! -d "/home/ubuntu/anaconda3" ]] && [[ ! -d "/home/ubuntu/miniconda3" ]]
               then
-                  apt-get install -y python3-venv g++
-              
-                  [[ ! -d /home/ubuntu/aws_neuron_venv_pytorch ]] && \
-                    HOME=/home/ubuntu && \
-                    cd $HOME && \
-                    python3 -m venv aws_neuron_venv_pytorch  && \
-                    source aws_neuron_venv_pytorch/bin/activate && \
-                    python3 -m pip install -U pip  && \
-                    pip3 install ipykernel  && \
-                    python3 -m ipykernel install --user --name aws_neuron_venv_pytorch --display-name "Python (torch-neuronx)" && \
-                    pip3 install jupyter notebook && \
-                    pip3 install environment_kernels && \
-                    pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
-                    pip3 install neuronx-cc==2.18.* torch-neuronx==2.6.* torchvision \
-                      transformers-neuronx neuronx-distributed \
-                      neuronx-distributed-inference neuronx-distributed-training \
-                      git+https://github.com/huggingface/optimum-neuron.git@v0.1.0 \
-                      triton==3.2.0 pynvml==11.5.3 transformers==4.48.3 datasets protobuf==3.20.3 && \
-                    deactivate && \
-                    chown -R ubuntu:ubuntu /home/ubuntu/aws_neuron_venv_pytorch
-              else
-                # install miniconda3 if anaconda3, or miniconda3 are not installed
-                if [[ ! -d "/home/ubuntu/anaconda3" ]] && [[ ! -d "/home/ubuntu/miniconda3" ]]
-                then
-                  wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /home/ubuntu/miniconda3.sh
-                  HOME=/home/ubuntu bash /home/ubuntu/miniconda3.sh -b -p /home/ubuntu/miniconda3
-                  echo "source /home/ubuntu/miniconda3/etc/profile.d/conda.sh" >> /home/ubuntu/.bashrc
-                  rm /home/ubuntu/miniconda3.sh
+                wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /home/ubuntu/miniconda3.sh
+                HOME=/home/ubuntu bash /home/ubuntu/miniconda3.sh -b -p /home/ubuntu/miniconda3
+                echo "source /home/ubuntu/miniconda3/etc/profile.d/conda.sh" >> /home/ubuntu/.bashrc
+                rm /home/ubuntu/miniconda3.sh
 
-                  source /home/ubuntu/miniconda3/etc/profile.d/conda.sh
-                  conda tos accept --override-channels --channel  https://repo.anaconda.com/pkgs/main
-                  conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
-                  conda update -y --name base -c defaults conda
+                source /home/ubuntu/miniconda3/etc/profile.d/conda.sh
+                conda tos accept --override-channels --channel  https://repo.anaconda.com/pkgs/main
+                conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+                conda update -y --name base -c defaults conda
 
-                  # install jupyterlab and boto3 in base env
-                  conda activate && \
-                  conda install -y -c conda-forge jupyterlab && \
-                  conda install -y ipykernel && \
-                  conda install -y boto3 && \
-                  conda install -y nb_conda_kernels && \
-                  conda deactivate
+                # install jupyterlab and boto3 in base env
+                conda activate && \
+                conda install -y -c conda-forge jupyterlab && \
+                conda install -y ipykernel && \
+                conda install -y boto3 && \
+                conda install -y nb_conda_kernels && \
+                conda deactivate
 
-                  # create conda environments
-                  conda create -y --prefix /home/ubuntu/miniconda3/envs/tensorflow python=3.12 && \
-                  conda activate tensorflow && \
-                  pip3 install --upgrade pip && \
-                  pip3 install 'tensorflow[and-cuda]' && \
-                  python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))" && \
-                  pip3 install datasets && \
-                  pip3 install transformers && \
-                  conda install -y ipykernel && \
-                  conda install -y boto3 && \
-                  conda deactivate
-
-                  conda create -y --prefix /home/ubuntu/miniconda3/envs/pytorch python=3.12 && \
-                  conda activate pytorch && \
-                  pip3 install --upgrade pip && \
-                  pip3 install torch==2.7.0 torchvision torchaudio && \
-                  python3 -c "import torch; print(torch.cuda.is_available())" && \
-                  pip3 install datasets && \
-                  pip3 install transformers && \
-                  conda install -y ipykernel && \
-                  conda install -y boto3 && \
-                  conda deactivate
-
-                  chown -R ubuntu:ubuntu /home/ubuntu/miniconda3
-                  chown -R ubuntu:ubuntu /home/ubuntu/.conda
-                fi
-              
-                echo "conda activate" >> /home/ubuntu/.bashrc
+                chown -R ubuntu:ubuntu /home/ubuntu/miniconda3
+                chown -R ubuntu:ubuntu /home/ubuntu/.conda
               fi
+            
+              echo "conda activate" >> /home/ubuntu/.bashrc
 
               # install aws cli
               snap install aws-cli --classic

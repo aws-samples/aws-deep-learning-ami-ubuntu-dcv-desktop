@@ -11,7 +11,7 @@ mkdir -p $CACHE_DIR
 : ${TENSOR_PARALLEL_SIZE:=8}
 : ${MAX_MODEL_LEN:=8192}
 : ${MAX_NUM_SEQS:=8}
-: ${OMP_NUM_THRADS:=16}
+: ${OMP_NUM_THREADS:=16}
 
 
 cat > /opt/ml/model/serving.properties <<EOF
@@ -30,7 +30,10 @@ option.trust_remote_code=true
 
 EOF
 
-export NEURON_CC_FLAGS="--model-type=transformer --enable-fast-loading-neuron-binaries"
+instance_family=$(/opt/aws/neuron/bin/neuron-ls | grep instance-type | awk -F': ' '{split($2, a, "."); print a[1]}')
+export NEURON_CORES_PER_DEVICE=$(/opt/aws/neuron/bin/neuron-ls --json-output | grep nc_count | head -1 | awk -F': ' '{print $2}' | tr -d ',')
+echo "Neuron instance family: $instance_family, Number of neuron cores per device: $NEURON_CORES_PER_DEVICE"
+export NEURON_CC_FLAGS="--model-type=transformer --enable-fast-loading-neuron-binaries --target=${instance_family}"
 export NEURON_COMPILE_CACHE_URL="$CACHE_DIR"
 /usr/local/bin/dockerd-entrypoint.sh serve \
 && /bin/bash -c "trap : TERM INT; sleep infinity & wait"

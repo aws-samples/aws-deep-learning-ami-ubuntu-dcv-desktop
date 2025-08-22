@@ -1,0 +1,6 @@
+endpoint_url: "http://localhost:8080/v2/models/model/generate"
+module_name: "prompt_generator"
+module_dir: "modules/sahil2801-codealpca20k"
+prompt_generator: "PromptGenerator"
+template: { "text_input": "" , "sampling_parameters": "{ \"top_k\": 50, \"max_tokens\": 8192 }" }
+template_keys: [ "text_input" ]

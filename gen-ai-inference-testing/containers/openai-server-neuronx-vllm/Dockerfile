@@ -72,9 +72,8 @@ RUN apt-get -y install aws-neuronx-tools=2.*
 
 RUN pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com
 RUN pip3 install awscli
-RUN pip3 install neuronx-cc==2.18.* torch-neuronx==2.6.* torchvision \
-      transformers-neuronx neuronx-distributed neuronx-distributed-inference \
-      git+https://github.com/huggingface/optimum-neuron.git@v0.1.0
+RUN pip3 install neuronx-cc==2.20.* torch-neuronx==2.7.* torchvision \
+      transformers-neuronx neuronx-distributed neuronx-distributed-inference==v0.5.9230
 
 ENV VLLM_TARGET_DEVICE=neuron
 RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm

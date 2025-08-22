@@ -38,11 +38,11 @@ def get_conf(num_servers):
     }
     """)
 
-    servers = [ { "port": (8000+x*32)} for x in range(num_servers) ]
+    servers = [ { "port": (8000+x*128)} for x in range(num_servers) ]
     data = { "servers": servers}
 
     nginx_conf = template.render(data)
-    server_ports = [ {"http": (8000+32*x)} for x in range(num_servers)]
+    server_ports = [ {"http": (8000+128*x)} for x in range(num_servers)]
 
     return nginx_conf, server_ports
 
@@ -56,7 +56,8 @@ def get_core_groups():
         if re.search(f'^{prefix}\\d+', filename):
             files.append(filename)
     
-    num_cores = len(files)*2
+    neuron_cores_per_device = int(os.environ.get("NEURON_CORES_PER_DEVICE", 2))
+    num_cores = len(files)*neuron_cores_per_device
     model_server_cores = int(os.environ.get("TENSOR_PARALLEL_SIZE", num_cores))
      
     cores = [ x for x in range(num_cores)]
@@ -110,11 +111,12 @@ def start_server():
         max_model_len = int(os.getenv("MAX_MODEL_LEN", 4096))
         dtype = os.getenv("DTYPE", "auto")
         max_num_seqs = int(os.getenv("MAX_NUM_SEQS", 8))
-        enable_trust_remote_code = bool(os.getenv("ENABLE_TRUST_REMOTE_CODE", False))
-        enforce_eager = bool(os.getenv("ENFORCE_EAGER", False))
-        enable_lora = bool(os.getenv("ENABLE_LORA", False))
+        trust_remote_code = os.getenv("TRUST_REMOTE_CODE", "false").lower() == "true"
+        enforce_eager = os.getenv("ENFORCE_EAGER", "false").lower() == "true"
+        enable_lora = os.getenv("ENABLE_LORA", "false").lower() == "true"
         model_type = os.getenv("MODEL_TYPE", None)
         tokenizer = os.getenv("TOKENIZER", model_id)
+        swap_space=int(os.getenv("SWAP_SPACE", 4))
         vllm_args = [
             "vllm",
             "serve",
@@ -123,18 +125,15 @@ def start_server():
             f"--port={http}",
             f"--tokenizer={tokenizer}",
             f"--tensor-parallel-size={accelerator_count}",
-            "--swap-space=16",
+            f"--swap_space={swap_space}",
             f"--gpu-memory-utilization={gpu_memory_utilization}",
             f"--max-model-len={max_model_len}",
             f"--dtype={dtype}",
             f"--max-num-seqs={max_num_seqs}",
-            "--disable-log-stats",
-            "--trust-remote-code",
-            "--enforce-eager",
-            "--generation-config=vllm"
+            "--disable-log-stats"
         ]
 
-        if enable_trust_remote_code:
+        if trust_remote_code:
             vllm_args.append("--trust-remote-code")
         if enforce_eager:
             vllm_args.append("--enforce-eager")

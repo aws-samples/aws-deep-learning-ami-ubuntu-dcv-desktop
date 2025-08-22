@@ -40,11 +40,11 @@ def get_conf(num_servers):
     }
     """)
 
-    servers = [ { "port": (8000+x*32)} for x in range(num_servers) ]
+    servers = [ { "port": (8000+x*128)} for x in range(num_servers) ]
     data = { "servers": servers}
 
     nginx_conf = template.render(data)
-    server_ports = [ {"http": (8000+32*x), "grpc": (8001+32*x), "metrics": (8002+32*x)} for x in range(num_servers)]
+    server_ports = [ {"http": (8000+128*x), "grpc": (8001+128*x), "metrics": (8002+128*x)} for x in range(num_servers)]
 
     return nginx_conf, server_ports
 
@@ -58,7 +58,8 @@ def get_core_groups():
         if re.search(f'^{prefix}\\d+', filename):
             files.append(filename)
     
-    num_cores = len(files)*2
+    neuron_cores_per_device = int(os.environ.get("NEURON_CORES_PER_DEVICE", 2))
+    num_cores = len(files)*neuron_cores_per_device
     model_server_cores = int(os.environ.get("TENSOR_PARALLEL_SIZE", num_cores))
      
     cores = [ x for x in range(num_cores)]
