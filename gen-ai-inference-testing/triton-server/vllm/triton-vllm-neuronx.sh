@@ -9,7 +9,7 @@
 : ${MAX_MODEL_LEN:=8192}
 : ${MAX_NUM_SEQS:=8}
 : ${OMP_NUM_THREADS:=16}
-: ${VLLM_NEURON_FRAMEWORK:="neuronx-distributed-inference"}
+export VLLM_NEURON_FRAMEWORK=${VLLM_NEURON_FRAMEWORK:-"neuronx-distributed-inference"}
 
 CACHE_DIR=/cache
 
@@ -74,7 +74,6 @@ cat > /tmp/model.json <<EOF
   "gpu_memory_utilization": 0.9,
   "enforce_eager": false,
   "enable_prefix_caching": true,
-  "enable_chunked_prefill": true,
   "preemption_mode": "swap",
   "override_neuron_config": {
       "continuous_batching": {

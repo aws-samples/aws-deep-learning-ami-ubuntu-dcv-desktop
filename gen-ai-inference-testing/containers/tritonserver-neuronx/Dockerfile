@@ -56,8 +56,8 @@ RUN apt update -q=2 \
       && apt-get install -y --no-install-recommends cmake=3.27.7* cmake-data=3.27.7*
 
 RUN git clone https://github.com/triton-inference-server/server.git /server
-RUN cd /server && git fetch origin bf86c27169ad4027202c76cf609ce42a2ec7b533
-RUN cd /server && git reset --hard bf86c27169ad4027202c76cf609ce42a2ec7b533
+RUN cd /server && git fetch origin 30230a04d9f40e0ad696e2ba88b07d11a1e503b2
+RUN cd /server && git reset --hard 30230a04d9f40e0ad696e2ba88b07d11a1e503b2
 RUN cd /server && ./build.py -v --no-container-build --build-dir=/server/build --backend=python --enable-metrics --enable-logging --enable-stats --endpoint="http" --endpoint="grpc" --filesystem="s3"
 
 RUN apt-get -y install gnupg2
@@ -92,7 +92,6 @@ ENV VLLM_TARGET_DEVICE=neuron
 RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm
 RUN cd /opt/vllm && git fetch origin 5fbbfe9a4c13094ad72ed3d6b4ef208a7ddc0fd7
 RUN cd /opt/vllm && git reset --hard 5fbbfe9a4c13094ad72ed3d6b4ef208a7ddc0fd7
-RUN pip3 install -r /opt/vllm/requirements/neuron.txt
 RUN cd /opt/vllm && pip3 install -e .
 
 RUN pip3 install triton==3.3.1 pynvml==12.0.0 transformers==4.51.3 protobuf==6.32.0

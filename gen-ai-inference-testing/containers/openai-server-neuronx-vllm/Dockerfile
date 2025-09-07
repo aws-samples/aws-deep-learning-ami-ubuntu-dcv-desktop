@@ -79,7 +79,6 @@ ENV VLLM_TARGET_DEVICE=neuron
 RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm
 RUN cd /opt/vllm && git fetch origin 5fbbfe9a4c13094ad72ed3d6b4ef208a7ddc0fd7
 RUN cd /opt/vllm && git reset --hard 5fbbfe9a4c13094ad72ed3d6b4ef208a7ddc0fd7
-RUN pip3 install -r /opt/vllm/requirements/neuron.txt
 RUN cd /opt/vllm && pip3 install -e .
 
 COPY resources /opt/program
