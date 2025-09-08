@@ -1,4 +1,4 @@
-ARG BASE_IMAGE="nvcr.io/nvidia/tritonserver:25.05-vllm-python-py3"
+ARG BASE_IMAGE="nvcr.io/nvidia/tritonserver:25.07-vllm-python-py3"
 FROM ${BASE_IMAGE}
 
 RUN pip install vllm==0.9.2
