@@ -76,9 +76,11 @@ RUN apt-get -y install aws-neuronx-tools=2.*
 
 RUN pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com
 RUN pip3 install awscli
-RUN pip3 install libneuronxla==2.2.8201.0+f46ac1ef neuronx-cc==2.20.9961.0+0acef03a \
-      torch-neuronx==2.7.0.2.9.9357+08e1f40d torchvision \
-      neuronx-distributed==0.14.18461+9ac233f2 neuronx-distributed-inference==0.5.9230+dcf1e2da \
+RUN pip3 install libneuronxla==2.2.12677.0+470fa032 \
+      neuronx-cc==2.21.18209.0+043b1bf7 \
+      neuronx-distributed==0.15.22404+1f27bddf \
+      neuronx-distributed-inference==0.6.10598+a59fdc00 \
+      torch-neuronx==2.8.0.2.10.13553+1e4dd6ca \
       transformers-neuronx==0.13.322
 
 RUN pip3 install ray
@@ -98,8 +100,6 @@ RUN cd /opt/vllm_backend && git reset --hard 98947a7c641057a1e3cf8fc9805dc4e3b93
 
 RUN mkdir -p /opt/tritonserver/backends/vllm
 RUN cp -r /opt/vllm_backend/src/* /opt/tritonserver/backends/vllm/
-
-RUN pip3 install triton==3.3.1 pynvml==12.0.0 transformers==4.51.3 protobuf==6.32.0
 
 COPY resources /opt/program
 RUN chmod u+x /opt/program/serve

@@ -81,12 +81,26 @@ RUN pip3 install libneuronxla==2.2.12677.0+470fa032 \
       neuronx-distributed==0.15.22404+1f27bddf \
       neuronx-distributed-inference==0.6.10598+a59fdc00 \
       torch-neuronx==2.8.0.2.10.13553+1e4dd6ca \
-      transformers-neuronx==0.13.322
+      transformers-neuronx==0.13.322 \
+      optimum-neuron==0.3.0
 
 RUN pip3 install ray
 
 RUN cp -r /server/build/opt/* /opt/
 RUN rm -rf /server
+
+RUN git clone https://github.com/deepjavalibrary/djl-serving.git /opt/djl-serving
+RUN cd /opt/djl-serving && git fetch origin fee720b986c456ac20d55c094488e41525f1d3dc
+RUN cd /opt/djl-serving && git reset --hard fee720b986c456ac20d55c094488e41525f1d3dc
+RUN cd /opt/djl-serving/engines/python/setup  && pip3 install -e .
+
+ENV VLLM_TARGET_DEVICE=neuron
+RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm
+RUN cd /opt/vllm && git fetch origin 5fbbfe9a4c13094ad72ed3d6b4ef208a7ddc0fd7
+RUN cd /opt/vllm && git reset --hard 5fbbfe9a4c13094ad72ed3d6b4ef208a7ddc0fd7
+RUN cd /opt/vllm && pip3 install -e .
+
+RUN pip3 install pydantic
 
 COPY resources /opt/program
 RUN chmod u+x /opt/program/serve

@@ -60,8 +60,7 @@ cat > /tmp/model.json <<EOF
   "rolling_batch": "auto",
   "rolling_batch_strategy": "continuous_batching",
   "max_rolling_batch_size": $MAX_NUM_SEQS,
-  "output_formatter": "json",
-  "trust_remote_code": true
+  "output_formatter": "json"
 }
 
 EOF
