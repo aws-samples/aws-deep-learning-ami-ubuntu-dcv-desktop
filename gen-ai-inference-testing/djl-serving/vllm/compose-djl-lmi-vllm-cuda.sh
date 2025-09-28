@@ -2,7 +2,7 @@
 
 [ $# -ne 1 ] && echo "usage: $0 <up/down>" && exit 1
 
-export IMAGE="deepjavalibrary/djl-serving:0.32.0-lmi"
+export IMAGE="deepjavalibrary/djl-serving:0.34.0-lmi-nightly"
 export COMMAND="/scripts/djl-lmi-vllm-cuda.sh"
 export HF_HOME=/snapshots/huggingface
 

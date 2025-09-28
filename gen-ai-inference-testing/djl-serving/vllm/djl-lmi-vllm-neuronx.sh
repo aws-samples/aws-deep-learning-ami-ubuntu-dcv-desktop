@@ -21,7 +21,6 @@ option.model_loading_timeout=1800
 option.rolling_batch=vllm
 option.max_rolling_batch_size=8
 option.output_formatter=json
-option.trust_remote_code=true
 
 EOF
 

@@ -21,7 +21,6 @@ option.tensor_parallel_degree=$TENSOR_PARALLEL_SIZE
 option.amp=f16
 option.n_positions=$MAX_MODEL_LEN
 option.model_loading_timeout=1800
-option.model_loader=tnx
 option.rolling_batch=auto
 option.rolling_batch_strategy=continuous_batching
 option.max_rolling_batch_size=$MAX_NUM_SEQS

@@ -2,7 +2,7 @@
 
 [ $# -ne 1 ] && echo "usage: $0 <up/down>" && exit 1
 
-export IMAGE="deepjavalibrary/djl-serving:0.32.0-pytorch-inf2"
+export IMAGE="djl-serving-neuronx-lmi:latest"
 export COMMAND="/scripts/djl-lmi-transformers-neuronx.sh"
 export HF_HOME=/snapshots/huggingface
 
