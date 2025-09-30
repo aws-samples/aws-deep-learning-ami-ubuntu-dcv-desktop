@@ -15,7 +15,7 @@ RUN pip3 install datasets==3.1.0 evaluate~=0.4.3 rouge_score~=0.1.2 sentencepiec
 COPY resources /opt/program
 RUN chmod u+x /opt/program/serve
 
-ENV PATH=/opt/program:opt/tritonserver/bin:$PATH
+ENV PATH=/opt/program:$PATH
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
