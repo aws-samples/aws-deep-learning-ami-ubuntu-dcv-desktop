@@ -14,5 +14,23 @@ export NEURON_CC_FLAGS="--model-type=transformer --enable-fast-loading-neuron-bi
 export NEURON_COMPILE_CACHE_URL="$CACHE_DIR"
 export FI_EFA_FORK_SAFE=1
 export NEURON_COMPILED_ARTIFACTS=$MODEL_ID/neuron-compiled-artifacts
+
+cat > /tmp/config.yaml <<EOF
+tokenizer: $MODEL_ID
+model-impl: auto
+disable-log-stats: true
+tensor-parallel-size: $TENSOR_PARALLEL_SIZE
+max-num-seqs: $MAX_NUM_SEQS
+dtype: auto
+max-model-len: $MAX_MODEL_LEN
+gpu-memory-utilization: 0.9
+enforce-eager: false
+enable-prefix-caching: true
+preemption-mode: swap
+swap-space: 4
+EOF
+
+export VLLM_CONFIG=/tmp/config.yaml
+
 /opt/program/serve \
 && /bin/bash -c "trap : TERM INT; sleep infinity & wait"

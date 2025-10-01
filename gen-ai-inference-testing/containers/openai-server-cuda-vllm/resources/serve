@@ -8,6 +8,7 @@ import sys
 
 from jinja2 import Template
 import re
+import yaml
 
 def get_conf(num_servers):
 
@@ -101,49 +102,33 @@ def start_server():
         http = ports['http']
         print(f"server instance: {i}: http: {http}")
         print(f"server instance: {i}: CUDA_VISIBLE_DEVICES={env_copy['CUDA_VISIBLE_DEVICES']}")
+
+        vllm_config = os.getenv("VLLM_CONFIG", None)
+        assert vllm_config is not None, "VLLM_CONFIG env variarable is required"
+        assert os.path.isfile(vllm_config), f"{vllm_config} does not exist"
+
         model_id = os.getenv("MODEL_ID", None)
         assert model_id is not None, "MODEL_ID env variarable is required"
-        accelerator_count = len(group)
-        gpu_memory_utilization = float(os.getenv("GPU_MEMORY_UTILIZATION", 0.9))
-        max_model_len = int(os.getenv("MAX_MODEL_LEN", 4096))
-        dtype = os.getenv("DTYPE", "auto")
-        max_num_seqs = int(os.getenv("MAX_NUM_SEQS", 8))
-        trust_remote_code = os.getenv("TRUST_REMOTE_CODE", "false").lower() == "true"
-        enforce_eager = os.getenv("ENFORCE_EAGER", "false").lower() == "true"
-        enable_lora = os.getenv("ENABLE_LORA", "false").lower() == "true"
-        model_type = os.getenv("MODEL_TYPE", None)
-        tokenizer = os.getenv("TOKENIZER", model_id)
-        swap_space=int(os.getenv("SWAP_SPACE", 4))
-        vllm_args = [
+
+        cmd = [
             "vllm",
             "serve",
             f"{model_id}",
             "--host=0.0.0.0",
-            f"--port={http}",
-            f"--tokenizer={tokenizer}",
-            f"--tensor-parallel-size={accelerator_count}",
-            f"--swap_space={swap_space}",
-            f"--gpu-memory-utilization={gpu_memory_utilization}",
-            f"--max-model-len={max_model_len}",
-            f"--dtype={dtype}",
-            f"--max-num-seqs={max_num_seqs}",
-            "--disable-log-stats"
+            f"--port={http}"
         ]
 
-        if trust_remote_code:
-            vllm_args.append("--trust-remote-code")
-        if enforce_eager:
-            vllm_args.append("--enforce-eager")
-        if enable_lora:
-            max_loras = int(os.getenv("MAX_LORAS", 1))
-            max_cpu_loras = int(os.getenv("MAX_CPU_LORAS", 8))
-            vllm_args.append("--enable-lora")
-            vllm_args.append(f"--max-cpu-loras={max_cpu_loras}")
-            vllm_args.append(f"--max-loras={max_loras}")
-        if model_type:
-            vllm_args.append(f"--model-type={model_type}")
+        with open('/tmp/config.yaml', 'r') as f:
+            config = yaml.safe_load(f)
 
-        server = subprocess.Popen(vllm_args, env=env_copy)
+        for key, value in config.items():
+            if value is True:
+                cmd.append(f'--{key}')
+            elif value is not False and value is not None:
+                cmd.append(f'--{key}={value}')
+
+        print(f"server instance: {i}: cmd: {cmd}")
+        server = subprocess.Popen(cmd, env=env_copy)
         pids.append(server.pid)
 
     signal.signal(signal.SIGTERM, lambda a, b: sigterm_handler(*pids))
