@@ -1,13 +1,28 @@
-ARG BASE_IMAGE="nvcr.io/nvidia/tritonserver:25.07-vllm-python-py3"
+ARG BASE_IMAGE="nvcr.io/nvidia/cuda:12.9.0-cudnn-devel-ubuntu24.04"
 FROM ${BASE_IMAGE}
 
-RUN pip install vllm==0.9.2
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    CUDA_HOME=/usr/local/cuda \
+    PATH=/usr/local/cuda/bin:$PATH \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
-RUN apt-get -y update && apt-get install -y --no-install-recommends \
-         wget \
-         nginx \
-         ca-certificates \
+# Install Python 3 and pip3
+RUN apt-get update && apt-get install -y \
+    wget \
+    nginx \
+    ca-certificates \
+    python3 \
+    python3-pip \
+    python3-dev \
+    git \
     && rm -rf /var/lib/apt/lists/*
+
+# Remove the externally-managed marker
+RUN rm -f /usr/lib/python*/EXTERNALLY-MANAGED
+
+# Install vLLM 0.10.2 and its dependencies
+RUN pip3 install --no-cache-dir vllm==0.10.2
 
 COPY resources /opt/program
 RUN chmod u+x /opt/program/serve
