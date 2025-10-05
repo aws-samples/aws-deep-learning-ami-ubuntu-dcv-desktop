@@ -11,4 +11,4 @@ then
     script=$DIR/scripts/build-tritonserver-neuronx.sh
 fi
 echo "Building $(basename $script): This may take several minutes...."
-source $script 1>build.log 2>&1
+bash $script 1>/tmp/build.log 2>&1

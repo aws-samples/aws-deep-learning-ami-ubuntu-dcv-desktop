@@ -67,11 +67,12 @@ cat > /tmp/model.json <<EOF
   "max_num_seqs": $MAX_NUM_SEQS,
   "dtype": "auto",
   "max_model_len": $MAX_MODEL_LEN,
-  "gpu_memory_utilization": 0.9,
+  "gpu_memory_utilization": 0.95,
   "enforce_eager": false,
-  "enable_prefix_caching": true,
+  "enable_prefix_caching": false,
   "enable_chunked_prefill": true,
-  "preemption_mode": "swap"
+  "preemption_mode": "swap",
+  "max_num_batched_tokens": $MAX_MODEL_LEN
 }
 
 EOF

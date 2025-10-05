@@ -8,7 +8,7 @@ then
     for script in `ls $DIR/scripts/*cuda*.sh`
         do
             echo "Building $(basename $script). See logs: /tmp/buid.log"
-            source $script 1>/tmp/build.log 2>&1 
+            bash $script 1>/tmp/build.log 2>&1 
             status=$?
             if [ $status -ne 0 ]
             then 
@@ -22,7 +22,7 @@ then
     for script in `ls $DIR/scripts/*neuron*.sh`
         do
             echo "Building $(basename $script). See logs: /tmp/build.log"
-            source $script 1>/tmp/build.log 2>&1 
+            bash $script 1>/tmp/build.log 2>&1 
             status=$?
             if [ $status -ne 0 ]
             then 

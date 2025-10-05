@@ -23,11 +23,12 @@ tensor-parallel-size: $TENSOR_PARALLEL_SIZE
 max-num-seqs: $MAX_NUM_SEQS
 dtype: auto
 max-model-len: $MAX_MODEL_LEN
-gpu-memory-utilization: 0.9
+gpu-memory-utilization: 0.95
 enforce-eager: false
-enable-prefix-caching: true
+enable-prefix-caching: false
 preemption-mode: swap
 swap-space: 4
+max-num-batched-tokens: $MAX_MODEL_LEN
 EOF
 
 export VLLM_CONFIG=/tmp/config.yaml

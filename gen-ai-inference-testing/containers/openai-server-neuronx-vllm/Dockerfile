@@ -80,10 +80,14 @@ RUN pip3 install libneuronxla==2.2.12677.0+470fa032 \
       transformers-neuronx==0.13.322
 
 ENV VLLM_TARGET_DEVICE=neuron
-RUN git clone https://github.com/vllm-project/vllm.git /opt/vllm
-RUN cd /opt/vllm && git fetch origin 5fbbfe9a4c13094ad72ed3d6b4ef208a7ddc0fd7
-RUN cd /opt/vllm && git reset --hard 5fbbfe9a4c13094ad72ed3d6b4ef208a7ddc0fd7
-RUN cd /opt/vllm && pip3 install -e .
+ARG USE_NEURON_VLLM=false
+RUN if [ "$USE_NEURON_VLLM" = "true" ]; then \
+      pip install git+https://github.com/aws-neuron/upstreaming-to-vllm.git@2.26.0; \
+    else \
+      pip install git+https://github.com/vllm-project/vllm.git@v0.9.0.1; \
+    fi
+
+RUN pip3 install pydantic pandas
 
 COPY resources /opt/program
 RUN chmod u+x /opt/program/serve

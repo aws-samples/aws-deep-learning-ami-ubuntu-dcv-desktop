@@ -71,10 +71,11 @@ cat > /tmp/model.json <<EOF
   "max_num_seqs": $MAX_NUM_SEQS,
   "dtype": "auto",
   "max_model_len": $MAX_MODEL_LEN,
-  "gpu_memory_utilization": 0.9,
+  "gpu_memory_utilization": 0.95,
   "enforce_eager": false,
-  "enable_prefix_caching": true,
+  "enable_prefix_caching": false,
   "preemption_mode": "swap",
+  "max_num_batched_tokens": $MAX_MODEL_LEN,
   "override_neuron_config": {
       "continuous_batching": {
         "max_num_seqs": $MAX_NUM_SEQS,

@@ -1,0 +1,26 @@
+# LiteLLM Configuration for OpenAI Server vLLM Endpoint
+# Converted from locust-testing/config/openai_server-vllm.yaml
+
+model_list:
+  # Define the vLLM OpenAI-compatible endpoint
+  - model_name: "custom-model"
+    litellm_params:
+      model: ""
+      api_base: ""
+      timeout: 600
+
+litellm_settings:
+  # Register the custom handler
+  custom_provider_map:
+    - provider: "custom-endpoint"
+      custom_handler: custom_endpoint_handler.custom_endpoint_llm
+
+# Optional: Set general settings
+general_settings:
+  # Enable verbose logging for debugging
+  set_verbose: true
+
+# Environment variables configuration
+environment_variables:
+  # Content type for requests
+  CONTENT_TYPE: "application/json"
