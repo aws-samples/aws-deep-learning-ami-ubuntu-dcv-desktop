@@ -71,7 +71,6 @@ cat > /tmp/model.json <<EOF
   "enforce_eager": false,
   "enable_prefix_caching": false,
   "enable_chunked_prefill": true,
-  "preemption_mode": "swap",
   "max_num_batched_tokens": $MAX_MODEL_LEN
 }
 

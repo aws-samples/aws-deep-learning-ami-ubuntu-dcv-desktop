@@ -21,8 +21,8 @@ RUN apt-get update && apt-get install -y \
 # Remove the externally-managed marker
 RUN rm -f /usr/lib/python*/EXTERNALLY-MANAGED
 
-# Install vLLM 0.10.2 and its dependencies
-RUN pip3 install --no-cache-dir vllm==0.10.2
+# Install vLLM 0.11.0 and its dependencies
+RUN pip3 install --no-cache-dir vllm==0.11.0
 
 COPY resources /opt/program
 RUN chmod u+x /opt/program/serve

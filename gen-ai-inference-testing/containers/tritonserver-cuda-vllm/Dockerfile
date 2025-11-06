@@ -7,6 +7,8 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+RUN pip install vllm==0.11.0
+
 COPY resources /opt/program
 RUN chmod u+x /opt/program/serve
 

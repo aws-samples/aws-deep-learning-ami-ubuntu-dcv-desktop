@@ -15,8 +15,6 @@ gpu-memory-utilization: 0.95
 enforce-eager: false
 enable-prefix-caching: false
 enable-chunked-prefill: true
-preemption-mode: swap
-swap-space: 4
 max-num-batched-tokens: $MAX_MODEL_LEN
 EOF
 
