@@ -464,18 +464,12 @@ Resources:
                           cpp-12 gcc-12 g++-12 libgcc-12-dev libstdc++-12-dev && \
                     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 50 --slave /usr/bin/g++ g++ /usr/bin/g++-11 && \
                     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 --slave /usr/bin/g++ g++ /usr/bin/g++-12) || : ) && \
-                  CUDA=12.8 && \
-                  CUDA_DASH=${CUDA//\./-} && \
-                  DRIVER_VERSION=$(apt-cache policy nvidia-driver-570-open | awk '/Candidate:/ {print $2}') && \
+                  DRIVER_VERSION=$(apt-cache policy nvidia-fabricmanager-580 | awk '/Candidate:/ {print $2}') && \
                   DRIVER_MAJOR_VERSION=$(echo "$DRIVER_VERSION" | cut -d'.' -f1) && \
-                  apt-get install -y libnvidia-cfg1=$DRIVER_VERSION nvidia-persistenced=$DRIVER_VERSION nvidia-open=$DRIVER_VERSION  && \
-                  ( (apt-get install -y nvidia-fabricmanager-${DRIVER_MAJOR_VERSION} && systemctl enable nvidia-fabricmanager) || : ) && \
-                  apt-get install -y cuda-${CUDA_DASH} && \
-                  echo "export PATH=/usr/local/cuda-${CUDA}/bin:$PATH" >> /home/ubuntu/.bashrc && \
-                  CUDA_COMPAT=$(nvidia-smi | grep CUDA | awk '{print $(NF - 1)}') && \
-                  CUDA_COMPAT_DASH=${CUDA_COMPAT//\./-} && \
-                  apt-get -y install cuda-compat-${CUDA_COMPAT_DASH} && \
-                  echo "export LD_LIBRARY_PATH=/usr/local/cuda-${CUDA_COMPAT}/compat:/usr/local/cuda-${CUDA}/lib64:$LD_LIBRARY_PATH" >> /home/ubuntu/.bashrc && \
+                  apt-get install -y libnvidia-cfg1-${DRIVER_MAJOR_VERSION}-server=$DRIVER_VERSION \
+                    libnvidia-compute-${DRIVER_MAJOR_VERSION}-server=$DRIVER_VERSION \
+                    nvidia-driver-${DRIVER_MAJOR_VERSION}-server=$DRIVER_VERSION  && \
+                  ( (apt-get install -y nvidia-fabricmanager-${DRIVER_MAJOR_VERSION}=$DRIVER_VERSION && systemctl enable nvidia-fabricmanager) || : ) && \
                   sync && reboot
 
                   dpkg -l | grep nvidia | awk -F' ' '{print $2}' > /tmp/dpkg.out
