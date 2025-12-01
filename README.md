@@ -1,203 +1,191 @@
 # AWS Deep Learning Desktop with Amazon DCV
 
-This project is a tutorial on how to launch an AWS deep learning desktop with [Amazon DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models. To launch the deep learning desktop, you have a choice of two AMIs:
+Launch an AWS deep learning desktop with [Amazon DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models.
 
-* Ubuntu Server Pro, 24.04 LTS, Version 20250516 (Default)
-* Ubuntu Server Pro, 22.04 LTS, Version 20250516 
+## Overview
 
-Deep-learning desktop supports Amazon EC2 [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), [trn2](https://aws.amazon.com/ec2/instance-types/trn2/), [inf2](https://aws.amazon.com/ec2/instance-types/inf2/), GPU enabled [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [g6](https://aws.amazon.com/ec2/instance-types/g6/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), [p4](https://aws.amazon.com/ec2/instance-types/p4/), [p5](https://aws.amazon.com/ec2/instance-types/p5/), and selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), and [r5](https://aws.amazon.com/ec2/instance-types/r5/) instance families.
+**Supported AMIs:**
+* Ubuntu Server Pro 24.04 LTS, Version 20250516 (Default)
+* Ubuntu Server Pro 22.04 LTS, Version 20250516
 
-For Amazon EC2 GPU enabled instances:
+**Supported EC2 Instance Types:**
+* **Trainium/Inferentia:** [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), [trn2](https://aws.amazon.com/ec2/instance-types/trn2/), [inf2](https://aws.amazon.com/ec2/instance-types/inf2/)
+* **GPU:** [g4](https://aws.amazon.com/ec2/instance-types/g4/), [g5](https://aws.amazon.com/ec2/instance-types/g5/), [g6](https://aws.amazon.com/ec2/instance-types/g6/), [p3](https://aws.amazon.com/ec2/instance-types/p3/), [p4](https://aws.amazon.com/ec2/instance-types/p4/), [p5](https://aws.amazon.com/ec2/instance-types/p5/)
+* **General Purpose:** Selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), [r5](https://aws.amazon.com/ec2/instance-types/r5/)
 
-* [CUDA](https://developer.nvidia.com/cuda-toolkit), CUDA Compatibility package compatible with the CUDA driver, and [cuDNN](https://developer.nvidia.com/cudnn) are automatically installed.
+**Key Features:**
+* Pre-installed [CUDA](https://developer.nvidia.com/cuda-toolkit), CUDA Compatibility package, and [cuDNN](https://developer.nvidia.com/cudnn) for GPU instances
+* [Visual Studio Code](https://code.visualstudio.com/) IDE for development
+* Can serve as head node for [deep learning clusters](EFA-CLUSTER.md) with [EFA](https://aws.amazon.com/hpc/efa/) and [Open MPI](https://www.open-mpi.org/)
 
-**NOTE:** *Automatic or manual upgrades to CUDA driver may require new [CUDA Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/index.html) package to be manually installed.*
+**Note:** Automatic or manual CUDA driver upgrades may require manually installing a new [CUDA Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/index.html) package.
 
-[Visual Studio Code](https://code.visualstudio.com/) IDE is installed for code development.
+## Getting Started
 
-The deep-learning desktop can be used for standalone development, or as a head node for [deep learning clusters](#launching-deep-learning-cluster-with-efa-and-open-mpi) enabled with [Elastic Fabric Adapter (EFA)](https://aws.amazon.com/hpc/efa/), and [Open MPI](https://www.open-mpi.org/). 
+### Prerequisites
 
-## Step by Step Tutorial
+**Requirements:**
+* [AWS Account](https://aws.amazon.com/account/) with [Administrator job function](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_job-functions.html) access
 
-### Step 1. <a name="Prerequisites"></a> Prerequisites
-This tutorial assumes you have an [AWS Account](https://aws.amazon.com/account/), and you have [Administrator job function](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_job-functions.html) access to the AWS Management Console.
+**Supported AWS Regions:**
+us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, ap-northeast-2, ap-south-1
 
-To get started:
+**Note:** Not all EC2 instance types are available in all [Availability Zones](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html).
 
-* Select your [AWS Region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html). The AWS Regions supported by this project include, us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, ap-northeast-2, and ap-south-1. Note that not all Amazon EC2 instance types are available in all [AWS Availability Zones](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) in an AWS Region.
-* [Create a new VPC](https://docs.aws.amazon.com/vpc/latest/userguide/create-vpc.html#create-vpc-only), or use an existing VPC in your selected region.
-* In your selected VPC, if needed, [create three public subnets](https://docs.aws.amazon.com/vpc/latest/userguide/create-subnets.html) in three different AWS Availability Zones. 
-* If you do not already have an Amazon EC2 key pair, [create a new Amazon EC2 key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair). You will need the key pair name to specify the `KeyName` parameter when creating the CloudFormation stack below.
-* You will need an [Amazon S3](https://aws.amazon.com/s3/) bucket. If you don't have one, [create a new Amazon S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in the AWS region you selected. The S3 bucket can be empty at this point.
-* Use [AWS check ip](http://checkip.amazonaws.com/) to get your public IP address. This will be the IP address you will need to specify the `DesktopAccessCIDR` parameter in the stack. 
-* Clone this Git repository on your laptop using [`git clone `](https://git-scm.com/book/en/v2/Git-Basics-Getting-a-Git-Repository).
+**Setup Steps:**
 
-### Step 2. Create AWS CloudFormation Stack
-Use the AWS CloudFormation template [deep-learning-ubuntu-desktop.yaml](deep-learning-ubuntu-desktop.yaml) from your cloned  repository to create a new CloudFormation stack using the [ AWS Management console](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-stack.html), or using the [AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html). See [Reference](#Reference) section for the [template](deep-learning-ubuntu-desktop.yaml) input parameters, and stack outputs.
+1. **Select your [AWS Region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)** from the supported regions above
 
-The template [deep-learning-ubuntu-desktop.yaml](deep-learning-ubuntu-desktop.yaml) creates [AWS Identity and Access Management (IAM)](https://aws.amazon.com/iam/) resources. If you are creating CloudFormation Stack using the console, in the review step, you must check 
-**I acknowledge that AWS CloudFormation might create IAM resources.** If you use the `aws cloudformation create-stack` CLI, you must use `--capabilities CAPABILITY_NAMED_IAM`. 
+2. **VPC and Subnets:** [Create a VPC](https://docs.aws.amazon.com/vpc/latest/userguide/create-vpc.html#create-vpc-only) or use an existing one. If needed, [create three public subnets](https://docs.aws.amazon.com/vpc/latest/userguide/create-subnets.html) in three different Availability Zones
 
-### Step 3. Connect to Desktop using SSH
+3. **EC2 Key Pair:** [Create an EC2 key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair) if you don't have one (needed for `KeyName` parameter)
 
-* Once the stack status in CloudFormation console is `CREATE_COMPLETE`, find the deep learning desktop instance launched in your stack in the Amazon EC2 console, and [connect to the instance using SSH](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstancesLinux.html) as user `ubuntu`, using your SSH key pair.
-* When you connect using SSH, and you see the message `"Cloud init in progress! Logs: /var/log/cloud-init-output.log"`, disconnect and try later after about 15 minutes. The desktop installs the Amazon DCV server on first-time startup, and reboots after the install is complete.
-* If you see the message `Deep Learning Desktop is Ready!`, run the command `sudo passwd ubuntu` to set a new password for user `ubuntu`. Now you are ready to connect to the desktop using the [Amazon DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html)
+4. **S3 Bucket:** [Create an S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in your selected region (can be empty initially)
 
-#### NOTE
-The deep-learning desktop uses EC2 [user-data](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html) to automatically install the required software in the desktop instance. The log output of this automatic installation is available in `/var/log/cloud-init-output.log` file. Most *transient* failures in the automatic user-data installation can be fixed by rebooting the instance.
+5. **Get Your Public IP:** Use [AWS check ip](http://checkip.amazonaws.com/) to find your public IP address (needed for `DesktopAccessCIDR` parameter)
 
-### Step 4. Connect to Desktop using Amazon DCV Client
-* Download and install the [Amazon DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html) on your laptop.
-* Use the Amazon DCV Client to login to the desktop as user `ubuntu`
-* When you first login to the desktop using the Amazon DCV client, you will be asked if you would like to upgrade the OS version. **Do not upgrade the OS version** .
-* Configure the desktop application **Software Updater** settings to only allow automatic download and application of security updates. Do not apply any non-security updates, unless you are an advanced user.
+6. **Clone Repository:** Clone this repository to your laptop:
+   ```bash
+   git clone <repository-url>
+   ```
 
-## Generative AI Inference Testing
+### Launch the Desktop
 
-For local Generative AI inference testing on the deep learning desktop, follow this [README](./gen-ai-inference-testing/README.md).
+Create a CloudFormation stack using the [deep-learning-ubuntu-desktop.yaml](deep-learning-ubuntu-desktop.yaml) template via:
+* [AWS Management Console](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-stack.html), or
+* [AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html)
 
-## Generative AI Training Testing
+See [CloudFormation Parameters](#desktop-cloudformation-template-parameters) for template inputs and [Stack Outputs](#desktop-cloudformation-stack-outputs) for outputs.
 
-### Nemo 2.0 Framework 
-For fine-tuning testing using Nemo 2.0 Framework, follow this [README](./gen-ai-training-testing/nemo2/README.md).
+**Important:** The template creates [IAM](https://aws.amazon.com/iam/) resources:
+* **Console:** Check "I acknowledge that AWS CloudFormation might create IAM resources" during review
+* **CLI:** Use `--capabilities CAPABILITY_NAMED_IAM` flag 
 
-### PyTorch Lightning Framework (PTL)
-For fine-tuning testing using PTL Framework, follow this [README](./gen-ai-training-testing/ptl/README.md).
+### Connect via SSH
 
-## Accessing Data
+1. Wait for stack status to show `CREATE_COMPLETE` in CloudFormation console
+2. Find your desktop instance in EC2 console
+3. [Connect via SSH](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstancesLinux.html) as user `ubuntu` using your key pair
 
-The deep learning desktop instance has access to the S3 bucket you specified when you create the CloudFormation stack. You can verify the access to your S3 bucket by running following command 
+**First-time Setup:**
+* If you see `"Cloud init in progress! Logs: /var/log/cloud-init-output.log"`, disconnect and wait ~15 minutes. The desktop installs Amazon DCV server and reboots automatically.
+* When you see `Deep Learning Desktop is Ready!`, set a password:
+  ```bash
+  sudo passwd ubuntu
+  ```
 
-	aws s3 ls your-bucket-name 
+**Troubleshooting:** The desktop uses EC2 [user-data](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html) for automatic software installation. Check logs at `/var/log/cloud-init-output.log`. Most transient failures can be fixed by rebooting the instance.
 
-If you do not have access to the S3 bucket, you will see an error message. If your S3 bucket is empty, the previous command will produce no output, which is normal. 
+### Connect via Amazon DCV Client
 
-There is an [Amazon EBS](https://aws.amazon.com/ebs/) root volume attached to the instance. In addition, an [Amazon EFS](https://aws.amazon.com/efs/) file-system is mounted on your desktop at `EFSMountPath`, which by default is `/home/ubuntu/efs`. Optionally, an [Amazon FSx for Lustre](https://aws.amazon.com/fsx/) file-system can be mounted on your desktop at `FSxMountPath`, which by default is `/home/ubuntu/fsx`.  See `FSxForLustre` parameter in [Reference](#Reference) section to learn how to enable FSx for Lustre file-system.
+1. Download and install the [Amazon DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html) on your laptop
+2. Login to the desktop as user `ubuntu`
+3. **Do not upgrade the OS version** when prompted on first login
+4. Configure **Software Updater** to only apply security updates automatically (avoid non-security updates unless you're an advanced user)
 
-The Amazon EBS volume attached to the instance is deleted when the deep learning instance is terminated. However, the EFS file-system persists after you terminate the desktop instance. 
+## Using the Desktop
 
-## Using Amazon SageMaker AI
-The deep learning desktop is pre-configured to use [Amazon SageMaker AI](https://aws.amazon.com/sagemaker-ai/). To get started with Generative AI training and inference examples in Amazon SageMaker AI, execute following commands in a desktop terminal:
+### Generative AI Testing
 
-	mkdir ~/git
-	cd ~/git
-	git clone -b distributed-training-pipeline https://github.com/aws/amazon-sagemaker-examples.git
-	jupyter-lab 1>lab.out 2>&1 &
-	
-This will start a `jupyter-lab` notebook server in the terminal, and open a tab in your web browser. 
+**Inference Testing:**
+* See [Inference Testing Guide](./gen-ai-inference-testing/README.md) for local Generative AI inference
 
-For inference examples, navigate to `amazon-sagemaker-examples/advanced_functionality/large-model-inference-testing/large_model_inference.ipynb` notebook in Jupyter Lab. Use any Python kernel in the notebook. You can skip straight to the cell titled **Initialize SageMaker session**, and set `s3_bucket` to the S3 bucket you used to launch the deep learning desktop.
+**Training Testing:**
+* [Nemo 2.0 Framework](./gen-ai-training-testing/nemo2/README.md) - Fine-tuning with Nemo 2.0
+* [PyTorch Lightning (PTL)](./gen-ai-training-testing/ptl/README.md) - Fine-tuning with PTL
 
-**For advanced users**:
+### Data Storage
 
-if you have FSx for Lustre enabled in the deep learning desktop, you can navigate to `amazon-sagemaker-examples/advanced_functionality/distributed-training-pipeline/dist_training_pipeline.ipynb` notebook in Jupyter Lab and run training examples. Use the `base` kernel in the notebook. You can skip straight to the cell titled **Initialize SageMaker session**, and set `s3_bucket` to the S3 bucket you used to launch the deep learning desktop.
+**S3 Access:**
+The desktop has access to your specified S3 bucket. Verify access:
+```bash
+aws s3 ls your-bucket-name
+```
+No output means the bucket is empty (normal). An error indicates access issues.
 
-## Stopping and Restarting the Desktop
+**Storage Options:**
+* **[Amazon EBS](https://aws.amazon.com/ebs/):** Root volume (deleted when instance terminates)
+* **[Amazon EFS](https://aws.amazon.com/efs/):** Mounted at `/home/ubuntu/efs` by default (persists after termination)
+* **[Amazon FSx for Lustre](https://aws.amazon.com/fsx/):** Optional, mounted at `/home/ubuntu/fsx` by default (enable via `FSxForLustre` parameter)
 
-You may safely reboot, stop, and restart the desktop instance at any time. The desktop will automatically mount the EFS file-system at restart. If FSx for Luster file-system is enabled, it is automatically mounted, as well.
+**Important:** EBS volumes are deleted on termination. EFS file-systems persist. 
 
-## Launching Deep-learning Cluster with EFA and Open MPI (Advanced)
+### Amazon SageMaker AI
 
-For advanced users, the CloudFormation stack template for [deep-learning cluster enabled with EFA and Open MPI](deep-learning-ubuntu-efa-cluster.yaml) can be launched after the desktop CloudFormation Stack launch is successfully completed. See [Reference](#Reference) for deep-learning cluster CloudFormation template input parameters.
+The desktop is pre-configured for [Amazon SageMaker AI](https://aws.amazon.com/sagemaker-ai/).
 
-### Using Open MPI on the Desktop Head Node
+**Quick Start:**
+```bash
+mkdir ~/git
+cd ~/git
+git clone -b distributed-training-pipeline https://github.com/aws/amazon-sagemaker-examples.git
+jupyter-lab 1>lab.out 2>&1 &
+```
+This starts Jupyter Lab and opens it in your browser.
 
-To be able to run the Open MPI `mpirun` command on the desktop head node, we need to configure password-less `ssh` to the cluster nodes. Ideally, we want to do this without storing the SSH private key on the desktop head node. To accomplish this objective, we recommend using SSH agent-forwarding on your laptop. To use SSH agent-forwarding, first add your SSH private key to the SSH forwarding agent on your laptop, using the following command:
+**Inference Examples:**
+1. Navigate to: `amazon-sagemaker-examples/advanced_functionality/large-model-inference-testing/large_model_inference.ipynb`
+2. Use any Python kernel
+3. Skip to **Initialize SageMaker session** cell
+4. Set `s3_bucket` to your desktop's S3 bucket
 
-	ssh-add ~/.ssh/id_rsa
+**Training Examples (Advanced - requires FSx for Lustre):**
+1. Navigate to: `amazon-sagemaker-examples/advanced_functionality/distributed-training-pipeline/dist_training_pipeline.ipynb`
+2. Use the `base` kernel
+3. Skip to **Initialize SageMaker session** cell
+4. Set `s3_bucket` to your desktop's S3 bucket
 
-If your private key is not stored in the default `~/.ssh/id_rsa` file, change the previous command, accordingly. 
+## Managing the Desktop
 
-Next, add following configuration to the `~/.ssh/config` file on the desktop head node,:
+### Stopping and Restarting
 
-	Host *
-    	ForwardAgent yes
-	Host *
-		StrictHostKeyChecking no
+You can safely reboot, stop, and restart the desktop instance anytime. EFS (and FSx for Lustre, if enabled) automatically remount on restart.
 
-To run the `mpirun` command on the desktop head node, `ssh` from your laptop to the desktop head node as follows:
+### Distributed Training
 
-	ssh -A ubuntu@desktop-ec2-public-address
+For distributed training workloads, launch a deep-learning cluster with EFA and Open MPI. See the [EFA Cluster Guide](EFA-CLUSTER.md).
 
-Now you can run the `mpirun` command from the desktop head node, targeting any deep-learning cluster. 
+### Deleting Resources
 
-To run the `mpirun` command, you will need a `hostfile` containing the host IP addresses and slots for each node in your target cluster. Following  `bash` code can help you create your `hostfile`, where the `ec2-autoscaling-group-name` argument below is the EC2 auto-scaling group name for your deep-learning cluster, and is available in cluster stack output:
+Delete CloudFormation stacks from the AWS console when no longer needed.
 
-	#!/bin/bash
+**What Gets Deleted:**
+* EC2 instances
+* EBS root volumes
+* FSx for Lustre file-systems (if enabled)
 
-	[[ $# != 2 ]] && echo "usage: $0 aws-region ec2-autoscaling-group-name" && exit
+**What Persists:**
+* **EFS file-systems are NOT automatically deleted**
 
-	region=$1
-	asg=$2
+## Reference
 
-	for ID in $(aws autoscaling describe-auto-scaling-instances --region $region --query "AutoScalingInstances[?AutoScalingGroupName=='$asg'].InstanceId" --output text);
-	do
-		host=$(aws ec2 describe-instances --instance-ids $ID --region $region --query "Reservations[].Instances[].PrivateIpAddress" --output text)
-		echo "$host	slots=1"
-	done
-
-#### Open MPI Example
-
-Before you run the MPI example, `ssh` into each instance in your `hostfile`, and make sure you see the message `Cluster node is ready!`. If you do not see this message, exit and `ssh` again in about 10 minutes to verify the cluster node is ready.
-
-**NOTE:** The `PATH` and `LD_LIBRARY_PATH` apply to all the cluster nodes, and will need to be adjusted for your specific use case.
-
-	#!/bin/bash
-
-	NUM_PARALLEL=2
-	DATE=`date '+%Y-%m-%d-%H-%M-%S'`
-	export JOB_ID=mpirun-test-$DATE
-
-	mpirun -np $NUM_PARALLEL --verbose \
-	--hostfile /home/ubuntu/efs/openmpi/hostfile \
-	-bind-to none -map-by slot \
-	--mca plm_rsh_no_tree_spawn 1 -mca pml ob1 -mca btl ^openib -mca btl_tcp_if_exclude lo,docker0 \
-	--mca hwloc_base_binding_policy none --mca rmaps_base_mapping_policy slot \
-	--mca orte_keep_fqdn_hostnames t \
-	--output-filename /home/ubuntu/efs/logs/${JOB_ID} \
-	--display-map --tag-output --timestamp-output \
-	-wdir /home/ubuntu \
-	-x PATH='/usr/local/cuda-12.8/bin:/opt/amazon/openmpi/bin:/opt/amazon/efa/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin' \
-	-x LD_LIBRARY_PATH='/usr/local/cuda-12.8/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib' \
-	bash -c "source /home/ubuntu/miniconda3/etc/profile.d/conda.sh  && conda activate base && hostname && env"
-
-
-## Deleting the Stacks
-
-When you no longer need the stacks, you may delete the AWS CloudFormation stacks from the AWS CloudFormation console. Deleting the stack will terminate the EC2 instances, and delete the root EBS volume attached to the instances. If the FSx for Lustre file-system is enabled, it is also automatically deleted when you delete the stack.
-
-The EFS file system is **not** automatically deleted when you delete the stack.
-
-## <a name="Reference"></a> Reference
-
-### Desktop CloudFormation Template Input Parameters
-Below, we describe the AWS CloudFormation template input parameters for the deep-learning desktop.
+### Desktop CloudFormation Template Parameters
 
 | Parameter Name | Parameter Description |
 | --- | ----------- |
-| AWSUbuntuAMIType | This is a required parameter that selects the AMI type. Default AMI type is [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5). |
-| DesktopAccessCIDR | This parameter specifies the public IP CIDR range from where you need access to your deep learning desktop, e.g. 1.2.3.4/32, or 7.8.0.0/16. This parameter is *ignored* if you specify the optional parameter  DesktopSecurityGroupId.|
-| DesktopHasPublicIpAddress | This is a **required** parameter whereby you specify if the desktop has a public internet address. Unless you have AWS [VPN](https://aws.amazon.com/vpn/) or [DirectConnect](https://aws.amazon.com/directconnect) access enabled, you must set this parameter to "true".
-| DesktopInstanceType | This is a **required** parameter whereby you select an Amazon EC2 instance type. G3, G4, P3 and P4 instance types are GPU enabled.  |
-| DesktopSecurityGroupId | This is an *optional* advanced parameter whereby you specify Amazon EC2 security group for your desktop. The specified security group must allow inbound access over ports 22 (SSH) and 8443 (DCV) from `DesktopAccessCIDR`, access to EFS and FSx for Lustre, and allow all inbound and outbound network traffic within the security group. Leave it blank to automatically create a new security group, which enables access for SSH, DCV, EFS, FSx for Lustre, and allows all inbound and outbound network traffic within the security group. |
-| DesktopVpcId | This is a **required** parameter whereby you select your Amazon VPC id.|
-| DesktopVpcSubnetId | This is a **required** parameter whereby you select your Amazon VPC subnet. The specified subnet must be public with Internet Gateway access enabled if you plan to access your desktop over the Internet, or private with NAT gateway access enabled. |
-| EBSOptimized | This is a **required** parameter whereby you select if you want your desktop instance to be [network optimized for EBS](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html) (default is **true**)|
-| EFSFileSystemId | This is an *optional* advanced parameter whereby you specify an existing EFS file-system id with an [existing network mount target](https://docs.aws.amazon.com/efs/latest/ug/how-it-works.html#how-it-works-ec2)  accessible from your DesktopVpcSubnetId. If you specify this parameter, do it in conjunction with DesktopSecurityGroupId. Leave it blank to create a new EFS file-system.  |
-| EFSMountPath | Absolute path for the directory where EFS file-system is mounted (default is `/home/ubuntu/efs`).   |
-| EbsVolumeSize | This is a **required** parameter whereby you specify the size of the EBS volume (default size is 500 GB). Typically, the default size is sufficient.|
-| EbsVolumeType | This is a **required** parameter whereby you select the [EBS volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html) (default is gp3). |
-| FSxCapacity | This is an **optional** parameter whereby you specify the capacity of the FSx for Lustre file-system. This capacity must be in multiples of 1200 GB. Default capacity is 1200 GB. See `FSxForLustre` parameter to enable FSx for Lustre file-system. | 
-| FSxForLustre | This is an **optional** parameter whereby you  enable, disable FSx for Lustre file-system. By default, it is disabled. If enabled, a FSx for Lustre file-system is created and mounted on the desktop. The FSx for Lustre file-system automatically imports data from `s3://S3bucket/S3Import`. See `S3Bucket` and `S3Import` parameters. |
-| FSxMountPath | FSx file-system mount directory path (default is `/home/ubuntu/fsx`).   |
-| KeyName | This is a **required** parameter whereby you select the Amazon EC2 key pair name used for SSH access to the desktop. You must have access to the selected key pair's private key to connect to your desktop. |
-| S3Bucket | This is a **required** parameter whereby you specify the name of the Amazon S3 bucket used to store your data. The S3 bucket may be empty at the time you create the AWS CloudFormation stack.  |
-| S3Import | This is an **optional** parameter whereby you specify S3 import prefix for FSx file-system. See `FSxForLustre` parameter to enable FSx for Lustre file-system.  |
-| UbuntuAMIOverride | This is an *optional* advanced parameter to override the AMI. Leave blank to use default AMIs for your region. See parameter `AWSUbuntuAMIType`. |
+| AWSUbuntuAMIType | **Required**. Selects the AMI type. Default is [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5). |
+| DesktopAccessCIDR | Public IP CIDR range for desktop access, e.g. 1.2.3.4/32 or 7.8.0.0/16. Ignored if DesktopSecurityGroupId is specified. |
+| DesktopHasPublicIpAddress | **Required**. Specify if desktop has a public IP address. Set to "true" unless you have AWS [VPN](https://aws.amazon.com/vpn/) or [DirectConnect](https://aws.amazon.com/directconnect) enabled.
+| DesktopInstanceType | **Required**. Amazon EC2 instance type. G3, G4, P3 and P4 instance types are GPU enabled. |
+| DesktopSecurityGroupId | *Optional* advanced parameter. EC2 security group for desktop. Must allow ports 22 (SSH) and 8443 (DCV) from DesktopAccessCIDR, access to EFS and FSx for Lustre, and all traffic within the security group. Leave blank to auto-create. |
+| DesktopVpcId | **Required**. Amazon VPC id. |
+| DesktopVpcSubnetId | **Required**. Amazon VPC subnet. Must be public with Internet Gateway (for Internet access) or private with NAT gateway. |
+| EBSOptimized | **Required**. Enable [network optimization for EBS](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html) (default is **true**). |
+| EFSFileSystemId | *Optional* advanced parameter. Existing EFS file-system id with [network mount target](https://docs.aws.amazon.com/efs/latest/ug/how-it-works.html#how-it-works-ec2) accessible from DesktopVpcSubnetId. Use with DesktopSecurityGroupId. Leave blank to create new. |
+| EFSMountPath | Absolute path where EFS file-system is mounted (default is `/home/ubuntu/efs`). |
+| EbsVolumeSize | **Required**. Size of EBS volume (default is 500 GB). |
+| EbsVolumeType | **Required**. [EBS volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html) (default is gp3). |
+| FSxCapacity | *Optional*. Capacity of FSx for Lustre file-system in multiples of 1200 GB (default is 1200 GB). See FSxForLustre parameter. | 
+| FSxForLustre | *Optional*. Enable FSx for Lustre file-system (disabled by default). When enabled, automatically imports data from `s3://S3bucket/S3Import`. See S3Bucket and S3Import parameters. |
+| FSxMountPath | FSx file-system mount path (default is `/home/ubuntu/fsx`). |
+| KeyName | **Required**. EC2 key pair name for SSH access. You must have the private key. |
+| S3Bucket | **Required**. S3 bucket name for data storage. May be empty at stack creation. |
+| S3Import | *Optional*. S3 import prefix for FSx file-system. See FSxForLustre parameter. |
+| UbuntuAMIOverride | *Optional* advanced parameter to override the AMI. Leave blank to use default AMIs. See AWSUbuntuAMIType. |
 
 ### Desktop CloudFormation Stack Outputs
-Below, we describe the Desktop CloudFormation Stack outputs. All output variables are exported prefixed with the stack name.
+
+All output variables are exported prefixed with the stack name.
 
 | Output Key | Output Description |
 | --- | ----------- |
@@ -212,30 +200,7 @@ Below, we describe the Desktop CloudFormation Stack outputs. All output variable
 | FsxMountName | Desktop FSx Lustre file-system mount name, if FSx Luster is enabled. |
 | FsxMountPath | Desktop FSx Lustre file-system mount path, if FSx Luster is enabled. |
 
-### Cluster CloudFormation Template Input Parameters
-Below, we describe the AWS CloudFormation template input parameters for the deep-learning cluster.
 
-| Parameter Name | Parameter Description |
-| --- | ----------- |
-| AWSUbuntuAMIType | This is a **required** parameter that selects the AMI type. Default AMI type is [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5). |
-| ASGMaxSize | This is a **required** parameter that specifies maximum size for the cluster's EC2 auto-scaling group. |
-| ASGDesiredSize | This is a **required** parameter that specifies the current desired size for the the cluster's EC2 auto-scaling group. |
-| ClusterInstanceType | This is a **required** parameter whereby you select an Amazon EC2 instance type. G3, G4, P3 and P4 instance types are GPU enabled.  |
-| ClusterSubnetId | This is a **required** parameter whereby you select your Amazon VPC subnet. The specified subnet must be private with NAT gateway access enabled. |
-| ClusterSubnetAZ | This is a **required** parameter whereby you specify the AZ used by the `ClusterSubnetId` subnet. |
-| EBSOptimized | This is a **required** parameter whereby you select if you want your desktop instance to be [network optimized for EBS](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html) (default is **true**)|
-| EFSFileSystemId | This is an *optional* advanced parameter whereby you specify an existing EFS file-system id with an [existing network mount target](https://docs.aws.amazon.com/efs/latest/ug/how-it-works.html#how-it-works-ec2)  accessible from your DesktopVpcSubnetId. If you specify this parameter, do it in conjunction with DesktopSecurityGroupId. Leave it blank to create a new EFS file-system.  |
-| EFSMountPath | Absolute path for the directory where EFS file-system is mounted (default is `/home/ubuntu/efs`).   |
-| EbsVolumeSize | This is a **required** parameter whereby you specify the size of the EBS volume (default size is 200 GB). Typically, the default size is sufficient.|
-| EbsVolumeType | This is a **required** parameter whereby you select the [EBS volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html) (default is gp3). |
-| UbuntuAMIOverride | This is an *optional* advanced parameter to override the AMI. Leave blank to use default AMIs for your region. See parameter `AWSUbuntuAMIType`. |
-
-### AWS CloudFormation Stack Outputs
-Below, we describe the AWS CloudFormation Stack outputs.
-
-| Output Key | Output Description |
-| --- | ----------- |
-| Asg | EC2 auto-scaling group for the cluster. |
 
 ## Security
 
