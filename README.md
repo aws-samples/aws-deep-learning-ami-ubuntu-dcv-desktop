@@ -55,7 +55,15 @@ The deep-learning desktop uses EC2 [user-data](https://docs.aws.amazon.com/AWSEC
 
 ## Generative AI Inference Testing
 
-For local Generative AI inference testing on the deep learning desktop, follow this [tutorial](./gen-ai-inference-testing/README.md).
+For local Generative AI inference testing on the deep learning desktop, follow this [README](./gen-ai-inference-testing/README.md).
+
+## Generative AI Training Testing
+
+### Nemo 2.0 Framework 
+For fine-tuning testing using Nemo 2.0 Framework, follow this [README](./gen-ai-training-testing/nemo2/README.md).
+
+### PyTorch Lightning Framework (PTL)
+For fine-tuning testing using PTL Framework, follow this [README](./gen-ai-training-testing/ptl/README.md).
 
 ## Accessing Data
 
@@ -98,7 +106,6 @@ For advanced users, the CloudFormation stack template for [deep-learning cluster
 To be able to run the Open MPI `mpirun` command on the desktop head node, we need to configure password-less `ssh` to the cluster nodes. Ideally, we want to do this without storing the SSH private key on the desktop head node. To accomplish this objective, we recommend using SSH agent-forwarding on your laptop. To use SSH agent-forwarding, first add your SSH private key to the SSH forwarding agent on your laptop, using the following command:
 
 	ssh-add ~/.ssh/id_rsa
-
 
 If your private key is not stored in the default `~/.ssh/id_rsa` file, change the previous command, accordingly. 
 
