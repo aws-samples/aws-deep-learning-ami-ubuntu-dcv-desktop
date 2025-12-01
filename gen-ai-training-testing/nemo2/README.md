@@ -1,0 +1,575 @@
+# NeMo 2.0  Parameter-Efficient Fine-Tuning (PEFT) Flexible Framework
+
+This project provides a flexible framework for Parameter-Efficient Fine-Tuning (PEFT) of Large Language Models using NVIDIA NeMo 2.0 and Megatron-LM. The framework provides a generalized data pipeline for HuggingFace datasets and streamlined configuration for distributed training with LoRA and other PEFT methods.
+
+## Features
+
+- **Generalized HuggingFace Dataset Support**: Easy integration with any HuggingFace dataset through flexible templates and field mapping
+- **Distributed Training**: Multi-node, multi-GPU training with tensor and pipeline parallelism
+- **PEFT Methods**: Support for LoRA and other parameter-efficient fine-tuning schemes
+- **Automatic Data Conversion**: Converts HuggingFace datasets to NeMo-compatible JSONL format
+- **Customizable Training**: Extensive configuration options for hyperparameters, callbacks, and training strategies
+- **Docker Support**: Containerized environment for reproducible training
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Training Different Models](#training-different-models)
+- [Using Different Datasets](#using-different-datasets)
+- [GPU Requirements](#gpu-requirements)
+- [Configuration](#configuration)
+- [Testing and Converting Checkpoints](#testing-and-converting-checkpoints)
+- [Project Structure](#project-structure)
+- [Troubleshooting](#troubleshooting)
+- [Monitoring and Profiling](#monitoring-and-profiling)
+## Prerequisites
+
+Follow [Step by Step Tutorial](../../README.md) to launch a Deep Learning Desktop. On the desktop,
+
+```bash
+cd ~
+git clone https://github.com/aws-samples/aws-deep-learning-ami-ubuntu-dcv-desktop.git
+cd ~/aws-deep-learning-ami-ubuntu-dcv-desktop/gen-ai-training-testing/nemo2
+```
+
+## Installation
+
+### Using Docker (Recommended)
+
+1. Build the Docker image:
+```bash
+docker buildx build -t nemo2:latest -f ../containers/Dockerfile.nemo2 .
+```
+
+2. Run the container with GPU support:
+```bash
+docker run --gpus all -it --rm \
+  -v $(pwd):/app \
+  --shm-size=32g \
+  nemo2:latest
+```
+
+## Quick Start
+
+Train the default Qwen3-8B model on the Dolphin dataset with optimal settings:
+
+```bash
+python peft_megatron.py
+```
+
+This will:
+1. Download the Qwen/Qwen3-8B model from HuggingFace
+2. Convert it to NeMo checkpoint format
+3. Load and process the Dolphin dataset
+4. Start LoRA fine-tuning with 8 GPUs
+
+## Training Different Models
+
+### Supported Models
+
+The framework supports any model available in NeMo's recipe collection. Common examples include:
+
+- **Qwen Family**: `qwen3_8b`, `qwen3_14b`, `qwen3_70b`
+- **Llama Family**: `llama3_8b`, `llama3_70b`, `llama3_1_8b`, `llama3_1_70b`, `llama3_1_405b`
+- **Mistral**: `mistral_7b`, `mixtral_8x7b`, `mixtral_8x22b`
+- **Nemotron**: `nemotron3_8b`, `nemotron4_340b`
+
+### Finding Recipe Names
+
+NeMo recipe names typically follow the pattern: `{model_family}_{size}`. To find available recipes, check:
+```python
+from nemo.collections.llm import recipes
+# Available recipes are in: nemo.collections.llm.recipes.*
+```
+
+## Using Different Datasets
+
+### Dataset Configuration
+
+The framework uses `HFDatasetConfig` to define dataset loading and formatting. Key parameters:
+
+- `dataset_name`: HuggingFace dataset identifier
+- `dataset_config`: Specific subset/configuration
+- `input_template`: Format string for input prompts
+- `output_template`: Format string for output completions
+- `field_mapping`: Maps template variables to dataset columns
+
+### Example 1: Alpaca Format Dataset
+
+```python
+HFDatasetConfig(
+    dataset_name="tatsu-lab/alpaca",
+    split="train",
+    input_template="### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n",
+    output_template="### Response:\n{output}",
+    field_mapping={
+        "instruction": "instruction",
+        "input": "input", 
+        "output": "output"
+    }
+)
+```
+
+### Example 2: OpenAssistant Conversations
+
+```python
+HFDatasetConfig(
+    dataset_name="OpenAssistant/oasst1",
+    split="train",
+    input_template="<|prompter|>{prompt}<|endoftext|>\n",
+    output_template="<|assistant|>{response}<|endoftext|>",
+    field_mapping={
+        "prompt": "text",  # Map to actual column name
+        "response": "text"  # Adjust based on dataset structure
+    }
+)
+```
+
+### Example 3: ShareGPT Format
+
+```python
+HFDatasetConfig(
+    dataset_name="anon8231489123/ShareGPT_Vicuna_unfiltered",
+    split="train",
+    input_template="{human}",
+    output_template="{gpt}",
+    field_mapping={
+        "human": "conversations",  # Extract from conversations list
+        "gpt": "conversations"
+    },
+    custom_converter=lambda x: {
+        "input": x["conversations"][0]["value"],
+        "output": x["conversations"][1]["value"]
+    }
+)
+```
+
+### Example 4: Custom Dataset with Complex Structure
+
+For datasets with non-standard structures, use `custom_converter`:
+
+```python
+def custom_converter(sample):
+    """Convert complex dataset format"""
+    messages = sample["messages"]
+    system_msg = next((m["content"] for m in messages if m["role"] == "system"), "")
+    user_msg = next((m["content"] for m in messages if m["role"] == "user"), "")
+    assistant_msg = next((m["content"] for m in messages if m["role"] == "assistant"), "")
+    
+    input_text = f"System: {system_msg}\n\nUser: {user_msg}\n\n"
+    output_text = f"Assistant: {assistant_msg}"
+    
+    return {"input": input_text, "output": output_text}
+
+HFDatasetConfig(
+    dataset_name="your-dataset/name",
+    custom_converter=custom_converter
+)
+```
+
+### Running with Custom Dataset
+
+Update the configuration in `peft_megatron.py`:
+
+```python
+@dataclass
+class Config:
+    # ... other config ...
+    
+    hf_dataset_config: HFDatasetConfig = field(default_factory=lambda: HFDatasetConfig(
+        dataset_name="your-org/your-dataset",
+        dataset_config="subset-name",  # Optional
+        split="train",
+        train_split_ratio=0.9,
+        val_test_split_ratio=0.5,
+        input_template="Your input format: {field1}\n{field2}\n",
+        output_template="Your output format: {field3}",
+        field_mapping={
+            "field1": "actual_column_1",
+            "field2": "actual_column_2",
+            "field3": "actual_column_3"
+        }
+    ))
+```
+
+## GPU Requirements
+
+All configurations assume **8 GPUs per node** for optimal performance and training stability.
+
+### Small Models (1B - 13B parameters)
+
+**Examples**: Qwen3-8B, Llama3-8B, Mistral-7B, Phi-3-Medium
+
+**Basic Configuration**:
+- **Nodes**: 1 node
+- **GPUs**: 8x A100 (40GB or 80GB)
+- **Micro batch size**: 8-16
+- **Gradient accumulation**: 4
+
+```bash
+python peft_megatron.py \
+  --hf_model_id "Qwen/Qwen3-8B" \
+  --recipe_cls_name "qwen3_8b" \
+  --num_nodes 1 \
+  --gpus_per_node 8 \
+  --micro_batch_size 8 \
+  --accumulate_grad_batches 4
+```
+
+---
+
+### Medium Models (13B - 34B parameters)
+
+**Examples**: Llama2-13B, Yi-34B, CodeLlama-34B
+
+**Basic Configuration**:
+- **Nodes**: 2 nodes
+- **GPUs**: 16x A100 (80GB) total
+- **Micro batch size**: 4-8
+- **Gradient accumulation**: 4-8
+
+```bash
+python peft_megatron.py \
+  --hf_model_id "meta-llama/Llama-2-13b-hf" \
+  --recipe_cls_name "llama2_13b" \
+  --num_nodes 2 \
+  --gpus_per_node 8 \
+  --micro_batch_size 4 \
+  --accumulate_grad_batches 8
+```
+
+---
+
+### Large Models (34B - 100B parameters)
+
+**Examples**: Llama3.1-70B, Mixtral-8x22B, Qwen2.5-72B
+
+**Basic Configuration**:
+- **Nodes**: 4-8 nodes
+- **GPUs**: 32-64x A100 (80GB) or 32-64x H100 (80GB)
+- **Micro batch size**: 2-4
+- **Gradient accumulation**: 8-16
+
+```bash
+python peft_megatron.py \
+  --hf_model_id "meta-llama/Meta-Llama-3.1-70B" \
+  --recipe_cls_name "llama3_1_70b" \
+  --num_nodes 4 \
+  --gpus_per_node 8 \
+  --micro_batch_size 2 \
+  --accumulate_grad_batches 16
+```
+
+---
+
+### Very Large Models (100B+ parameters)
+
+**Examples**: Llama3.1-405B, Nemotron4-340B, Falcon-180B
+
+**Basic Configuration**:
+- **Nodes**: 16-32+ nodes
+- **GPUs**: 128-256+ H100 (80GB)
+- **Micro batch size**: 1-2
+- **Gradient accumulation**: 16-32
+
+```bash
+python peft_megatron.py \
+  --hf_model_id "meta-llama/Meta-Llama-3.1-405B" \
+  --recipe_cls_name "llama3_1_405b" \
+  --num_nodes 16 \
+  --gpus_per_node 8 \
+  --micro_batch_size 1 \
+  --accumulate_grad_batches 32
+```
+
+---
+
+### Hardware Requirements Summary
+
+| Model Size | Parameters | Nodes | Total GPUs | GPU Type | Est. Training Time |
+|------------|-----------|-------|------------|----------|-------------------|
+| Small | 1B-13B | 1 | 8 | A100 40/80GB | 24-48 hours |
+| Medium | 13B-34B | 2 | 16 | A100 80GB | 48-96 hours |
+| Large | 34B-100B | 4-8 | 32-64 | A100/H100 80GB | 4-8 days |
+| Very Large | 100B+ | 16-32 | 128-256 | H100 80GB | 1-2 weeks |
+
+## Configuration
+
+### Core Training Parameters
+
+All configuration parameters are defined in the Config class in `peft_megatron.py`. Key parameters include:
+
+#### Model and Recipe
+- `hf_model_id`: HuggingFace model identifier (e.g., "Qwen/Qwen3-8B")
+- `recipe_cls_name`: Nemo 2.0 recipe class name (e.g., "qwen3_8b", "llama3_1_70b")
+- `peft_scheme`: PEFT method to use (default: "lora")
+
+#### Paths
+- `data_dir`: Directory for processed datasets (default: "datasets/dolphin")
+- `output_dir`: Base directory for training outputs (default: "outputs/{hf_model_id}")
+- `nemo_ckpt_dir`: Directory for imported Nemo checkpoints (default: "{output_dir}/imported_hf_ckpt")
+
+#### Distributed Training
+- `num_nodes`: Number of compute nodes (default: 1)
+- `gpus_per_node`: GPUs per node (default: 8)
+- `num_gpus`: Total GPUs (computed: num_nodes × gpus_per_node)
+
+#### Training Hyperparameters
+- `max_steps`: Maximum training steps (default: 10000)
+- `val_check_interval`: Validation frequency in steps (default: 100)
+- `log_every_n_steps`: Logging frequency (default: 10)
+- `micro_batch_size`: Batch size per GPU (default: 8)
+- `accumulate_grad_batches`: Gradient accumulation steps (default: 8)
+- `global_batch_size`: Effective batch size (computed: micro_batch_size × accumulate_grad_batches)
+- `limit_val_batches`: Maximum validation batches (default: 100)
+
+#### Sequence Configuration
+- `max_seq_length`: Maximum sequence length (default: 2048)
+
+#### Dataset Configuration
+- `hf_dataset_config`: HFDatasetConfig instance with dataset loading and formatting settings
+
+### Advanced Configuration Options
+
+#### Early Stopping
+
+Modify the `configure_callbacks()` function:
+
+```python
+early_stopping_callback = run.Config(
+    EarlyStopping,
+    monitor='val_loss',
+    min_delta=0.001,      # Minimum change to qualify as improvement
+    patience=5,           # Number of checks with no improvement
+    mode='min',           # Minimize validation loss
+)
+```
+
+#### LoRA Parameters
+
+Customize LoRA settings in the recipe:
+
+```python
+nemo_recipe.peft.lora_tuning.target_modules = ['q_proj', 'v_proj', 'k_proj', 'o_proj']
+nemo_recipe.peft.lora_tuning.adapter.dim = 16
+nemo_recipe.peft.lora_tuning.adapter.alpha = 32
+nemo_recipe.peft.lora_tuning.adapter.dropout = 0.05
+```
+
+#### Parallelism Strategy
+
+The framework automatically configures parallelism based on your cluster setup:
+- `tensor_model_parallel_size`: Set to `gpus_per_node` (default: 8)
+- `pipeline_model_parallel_size`: Set to `num_nodes` (default: 1)
+
+For custom parallelism, modify the recipe after initialization:
+```python
+nemo_recipe.trainer.strategy.tensor_model_parallel_size = 8
+nemo_recipe.trainer.strategy.pipeline_model_parallel_size = 2
+```
+
+### Monitoring Training
+
+#### Using TensorBoard
+
+```bash
+# In a separate terminal
+tensorboard --logdir outputs/{hf_model_id}/tb_logs
+```
+
+## Testing and Converting Checkpoints
+
+### Testing a Checkpoint
+
+After training, test your checkpoint with batch evaluation using NeMo's inference API:
+
+```bash
+torchrun --standalone \
+  --nproc-per-node=8 \
+   test_checkpoint.py \
+  --nemo_logs_dir outputs/Qwen/Qwen3-8B/nemo_logs \
+  --max_samples 1024 \
+  --max_batch_size 16 \
+  --num_gpus 8
+```
+
+Latest checkpoint under {nemo_logs_dir} is automatically loaded.
+
+**Parameters:**
+- `--nemo_logs_dir`: Directory containing NeMo logs (default: outputs/{base_model}/nemo_logs)
+- `--test_path`: Path to test dataset JSONL file (default: datasets/dolphin/test.jsonl)
+- `--max_samples`: Maximum number of test samples to evaluate (default: 1024)
+- `--max_batch_size`: Batch size for generation (default: 16)
+- `--num_gpus`: Number of GPUs to use (default: 8)
+- `--tensor_parallel_size`: Tensor parallelism size (default: 8)
+- `--pipeline_parallel_size`: Pipeline parallelism size (default: 1)
+- `--temperature`: Sampling temperature (default: 0.1)
+- `--top_p`: Nucleus sampling parameter (default: 0.95)
+- `--num_tokens_to_generate`: Maximum tokens to generate (default: 512)
+
+**Output:**
+- Predictions saved to: `{checkpoint_path}.jsonl`
+- Evaluation metrics: BERTScore
+
+### Converting to Hugging Face Format
+
+Convert your NeMo checkpoint to standard Hugging Face format for deployment:
+
+```bash
+python convert_checkpoint_to_hf.py \
+  --nemo_logs_dir outputs/Qwen/Qwen3-8B/nemo_logs
+```
+
+**Parameters:**
+- `--nemo_logs_dir`: Directory containing NeMo logs (default: outputs/{base_model}/nemo_logs)
+- `--target`: Target format (default: "hf")
+- `--no_merge`: Not merge lora weights into base model (default: False)
+- `--overwrite`: Whether to overwrite existing files (default: False)
+
+## Project Structure
+
+```
+.
+├── peft_megatron.py                # Main training script
+├── dataset_module.py               # Dataset processing module
+├── test_checkpoint.py              # Test checkpoint with batch evaluation
+├── convert_checkpoint_to_hf.py     # Convert NeMo checkpoint to HuggingFace
+├── README.md                       # This file
+├── datasets/                       # Downloaded and processed datasets
+│   └── dolphin/
+│       ├── train.jsonl
+│       ├── val.jsonl
+│       ├── test.jsonl
+│       └── .data_ready
+└── outputs/                        # Training outputs and logs
+    └── {hf_model_id}/
+        ├── imported_hf_ckpt/       # Imported HF checkpoint to NeMo format
+        │   ├── context/
+        │   └── weights/
+        ├── nemo_logs/              # Training logs and checkpoints
+        │   └── {timestamp}/        # e.g., 2024-01-15_10-30-00
+        │       ├── checkpoints/
+        │           ├── nemo_logs--val_loss={}-epoch={}-consumed_samples={}/
+        │           │   ├── context/
+        │           │   └── weights/
+        │           ├── nemo_logs--val_loss={}-epoch={}-consumed_samples={}.jsonl      # Test predictions
+        │           └── nemo_logs--val_loss={}-epoch={}-consumed_samples={}.hf_model/  # Exported HF model
+        │       
+        ├── tb_logs/                # TensorBoard logs
+        ├── wandb_logs/             # Weights & Biases logs (if enabled)
+        ├── mem_profile/            # Memory profiling data (if enabled)
+        └── trace/                  # PyTorch profiler traces (if enabled)
+```
+
+## Troubleshooting
+
+### Out of Memory (OOM) Errors
+
+**Solution 1: Reduce micro batch size**
+```bash
+--micro_batch_size 4  # or even 2 or 1 for very large models
+```
+
+**Solution 2: Increase gradient accumulation**
+```bash
+--accumulate_grad_batches 16  # or 32
+```
+
+**Solution 3: Reduce sequence length**
+```bash
+--max_seq_length 1024  # from default 2048
+```
+
+### Data Loading Issues
+
+**Field mapping errors**
+
+Check that template placeholders match dataset columns:
+```python
+from datasets import load_dataset
+
+# Inspect dataset structure
+ds = load_dataset("your-dataset")
+print("Available columns:", ds['train'].column_names)
+print("Sample data:", ds['train'][0])
+```
+
+**Encoding errors**
+
+Ensure UTF-8 encoding in dataset conversion:
+```python
+# The framework handles this automatically, but verify:
+with open("datasets/your-data/train.jsonl", "r", encoding="utf-8") as f:
+    print(f.readline())
+```
+
+**Empty or invalid samples**
+
+Add validation in custom converter:
+```python
+def custom_converter(sample):
+    result = process_sample(sample)
+    
+    # Validate
+    if not result or not result.get("input") or not result.get("output"):
+        return None
+    
+    return result
+```
+
+### Training Instability
+
+**Enable gradient clipping**
+```python
+nemo_recipe.trainer.gradient_clip_val = 1.0
+nemo_recipe.trainer.gradient_clip_algorithm = "norm"
+```
+
+**Adjust learning rate**
+```python
+nemo_recipe.optim.lr = 1e-4  # Lower for stability
+nemo_recipe.optim.sched.warmup_steps = 100
+```
+**Optimize data loading**
+```python
+# In HFDatasetConfig
+config.hf_dataset_config.num_proc = 16  # Increase parallel processing
+```
+
+**Enable Flash Attention (if supported)**
+```python
+# For supported models
+nemo_recipe.model.use_flash_attention = True
+```
+
+**Optimize checkpoint saving**
+```python
+# Save less frequently for large models
+nemo_recipe.trainer.val_check_interval = 500
+nemo_recipe.trainer.save_top_k = 3  # Keep only best 3 checkpoints
+```
+## Monitoring and Profiling
+
+The training script supports various monitoring and profiling callbacks to track performance, memory usage, and execution traces. Configure these options via command-line arguments:
+
+| Configuration Option | Type | Default | Description | Output Location |
+|---------------------|------|---------|-------------|----------------|
+| `--enable_megatron_progress_bar` | bool | False | Displays Megatron-style progress bar with training metrics during execution | Console |
+| `--enable_memory_monitor` | bool | False | Monitors GPU memory usage throughout training | Logs |
+| `--enable_speed_monitor` | bool | False | Monitors training speed metrics (samples/sec, tokens/sec) | Logs |
+| `--enable_runtime_estimator` | bool | False | Estimates remaining training time based on current progress | Logs |
+| `--enable_memory_profile` | bool | False | Profiles detailed memory usage patterns | `{output_dir}/mem_profile/` |
+| `--enable_pytorch_profiler` | bool | False | Enables PyTorch profiler for performance analysis | `{output_dir}/trace/` |
+| `--enable_nsys_callback` | bool | False | Enables Nsys profiling for NVIDIA tools | System profiler |
+| `--use_wandb` | bool | False | Enables Weights & Biases logging for experiment tracking | W&B dashboard |
+
+**Note**: PyTorch profiler and Nsys callback cannot be enabled simultaneously.
+
+### Notes
+
+- **Performance Impact**: Profiling callbacks (PyTorch Profiler, Nsys, Memory Profile) add overhead and should only be enabled for short diagnostic runs
+- **Storage**: Profiler traces can be large; ensure adequate disk space in the output directory
+- **Profiler Analysis**: Use `tensorboard --logdir outputs/{model}/trace` to visualize PyTorch profiler results
+- **Nsys Analysis**: Analyze Nsys profiles with NVIDIA Nsight Systems GUI
+---
