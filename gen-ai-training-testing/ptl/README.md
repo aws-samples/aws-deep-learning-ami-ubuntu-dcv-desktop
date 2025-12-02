@@ -284,8 +284,12 @@ python peft_hf.py \
 All configuration parameters are defined in the Config class in `peft_hf.py`. Key parameters include:
 
 - **Model**: `hf_model_id` - HuggingFace model identifier
-- **Paths**: `data_dir`, `results_dir` - Data and output directories
+- **Paths**: 
+  - `data_dir`: Directory for processed datasets (default: auto-generated based on dataset configuration as `datasets/{dataset_name}/{dataset_config}/train={train_%}-val={val%}-test={test%}`)
+  - `results_dir`: Base directory for training outputs (default: `results/{hf_model_id}`)
 - **Distributed Training**: `num_nodes`, `gpus_per_node` - Multi-node/GPU setup
+
+**Note on data_dir**: When not explicitly set, the framework automatically generates a self-documenting directory path based on your dataset configuration. For example, with the default Dolphin dataset (train_split_ratio=0.9, val_test_split_ratio=0.5), the path becomes: `datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%`. This ensures each dataset configuration has a unique directory and makes it easy to identify the split ratios used.
 - **Training**: `max_steps`, `val_check_interval`, `micro_batch_size`, `accumulate_grad_batches`, `limit_val_batches`, `log_every_n_steps`
 - **Optimizer**: `warmup_steps`, `weight_decay`, learning rates (computed properties)
 - **LoRA**: `lora_rank`, `lora_alpha`, `lora_dropout`
@@ -344,6 +348,86 @@ tensorboard --logdir results/Qwen/Qwen3-8B/tb_logs
 python peft_hf.py \
   --use_wandb
 ```
+
+## CLI Usage Examples
+
+### Basic Usage
+
+Run the training script with default HFDatasetConfig:
+
+```bash
+python peft_hf.py \
+  --hf_model_id "Qwen/Qwen3-8B" \
+  --num_nodes 1 \
+  --gpus_per_node 8
+```
+
+### Customizing HFDatasetConfig via CLI
+
+Override HFDatasetConfig fields using the `--hfdc_<field_name>` pattern:
+
+```bash
+python peft_hf.py \
+  --hf_model_id "Qwen/Qwen3-8B" \
+  --num_nodes 1 \
+  --gpus_per_node 8 \
+  --hfdc_dataset_name "databricks/databricks-dolly-15k" \
+  --hfdc_split "train" \
+  --hfdc_train_split_ratio 0.95 \
+  --hfdc_val_test_split_ratio 0.5 \
+  --hfdc_input_template "### Instruction:\n{instruction}\n### Context:\n{context}\n" \
+  --hfdc_output_template "### Response:\n{response}" \
+  --hfdc_field_mapping '{"instruction": "instruction", "context": "context", "response": "response"}' \
+  --hfdc_num_proc 8
+```
+
+### Available HFDatasetConfig CLI Arguments
+
+| Argument | Type | Description | Example |
+|----------|------|-------------|---------|
+| `--hfdc_dataset_name` | str | HuggingFace dataset name | `"cognitivecomputations/dolphin"` |
+| `--hfdc_dataset_config` | str | Dataset configuration/subset | `"flan1m-alpaca-uncensored"` |
+| `--hfdc_split` | str | Initial split to load | `"train"` |
+| `--hfdc_train_split_ratio` | float | Training data ratio | `0.9` |
+| `--hfdc_val_test_split_ratio` | float | Val/test split ratio | `0.5` |
+| `--hfdc_input_template` | str | Input formatting template | `"### Instruction:\n{instruction}\n"` |
+| `--hfdc_output_template` | str | Output formatting template | `"### Response:\n{output}"` |
+| `--hfdc_field_mapping` | str (JSON) | Field name mapping | `'{"instruction": "text"}'` |
+| `--hfdc_num_proc` | int | Number of processes | `8` |
+
+### Complete CLI Example with All Options
+
+```bash
+python peft_hf.py \
+  --hf_model_id "meta-llama/Llama-3-8B" \
+  --data_dir "datasets/custom" \
+  --results_dir "results/llama3_custom" \
+  --num_nodes 2 \
+  --gpus_per_node 8 \
+  --max_steps 5000 \
+  --micro_batch_size 1 \
+  --accumulate_grad_batches 16 \
+  --max_seq_length 4096 \
+  --lora_rank 32 \
+  --lora_alpha 32 \
+  --lora_dropout 0.1 \
+  --hfdc_dataset_name "timdettmers/openassistant-guanaco" \
+  --hfdc_split "train" \
+  --hfdc_train_split_ratio 0.95 \
+  --hfdc_val_test_split_ratio 0.5 \
+  --hfdc_input_template "### Human:\n{text}\n" \
+  --hfdc_output_template "### Assistant:\n{text}" \
+  --hfdc_num_proc 8 \
+  --use_wandb
+```
+
+### CLI Notes
+
+- The `field_mapping` argument expects a JSON string
+- Use single quotes around JSON to avoid shell interpretation issues
+- Template strings can include `\n` for newlines
+- Not all HFDatasetConfig fields are exposed via CLI (e.g., `custom_converter`, `load_kwargs`)
+- For complex configurations, modify the Config dataclass in `peft_hf.py` directly
 
 ## Testing and Converting Checkpoints
 
@@ -406,11 +490,13 @@ python convert_checkpoint_to_hf.py \
 ├── convert_checkpoint_to_hf.py     # Convert to Hugging Face format
 ├── README.md                       # This file
 ├── datasets/                       # Downloaded and processed datasets
-│   └── dolphin/
-│       ├── training.jsonl
-│       ├── validation.jsonl
-│       ├── test.jsonl
-│       └── .data_ready
+│   └── {dataset_name}/             # e.g., cognitivecomputations_dolphin
+│       └── {dataset_config}/       # e.g., flan1m-alpaca-uncensored
+│           └── train={train_%}-val={val%}-test={test%}/  # e.g., train=90%-val=5%-test=5%
+│               ├── training.jsonl
+│               ├── validation.jsonl
+│               ├── test.jsonl
+│               └── .data_ready
 └── results/                        # Training outputs and logs
     └── Qwen/
         └── Qwen3-8B/

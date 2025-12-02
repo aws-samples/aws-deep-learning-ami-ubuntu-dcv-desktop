@@ -306,9 +306,11 @@ All configuration parameters are defined in the Config class in `peft_megatron.p
 - `peft_scheme`: PEFT method to use (default: "lora")
 
 #### Paths
-- `data_dir`: Directory for processed datasets (default: "datasets/dolphin")
-- `output_dir`: Base directory for training outputs (default: "outputs/{hf_model_id}")
-- `nemo_ckpt_dir`: Directory for imported Nemo checkpoints (default: "{output_dir}/imported_hf_ckpt")
+- `data_dir`: Directory for processed datasets (default: auto-generated based on dataset configuration as `datasets/{dataset_name}/{dataset_config}/train={train_%}-val={val%}-test={test%}`)
+- `output_dir`: Base directory for training outputs (default: `outputs/{hf_model_id}`)
+- `nemo_ckpt_dir`: Directory for imported Nemo checkpoints (default: `{output_dir}/imported_hf_ckpt`)
+
+**Note on data_dir**: When not explicitly set, the framework automatically generates a self-documenting directory path based on your dataset configuration. For example, with the default Dolphin dataset (train_split_ratio=0.9, val_test_split_ratio=0.5), the path becomes: `datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%`. This ensures each dataset configuration has a unique directory and makes it easy to identify the split ratios used.
 
 #### Distributed Training
 - `num_nodes`: Number of compute nodes (default: 1)
@@ -378,6 +380,86 @@ nemo_recipe.trainer.strategy.pipeline_model_parallel_size = 2
 tensorboard --logdir outputs/{hf_model_id}/tb_logs
 ```
 
+## CLI Usage Examples
+
+### Basic Usage
+
+Run the training script with default HFDatasetConfig:
+
+```bash
+python peft_megatron.py \
+  --hf_model_id "Qwen/Qwen3-8B" \
+  --recipe_cls_name "qwen3_8b" \
+  --num_nodes 1 \
+  --gpus_per_node 8
+```
+
+### Customizing HFDatasetConfig via CLI
+
+Override HFDatasetConfig fields using the `--hfdc_<field_name>` pattern:
+
+```bash
+python peft_megatron.py \
+  --hf_model_id "Qwen/Qwen3-8B" \
+  --recipe_cls_name "qwen3_8b" \
+  --num_nodes 1 \
+  --gpus_per_node 8 \
+  --hfdc_dataset_name "databricks/databricks-dolly-15k" \
+  --hfdc_split "train" \
+  --hfdc_train_split_ratio 0.95 \
+  --hfdc_val_test_split_ratio 0.5 \
+  --hfdc_input_template "### Instruction:\n{instruction}\n### Context:\n{context}\n" \
+  --hfdc_output_template "### Response:\n{response}" \
+  --hfdc_field_mapping '{"instruction": "instruction", "context": "context", "response": "response"}' \
+  --hfdc_num_proc 8
+```
+
+### Available HFDatasetConfig CLI Arguments
+
+| Argument | Type | Description | Example |
+|----------|------|-------------|---------|
+| `--hfdc_dataset_name` | str | HuggingFace dataset name | `"cognitivecomputations/dolphin"` |
+| `--hfdc_dataset_config` | str | Dataset configuration/subset | `"flan1m-alpaca-uncensored"` |
+| `--hfdc_split` | str | Initial split to load | `"train"` |
+| `--hfdc_train_split_ratio` | float | Training data ratio | `0.9` |
+| `--hfdc_val_test_split_ratio` | float | Val/test split ratio | `0.5` |
+| `--hfdc_input_template` | str | Input formatting template | `"### Instruction:\n{instruction}\n"` |
+| `--hfdc_output_template` | str | Output formatting template | `"### Response:\n{output}"` |
+| `--hfdc_field_mapping` | str (JSON) | Field name mapping | `'{"instruction": "text"}'` |
+| `--hfdc_num_proc` | int | Number of processes | `8` |
+
+### Complete CLI Example with All Options
+
+```bash
+python peft_megatron.py \
+  --hf_model_id "meta-llama/Llama-2-7b-hf" \
+  --recipe_cls_name "llama2_7b" \
+  --data_dir "datasets/custom" \
+  --output_dir "outputs/llama2_custom" \
+  --num_nodes 2 \
+  --gpus_per_node 8 \
+  --max_steps 5000 \
+  --micro_batch_size 4 \
+  --accumulate_grad_batches 16 \
+  --peft_scheme "lora" \
+  --max_seq_length 4096 \
+  --hfdc_dataset_name "timdettmers/openassistant-guanaco" \
+  --hfdc_split "train" \
+  --hfdc_train_split_ratio 0.95 \
+  --hfdc_val_test_split_ratio 0.5 \
+  --hfdc_input_template "### Human:\n{text}\n" \
+  --hfdc_output_template "### Assistant:\n{text}" \
+  --hfdc_num_proc 16
+```
+
+### CLI Notes
+
+- The `field_mapping` argument expects a JSON string
+- Use single quotes around JSON to avoid shell interpretation issues
+- Template strings can include `\n` for newlines
+- Not all HFDatasetConfig fields are exposed via CLI (e.g., `custom_converter`, `load_kwargs`)
+- For complex configurations, modify the Config dataclass in `peft_megatron.py` directly
+
 ## Testing and Converting Checkpoints
 
 ### Testing a Checkpoint
@@ -437,11 +519,13 @@ python convert_checkpoint_to_hf.py \
 ├── convert_checkpoint_to_hf.py     # Convert NeMo checkpoint to HuggingFace
 ├── README.md                       # This file
 ├── datasets/                       # Downloaded and processed datasets
-│   └── dolphin/
-│       ├── train.jsonl
-│       ├── val.jsonl
-│       ├── test.jsonl
-│       └── .data_ready
+│   └── {dataset_name}/             # e.g., cognitivecomputations_dolphin
+│       └── {dataset_config}/       # e.g., flan1m-alpaca-uncensored
+│           └── train={train_%}-val={val%}-test={test%}/  # e.g., train=90%-val=5%-test=5%
+│               ├── train.jsonl
+│               ├── val.jsonl
+│               ├── test.jsonl
+│               └── .data_ready
 └── outputs/                        # Training outputs and logs
     └── {hf_model_id}/
         ├── imported_hf_ckpt/       # Imported HF checkpoint to NeMo format

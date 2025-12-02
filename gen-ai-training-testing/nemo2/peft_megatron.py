@@ -27,7 +27,7 @@ class Config:
     recipe_cls_name: str = "qwen3_8b"
 
     # Paths
-    data_dir: str = "datasets/dolphin"
+    data_dir: str = None
     output_dir: str = None
     nemo_ckpt_dir: str = None
     
@@ -89,10 +89,40 @@ class Config:
     def from_args(cls, args: argparse.Namespace) -> 'Config':
         """Create Config from argparse Namespace, only using provided args"""
         config_fields = {f.name for f in fields(cls)}
-        kwargs = {k: v for k, v in vars(args).items() if k in config_fields}
+        kwargs = {}
+        
+        # First, handle HFDatasetConfig parsing
+        import json
+        hf_config_kwargs = {}
+        for hf_field in fields(HFDatasetConfig):
+            arg_name = f'hfdc_{hf_field.name}'
+            if hasattr(args, arg_name):
+                val = getattr(args, arg_name)
+                if val is not None:
+                    if hf_field.name == 'field_mapping' and isinstance(val, str):
+                        hf_config_kwargs[hf_field.name] = json.loads(val)
+                    else:
+                        hf_config_kwargs[hf_field.name] = val
+        if hf_config_kwargs:
+            kwargs['hf_dataset_config'] = HFDatasetConfig(**hf_config_kwargs)
+        
+        # Then handle other config fields
+        for k, v in vars(args).items():
+            if k in config_fields and k != 'hf_dataset_config' and v is not None:
+                kwargs[k] = v
+        
         return cls(**kwargs)
 
     def __post_init__(self):
+        if self.data_dir is None:
+            dataset_name = self.hf_dataset_config.dataset_name.replace('/', '_')
+            dataset_config = self.hf_dataset_config.dataset_config or 'default'
+            train_pct = int(self.hf_dataset_config.train_split_ratio * 100)
+            remaining_pct = 100 - train_pct
+            val_pct = int(remaining_pct * (1 - self.hf_dataset_config.val_test_split_ratio))
+            test_pct = remaining_pct - val_pct
+            self.data_dir = f"datasets/{dataset_name}/{dataset_config}/train={train_pct}%-val={val_pct}%-test={test_pct}%"
+        
         if self.output_dir is None:
             self.output_dir = f"outputs/{self.hf_model_id}"
 
@@ -273,18 +303,27 @@ def create_parser_from_dataclass(dataclass_type) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     
     for f in fields(dataclass_type):
-        # Skip complex types
-        if f.name in ['hf_dataset_config']:
-            continue
-        
-        field_type = f.type
-        default_value = f.default if f.default is not MISSING else None
-        
-        parser.add_argument(
-            f'--{f.name}',
-            type=field_type if field_type in [int, float, str] else str,
-            default=default_value
-        )
+        if f.name == 'hf_dataset_config':
+            # Add nested HFDatasetConfig fields with prefix
+            for hf_field in fields(HFDatasetConfig):
+                if hf_field.name in ['custom_converter', 'load_kwargs']:
+                    continue  # Skip non-CLI fields
+                arg_name = f'hfdc_{hf_field.name}'
+                field_type = hf_field.type
+                if field_type in [int, float, str]:
+                    parser.add_argument(f'--{arg_name}', type=field_type)
+                elif field_type == bool:
+                    parser.add_argument(f'--{arg_name}', type=lambda x: x.lower() == 'true')
+                else:
+                    parser.add_argument(f'--{arg_name}', type=str)
+        else:
+            field_type = f.type
+            default_value = f.default if f.default is not MISSING else None
+            parser.add_argument(
+                f'--{f.name}',
+                type=field_type if field_type in [int, float, str] else str,
+                default=default_value
+            )
     
     return parser
 
