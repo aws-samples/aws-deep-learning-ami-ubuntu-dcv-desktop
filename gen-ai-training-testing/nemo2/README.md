@@ -479,8 +479,8 @@ torchrun --standalone \
 Latest checkpoint under {nemo_logs_dir} is automatically loaded.
 
 **Parameters:**
-- `--nemo_logs_dir`: Directory containing NeMo logs (default: outputs/{base_model}/nemo_logs)
-- `--test_path`: Path to test dataset JSONL file (default: datasets/dolphin/test.jsonl)
+- `--nemo_logs_dir`: Directory containing NeMo logs (default: `outputs/{base_model}/nemo_logs`)
+- `--test_path`: Path to test dataset JSONL file (default: `datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%/test.jsonl`)
 - `--max_samples`: Maximum number of test samples to evaluate (default: 1024)
 - `--max_batch_size`: Batch size for generation (default: 16)
 - `--num_gpus`: Number of GPUs to use (default: 8)
@@ -489,6 +489,8 @@ Latest checkpoint under {nemo_logs_dir} is automatically loaded.
 - `--temperature`: Sampling temperature (default: 0.1)
 - `--top_p`: Nucleus sampling parameter (default: 0.95)
 - `--num_tokens_to_generate`: Maximum tokens to generate (default: 512)
+
+**Note:** The default `test_path` matches the auto-generated data directory structure from the training script. If you use a custom dataset or different split ratios, update the test path accordingly.
 
 **Output:**
 - Predictions saved to: `{checkpoint_path}.jsonl`

@@ -22,7 +22,7 @@ class Config:
     checkpoints_dir: str = None
     
     # Data
-    test_path: str = "datasets/dolphin/test.jsonl"
+    test_path: str = "datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%/test.jsonl"
     max_samples: int = 1024
     
     # Generation settings

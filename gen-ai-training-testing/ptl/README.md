@@ -447,7 +447,7 @@ deepspeed --num_gpus=8 test_checkpoint.py \
 **Parameters:**
 - `--base_model`: Base model ID (must match the model used for training)
 - `--checkpoints_dir`: Directory containing checkpoint files (optional, default: `results/{base_model}/checkpoints`)
-- `--test_path`: Path to test dataset JSONL file (default: `datasets/dolphin/test.jsonl`)
+- `--test_path`: Path to test dataset JSONL file (default: `datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%/test.jsonl`)
 - `--max_samples`: Maximum number of test samples to evaluate (default: 1024)
 - `--max_batch_size`: Batch size for generation (default: 8)
 - `--temperature`: Sampling temperature (default: 0.1)
@@ -455,6 +455,8 @@ deepspeed --num_gpus=8 test_checkpoint.py \
 - `--top_p`: Nucleus sampling parameter (default: 0.95)
 - `--max_in_tokens`: Maximum input tokens for truncation (default: 2048)
 - `--max_tokens`: Maximum input + output tokens (default: 4096)
+
+**Note:** The default `test_path` matches the auto-generated data directory structure from the training script. If you use a custom dataset or different split ratios, update the test path accordingly.
 
 **DeepSpeed Tensor Parallelism:** The script uses DeepSpeed inference with tensor parallelism to distribute the model across all available GPUs for efficient batch generation and evaluation. Predictions are saved to `{checkpoint_name}.jsonl` (e.g., `model-peft-lora-epoch=01-step=100.jsonl`) and evaluated using BERTScore.
 

@@ -35,7 +35,7 @@ class Config:
     nemo_logs_dir: str = "outputs/Qwen/Qwen3-8B/nemo_logs"
 
     # Data
-    test_path: str = "datasets/dolphin/test.jsonl"
+    test_path: str = "datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%/test.jsonl"
     max_samples: int = 1024
     
     # Parallelism
