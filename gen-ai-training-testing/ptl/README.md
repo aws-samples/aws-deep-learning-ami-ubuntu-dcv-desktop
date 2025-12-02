@@ -292,7 +292,7 @@ All configuration parameters are defined in the Config class in `peft_hf.py`. Ke
 **Note on data_dir**: When not explicitly set, the framework automatically generates a self-documenting directory path based on your dataset configuration. For example, with the default Dolphin dataset (train_split_ratio=0.9, val_test_split_ratio=0.5), the path becomes: `datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%`. This ensures each dataset configuration has a unique directory and makes it easy to identify the split ratios used.
 - **Training**: `max_steps`, `val_check_interval`, `micro_batch_size`, `accumulate_grad_batches`, `limit_val_batches`, `log_every_n_steps`
 - **Optimizer**: `warmup_steps`, `weight_decay`, learning rates (computed properties)
-- **LoRA**: `lora_rank`, `lora_alpha`, `lora_dropout`
+- **LoRA**: `lora_rank`, `lora_alpha`, `lora_dropout`, `lora_target_modules` - Comma-separated list of modules to apply LoRA
 - **Fine-tuning Mode**: `full_ft` - Enable full fine-tuning instead of LoRA (default: False)
 - **Sequence**: `max_seq_length` - Maximum sequence length
 - **FSDP**: `cpu_offload` - Enable CPU offloading for large models
@@ -411,6 +411,7 @@ python peft_hf.py \
   --lora_rank 32 \
   --lora_alpha 32 \
   --lora_dropout 0.1 \
+  --lora_target_modules "q_proj,k_proj,v_proj,o_proj" \
   --hfdc_dataset_name "timdettmers/openassistant-guanaco" \
   --hfdc_split "train" \
   --hfdc_train_split_ratio 0.95 \

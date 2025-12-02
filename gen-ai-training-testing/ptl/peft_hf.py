@@ -127,7 +127,10 @@ class Config:
         # Then handle other config fields
         for k, v in vars(args).items():
             if k in config_fields and k != 'hf_dataset_config' and v is not None:
-                kwargs[k] = v
+                if k == 'lora_target_modules' and isinstance(v, str):
+                    kwargs[k] = [m.strip() for m in v.split(',')]
+                else:
+                    kwargs[k] = v
         
         return cls(**kwargs)
     
@@ -453,7 +456,11 @@ def create_parser_from_dataclass(dataclass_type) -> argparse.ArgumentParser:
                 else:
                     parser.add_argument(f'--{arg_name}', type=str)
         elif f.name == 'lora_target_modules':
-            continue  # Skip complex list type
+            parser.add_argument(
+                f'--{f.name}',
+                type=str,
+                help='Comma-separated list of target modules for LoRA (e.g., "q_proj,k_proj,v_proj")'
+            )
         else:
             field_type = f.type
             default_value = f.default if f.default is not MISSING else None
