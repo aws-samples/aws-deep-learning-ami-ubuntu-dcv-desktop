@@ -46,6 +46,7 @@ class Config:
     
     # LoRA Configuration
     peft_scheme: str = "lora"
+    full_ft: bool = False
     
     hf_dataset_config: HFDatasetConfig = field(default_factory=lambda: HFDatasetConfig(
         dataset_name="cognitivecomputations/dolphin",
@@ -319,11 +320,18 @@ def create_parser_from_dataclass(dataclass_type) -> argparse.ArgumentParser:
         else:
             field_type = f.type
             default_value = f.default if f.default is not MISSING else None
-            parser.add_argument(
-                f'--{f.name}',
-                type=field_type if field_type in [int, float, str] else str,
-                default=default_value
-            )
+            if field_type == bool:
+                parser.add_argument(
+                    f'--{f.name}',
+                    action='store_true' if not default_value else 'store_false',
+                    default=default_value,
+                )
+            else:
+                parser.add_argument(
+                    f'--{f.name}',
+                    type=field_type if field_type in [int, float, str] else str,
+                    default=default_value,
+                )
     
     return parser
 
@@ -341,7 +349,7 @@ def main():
         name=config.recipe_cls_name,
         num_nodes=config.num_nodes,
         num_gpus_per_node=config.gpus_per_node,
-        peft_scheme=config.peft_scheme,
+        peft_scheme=None if config.full_ft else config.peft_scheme,
         packed_sequence=False,
     )
     nemo_recipe.data = configure_data()
@@ -360,7 +368,8 @@ def main():
     try:
         print(f"Starting Nemo recipe {config.recipe_cls_name} fine-tuning...")
         executor = configure_executor()
-        with Experiment(title=f"peft_{config.peft_scheme}", executor=executor, 
+        exp_title = "full_ft" if config.full_ft else f"peft_{config.peft_scheme}"
+        with Experiment(title=exp_title, executor=executor, 
                         log_level=config.log_level, base_dir=config.output_dir) as exp:
             exp.add(nemo_recipe, tail_logs=True, name=config.recipe_cls_name)
             exp.run(detach=False)

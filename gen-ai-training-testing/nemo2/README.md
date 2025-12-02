@@ -304,6 +304,7 @@ All configuration parameters are defined in the Config class in `peft_megatron.p
 - `hf_model_id`: HuggingFace model identifier (e.g., "Qwen/Qwen3-8B")
 - `recipe_cls_name`: Nemo 2.0 recipe class name (e.g., "qwen3_8b", "llama3_1_70b")
 - `peft_scheme`: PEFT method to use (default: "lora")
+- `full_ft`: Enable full fine-tuning instead of PEFT (default: False)
 
 #### Paths
 - `data_dir`: Directory for processed datasets (default: auto-generated based on dataset configuration as `datasets/{dataset_name}/{dataset_config}/train={train_%}-val={val%}-test={test%}`)
@@ -393,6 +394,21 @@ python peft_megatron.py \
   --num_nodes 1 \
   --gpus_per_node 8
 ```
+
+### Full Fine-Tuning vs PEFT
+
+By default, the framework uses PEFT (LoRA). To enable full fine-tuning of all model parameters:
+
+```bash
+python peft_megatron.py \
+  --hf_model_id "Qwen/Qwen3-8B" \
+  --recipe_cls_name "qwen3_8b" \
+  --num_nodes 1 \
+  --gpus_per_node 8 \
+  --full_ft
+```
+
+**Note**: Full fine-tuning requires significantly more GPU memory and compute resources than PEFT. Adjust `micro_batch_size` and `accumulate_grad_batches` accordingly.
 
 ### Customizing HFDatasetConfig via CLI
 
