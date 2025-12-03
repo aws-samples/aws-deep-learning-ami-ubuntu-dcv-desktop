@@ -23,6 +23,12 @@ class Config:
     base_model: str = "Qwen/Qwen3-8B"
     checkpoints_dir: str = None
     
+    # LoRA settings
+    lora_rank: int = 32
+    lora_alpha: int = 32
+    lora_dropout: float = 0.1
+    lora_target_modules: str = "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
+    
     # Data
     test_path: str = "datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%/test.jsonl"
     max_samples: int = 1024
@@ -103,18 +109,17 @@ def load_model_and_tokenizer(config:Config):
     # Load base model
     base_model = AutoModelForCausalLM.from_pretrained(
         base_model_id,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         trust_remote_code=True,
     )
     
     # Apply LoRA config
     peft_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
-        r=32,
-        lora_alpha=32,
-        lora_dropout=0.1,
-        target_modules=['q_proj', 'k_proj', 'v_proj', 'o_proj', 
-                       'gate_proj', 'up_proj', 'down_proj'],
+        r=config.lora_rank,
+        lora_alpha=config.lora_alpha,
+        lora_dropout=config.lora_dropout,
+        target_modules=[m.strip() for m in config.lora_target_modules.split(',')],
         bias="none",
     )
     model = get_peft_model(base_model, peft_config)
