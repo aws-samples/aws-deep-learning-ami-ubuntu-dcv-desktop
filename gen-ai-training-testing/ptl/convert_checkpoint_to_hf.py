@@ -12,6 +12,12 @@ class Config:
     # Checkpoint and Model
     base_model: str = "Qwen/Qwen3-8B"
     checkpoints_dir: str = None
+    
+    # LoRA settings
+    lora_rank: int = 32
+    lora_alpha: int = 32
+    lora_dropout: float = 0.1
+    lora_target_modules: str = "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
      
     # Output
     no_merge: bool = False
@@ -67,6 +73,7 @@ def convert_lightning_to_hf(
     checkpoint_path: str,
     output_dir: str,
     merge_lora: bool = True,
+    config: Config = None,
 ):
     """
     Convert PyTorch Lightning checkpoint to Hugging Face format.
@@ -123,20 +130,13 @@ def convert_lightning_to_hf(
     if is_lora:
         # Handle LoRA checkpoint
         print("\nApplying LoRA configuration...")
-        lora_config_dict = hparams.get('lora_config', {
-            'rank': 32,
-            'alpha': 32,
-            'dropout': 0.1,
-            'target_modules': ['q_proj', 'k_proj', 'v_proj', 'o_proj', 
-                              'gate_proj', 'up_proj', 'down_proj']
-        })
         
         peft_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
-            r=lora_config_dict.get('rank', 32),
-            lora_alpha=lora_config_dict.get('alpha', 32),
-            lora_dropout=lora_config_dict.get('dropout', 0.1),
-            target_modules=lora_config_dict.get('target_modules'),
+            r=config.lora_rank,
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
+            target_modules=[m.strip() for m in config.lora_target_modules.split(',')],
             bias="none",
         )
         
@@ -225,6 +225,7 @@ def main():
         checkpoint_path=config.checkpoint_path,
         output_dir=config.output_dir,
         merge_lora=not config.no_merge,
+        config=config,
     )
 
 
