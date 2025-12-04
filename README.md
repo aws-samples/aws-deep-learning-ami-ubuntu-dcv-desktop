@@ -93,6 +93,8 @@ See [CloudFormation Parameters](#desktop-cloudformation-template-parameters) for
 **Training Testing:**
 * [Nemo 2.0 Framework](./gen-ai-training-testing/nemo2/README.md) - Fine-tuning with Nemo 2.0
 * [PyTorch Lightning (PTL)](./gen-ai-training-testing/ptl/README.md) - Fine-tuning with PTL
+* [Accelerate](./gen-ai-training-testing/accelerate/README.md) - Fine-tuning with Hugging Face Accelerate
+* [Ray Train](./gen-ai-training-testing/ray_train/README.md) - Fine-tuning with Ray Train
 
 ### Data Storage
 
