@@ -54,7 +54,7 @@ docker run --gpus all -it --rm \
 Train the default Qwen3-8B model on the Dolphin dataset with optimal settings:
 
 ```bash
-accelerate launch --config_file fsdp_config.yaml peft_accelerate.py
+accelerate launch --config_file accelerate_config.yaml peft_accelerate.py
 ```
 
 This will:
@@ -76,7 +76,7 @@ The framework supports any HuggingFace causal language model. Common examples in
 ### Training a Different Model
 
 ```bash
-accelerate launch --config_file fsdp_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
   --hf_model_id "meta-llama/Llama-3-8B" \
   --per_device_train_batch_size 2 \
   --gradient_accumulation_steps 8
@@ -100,7 +100,7 @@ The framework uses `HFDatasetConfig` to define dataset loading and formatting. K
 Update the configuration in `peft_accelerate.py` or use CLI arguments:
 
 ```bash
-accelerate launch --config_file fsdp_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
   --hfdc_dataset_name "databricks/databricks-dolly-15k" \
   --hfdc_split "train" \
   --hfdc_train_split_ratio 0.95 \
@@ -129,7 +129,7 @@ All configuration parameters are defined in the `TrainingConfig` class in `peft_
 
 ### Accelerate Configuration
 
-The `fsdp_config.yaml` file configures the distributed training setup:
+The `accelerate_config.yaml` file configures the distributed training setup:
 
 - **FSDP Strategy**: FULL_SHARD for maximum memory efficiency
 - **Mixed Precision**: BFloat16 for training stability
@@ -138,7 +138,7 @@ The `fsdp_config.yaml` file configures the distributed training setup:
 
 ### Multi-Node Training
 
-For multi-node training, update the `fsdp_config.yaml`:
+For multi-node training, update the `accelerate_config.yaml`:
 
 ```yaml
 num_machines: 2
@@ -152,10 +152,10 @@ Then launch on each node:
 
 ```bash
 # On main node (machine_rank: 0)
-accelerate launch --config_file fsdp_config.yaml peft_accelerate.py
+accelerate launch --config_file accelerate_config.yaml peft_accelerate.py
 
 # On worker nodes (machine_rank: 1, 2, ...)
-accelerate launch --config_file fsdp_config.yaml peft_accelerate.py
+accelerate launch --config_file accelerate_config.yaml peft_accelerate.py
 ```
 
 ## CLI Usage Examples
@@ -163,7 +163,7 @@ accelerate launch --config_file fsdp_config.yaml peft_accelerate.py
 ### Basic Usage
 
 ```bash
-accelerate launch --config_file fsdp_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --max_steps 5000
 ```
@@ -171,7 +171,7 @@ accelerate launch --config_file fsdp_config.yaml peft_accelerate.py \
 ### Advanced Configuration
 
 ```bash
-accelerate launch --config_file fsdp_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
   --hf_model_id "meta-llama/Llama-3-8B" \
   --max_steps 10000 \
   --per_device_train_batch_size 1 \
@@ -265,7 +265,7 @@ python convert_checkpoint_to_hf.py \
 ├── test_checkpoint.py           # Checkpoint testing script
 ├── convert_checkpoint_to_hf.py  # Checkpoint conversion script
 ├── dataset_module.py            # Dataset processing module
-├── fsdp_config.yaml             # FSDP configuration
+├── accelerate_config.yaml             # FSDP configuration
 ├── README.md                    # This file
 ├── datasets/                    # Downloaded and processed datasets
 │   └── {dataset_name}/
