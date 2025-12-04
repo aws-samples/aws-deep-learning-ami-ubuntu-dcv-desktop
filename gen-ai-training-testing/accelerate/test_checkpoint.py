@@ -23,7 +23,10 @@ class Config:
     base_model: str = "Qwen/Qwen3-8B"
     checkpoints_dir: str = None
     
-    # LoRA settings
+    # Training mode
+    full_ft: bool = False
+    
+    # LoRA settings (only used when full_ft=False)
     lora_rank: int = 32
     lora_alpha: int = 32
     lora_dropout: float = 0.1
@@ -98,6 +101,7 @@ def load_model_and_tokenizer(config:Config):
 
     if is_main:
         print(f"Loading tokenizer from: {base_model_id}")
+        print(f"Full fine-tuning mode: {config.full_ft}")
     tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -113,16 +117,21 @@ def load_model_and_tokenizer(config:Config):
         trust_remote_code=True,
     )
     
-    # Apply LoRA config
-    peft_config = LoraConfig(
-        task_type=TaskType.CAUSAL_LM,
-        r=config.lora_rank,
-        lora_alpha=config.lora_alpha,
-        lora_dropout=config.lora_dropout,
-        target_modules=[m.strip() for m in config.lora_target_modules.split(',')],
-        bias="none",
-    )
-    model = get_peft_model(base_model, peft_config)
+    # Apply LoRA config only if not full fine-tuning
+    if not config.full_ft:
+        if is_main:
+            print("Applying LoRA configuration...")
+        peft_config = LoraConfig(
+            task_type=TaskType.CAUSAL_LM,
+            r=config.lora_rank,
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
+            target_modules=[m.strip() for m in config.lora_target_modules.split(',')],
+            bias="none",
+        )
+        model = get_peft_model(base_model, peft_config)
+    else:
+        model = base_model
     
     # Load FSDP checkpoint
     if is_main:
