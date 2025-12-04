@@ -226,7 +226,7 @@ def train(config: TrainingConfig):
     model = AutoModelForCausalLM.from_pretrained(
         config.hf_model_id,
         trust_remote_code=config.trust_remote_code,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         attn_implementation="flash_attention_2",
         use_cache=False,
     )

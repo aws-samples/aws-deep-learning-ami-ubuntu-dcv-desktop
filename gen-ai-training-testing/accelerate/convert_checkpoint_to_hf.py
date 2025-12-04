@@ -115,7 +115,7 @@ def convert_accelerate_to_hf(
     print(f"Loading base model: {base_model_id}")
     base_model = AutoModelForCausalLM.from_pretrained(
         base_model_id,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         device_map="auto",
         trust_remote_code=True,
     )
