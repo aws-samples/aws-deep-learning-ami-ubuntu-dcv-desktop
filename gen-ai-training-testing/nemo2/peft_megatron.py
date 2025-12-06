@@ -35,6 +35,9 @@ class Config:
     num_nodes: int = 1
     gpus_per_node: int = 8
     node_rank: int = 0
+    tensor_parallel_size: int = 8
+    pipeline_parallel_size: int = 1
+    context_parallel_size: int = 1
 
     # Training Hyperparameters
     max_steps: int = 10000
@@ -360,8 +363,9 @@ def main():
     nemo_recipe.trainer.val_check_interval=config.val_check_interval
     nemo_recipe.trainer.limit_val_batches=config.limit_val_batches
     nemo_recipe.trainer.accumulate_grad_batches = config.accumulate_grad_batches
-    nemo_recipe.trainer.strategy.tensor_model_parallel_size=config.gpus_per_node
-    nemo_recipe.trainer.strategy.pipeline_model_parallel_size=config.num_nodes
+    nemo_recipe.trainer.strategy.tensor_model_parallel_size=config.tensor_parallel_size
+    nemo_recipe.trainer.strategy.pipeline_model_parallel_size=config.pipeline_parallel_size
+    nemo_recipe.trainer.strategy.context_parallel_size=config.context_parallel_size
     nemo_recipe.trainer.callbacks.extend(configure_callbacks())
     nemo_recipe.tokenizer="data"
 

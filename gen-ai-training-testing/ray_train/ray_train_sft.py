@@ -131,9 +131,7 @@ class Config:
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> 'Config':
         """Create Config from argparse Namespace."""
-        config = cls()
-        
-        # Update HFDatasetConfig from args
+        # Build HFDatasetConfig from hfdc_ prefixed args
         hf_config_kwargs = {}
         for key, value in vars(args).items():
             if key.startswith("hfdc_") and value is not None:
@@ -143,20 +141,16 @@ class Config:
                 else:
                     hf_config_kwargs[field_name] = value
         
+        # Build Config kwargs
+        config_fields = {f.name for f in fields(cls)}
+        kwargs = {k: v for k, v in vars(args).items() 
+                  if k in config_fields and not k.startswith("hfdc_") and v is not None}
+        
+        # Create nested HFDatasetConfig if we have args for it
         if hf_config_kwargs:
-            for key, value in hf_config_kwargs.items():
-                setattr(config.hf_dataset_config, key, value)
+            kwargs['hf_dataset_config'] = HFDatasetConfig(**hf_config_kwargs)
         
-        # Update main config from args
-        for key, value in vars(args).items():
-            if key.startswith("hfdc_") or value is None:
-                continue
-            if hasattr(config, key):
-                setattr(config, key, value)
-        
-        # Apply post-init logic
-        config.__post_init__()
-        return config
+        return cls(**kwargs)
     
     def __post_init__(self):
         if self.data_dir is None:

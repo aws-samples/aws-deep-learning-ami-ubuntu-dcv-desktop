@@ -114,9 +114,7 @@ class TrainingConfig:
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> 'TrainingConfig':
         """Create TrainingConfig from argparse Namespace."""
-        config = cls()
-        
-        # Update HFDatasetConfig from args
+        # Build HFDatasetConfig from hfdc_ prefixed args
         hf_config_kwargs = {}
         for key, value in vars(args).items():
             if key.startswith("hfdc_") and value is not None:
@@ -126,22 +124,20 @@ class TrainingConfig:
                 else:
                     hf_config_kwargs[field_name] = value
         
+        # Build TrainingConfig kwargs
+        config_fields = {f.name for f in fields(cls)}
+        kwargs = {k: v for k, v in vars(args).items() 
+                  if k in config_fields and not k.startswith("hfdc_") and v is not None}
+        
+        # Create nested HFDatasetConfig if we have args for it
         if hf_config_kwargs:
-            for key, value in hf_config_kwargs.items():
-                setattr(config.hf_dataset_config, key, value)
+            kwargs['hf_dataset_config'] = HFDatasetConfig(**hf_config_kwargs)
         
-        # Update main config from args
-        for key, value in vars(args).items():
-            if key.startswith("hfdc_") or value is None:
-                continue
-            if key == "lora_target_modules":
-                setattr(config, key, [m.strip() for m in value.split(',')])
-            else:
-                setattr(config, key, value)
+        # Handle lora_target_modules special case
+        if 'lora_target_modules' in kwargs and isinstance(kwargs['lora_target_modules'], str):
+            kwargs['lora_target_modules'] = [m.strip() for m in kwargs['lora_target_modules'].split(',')]
         
-        # Apply post-init logic
-        config.__post_init__()
-        return config
+        return cls(**kwargs)
     
     def __post_init__(self):
         if self.data_dir is None:
