@@ -434,32 +434,37 @@ python peft_hf.py \
 
 ### Testing a Checkpoint
 
-After training, test your checkpoint with batch evaluation using DeepSpeed tensor parallelism:
+After training, test your checkpoint using vLLM for efficient inference:
 
 ```bash
-deepspeed --num_gpus=8 test_checkpoint.py \
+python test_checkpoint.py \
   --base_model "Qwen/Qwen3-8B" \
   --max_samples 1024 \
-  --max_batch_size 8
+  --batch_size 128
 ```
 
-**Note:** The test script automatically discovers the latest checkpoint in the checkpoints directory. The `--checkpoints_dir` parameter is optional.
+The script automatically:
+- Finds the latest checkpoint in `results/{base_model}/checkpoints/`
+- Discovers the latest `test.jsonl` file under `datasets/`
+- Loads the checkpoint and merges LoRA weights (if applicable)
+- Uses vLLM for fast batched inference
+- Evaluates predictions using BERTScore
 
 **Parameters:**
 - `--base_model`: Base model ID (must match the model used for training)
 - `--checkpoints_dir`: Directory containing checkpoint files (optional, default: `results/{base_model}/checkpoints`)
-- `--test_path`: Path to test dataset JSONL file (default: `datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%/test.jsonl`)
+- `--test_path`: Path to test dataset JSONL file (optional, auto-discovered from `datasets/`)
 - `--max_samples`: Maximum number of test samples to evaluate (default: 1024)
-- `--max_batch_size`: Batch size for generation (default: 8)
+- `--batch_size`: Batch size for generation (default: 128)
 - `--temperature`: Sampling temperature (default: 0.1)
-- `--top_k`: Top-k sampling parameter (default: 0, disabled)
+- `--top_k`: Top-k sampling parameter (default: -1, disabled)
 - `--top_p`: Nucleus sampling parameter (default: 0.95)
-- `--max_in_tokens`: Maximum input tokens for truncation (default: 2048)
-- `--max_tokens`: Maximum input + output tokens (default: 4096)
+- `--max_tokens`: Maximum tokens to generate (default: 512)
+- `--tensor_parallel_size`: vLLM tensor parallelism (default: 8)
+- `--gpu_memory_utilization`: GPU memory utilization (default: 0.9)
+- `--max_model_len`: Maximum model sequence length (default: 8192)
 
-**Note:** The default `test_path` matches the auto-generated data directory structure from the training script. If you use a custom dataset or different split ratios, update the test path accordingly.
-
-**DeepSpeed Tensor Parallelism:** The script uses DeepSpeed inference with tensor parallelism to distribute the model across all available GPUs for efficient batch generation and evaluation. Predictions are saved to `{checkpoint_name}.jsonl` (e.g., `model-peft-lora-epoch=01-step=100.jsonl`) and evaluated using BERTScore.
+**Output:** Predictions are saved to `{checkpoint_path}/predictions.jsonl` and evaluated using BERTScore.
 
 ### Converting to Hugging Face Format
 
@@ -470,12 +475,13 @@ python convert_checkpoint_to_hf.py \
   --base_model "Qwen/Qwen3-8B"
 ```
 
-**Note:** The conversion script automatically discovers the latest checkpoint in the checkpoints directory. The `--checkpoints_dir` parameter is optional.
+The script automatically finds the latest checkpoint in `results/{base_model}/checkpoints/`. By default, it merges LoRA weights into the base model for maximum compatibility.
 
 **Parameters:**
 - `--base_model`: Base model ID (must match the model used for training)
 - `--checkpoints_dir`: Directory containing checkpoint files (optional, default: `results/{base_model}/checkpoints`)
 - `--no_merge`: If set, save as LoRA adapter; otherwise merge into base model (default: merge)
+- `--full_ft`: Set to True if checkpoint is from full fine-tuning (default: False)
 
 **LoRA Merging:**
 - By default, LoRA weights are **merged** into the base model for maximum compatibility

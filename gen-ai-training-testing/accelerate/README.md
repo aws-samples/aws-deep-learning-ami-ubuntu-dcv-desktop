@@ -231,14 +231,21 @@ accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
 
 ## Testing Checkpoints
 
-Test FSDP checkpoints using DeepSpeed tensor parallelism:
+Test FSDP checkpoints using vLLM for efficient inference:
 
 ```bash
-deepspeed --num_gpus=8 test_checkpoint.py \
+python test_checkpoint.py \
   --base_model "Qwen/Qwen3-8B" \
   --max_samples 1024 \
-  --max_batch_size 8
+  --batch_size 128
 ```
+
+The script automatically:
+- Finds the latest checkpoint in `results/{base_model}/`
+- Discovers the latest `test.jsonl` file under `datasets/`
+- Loads the checkpoint and merges LoRA weights (if applicable)
+- Uses vLLM for fast batched inference
+- Evaluates predictions using BERTScore
 
 ## Converting Checkpoints to HuggingFace Format
 
@@ -249,7 +256,7 @@ python convert_checkpoint_to_hf.py \
   --base_model "Qwen/Qwen3-8B"
 ```
 
-By default, this merges LoRA weights into the base model. To save as a LoRA adapter:
+The script automatically finds the latest checkpoint in `results/{base_model}/`. By default, it merges LoRA weights into the base model for maximum compatibility. To save as a LoRA adapter:
 
 ```bash
 python convert_checkpoint_to_hf.py \

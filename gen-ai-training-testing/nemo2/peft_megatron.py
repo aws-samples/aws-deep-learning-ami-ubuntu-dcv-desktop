@@ -80,10 +80,6 @@ class Config:
     enable_memory_profile: bool = False
     log_level = "INFO"
     use_wandb: bool = False
- 
-    @property
-    def num_gpus(self) -> int:
-        return self.num_nodes * self.gpus_per_node
     
     @property
     def global_batch_size(self) -> int:

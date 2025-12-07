@@ -25,6 +25,7 @@ from peft import get_peft_model, LoraConfig, TaskType
 
 from dataset_module import GeneralizedHFDataModule, HFDatasetConfig
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 ## Begin config
 @dataclass
@@ -51,6 +52,8 @@ class Config:
     # Optimizer Configuration
     warmup_steps: int = 100
     weight_decay: float = 0.01
+    max_learning_rate: float = 1e-05
+    min_learning_rate: float = 1e-07
     
     # LoRA Configuration
     lora_rank: int = 32
@@ -86,6 +89,9 @@ class Config:
     
     # wandb logging Configuration
     use_wandb: bool = False
+    
+    # Reproducibility
+    seed: int = 42
 
     @property
     def num_gpus(self) -> int:
@@ -94,14 +100,6 @@ class Config:
     @property
     def global_batch_size(self) -> int:
         return self.micro_batch_size * self.num_gpus * self.accumulate_grad_batches
-    
-    @property
-    def max_learning_rate(self) -> float:
-        return 1e-04 if self.full_ft else 5e-05
-    
-    @property
-    def min_learning_rate(self) -> float:
-        return 1e-05 if self.full_ft else 1e-06
     
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> 'Config':
@@ -275,6 +273,14 @@ class HFCausalLMModule(pl.LightningModule):
             attention_mask=batch.get('attention_mask'),
         )
         loss = outputs.loss
+
+        # Add this check
+        if torch.isnan(loss) or torch.isinf(loss):
+            print(f"NaN/Inf detected in val batch {batch_idx}")
+            print(f"Input shape: {batch['input_ids'].shape}")
+            print(f"Labels unique values: {torch.unique(batch['labels'])}")
+            print(f"Number of non-masked labels: {(batch['labels'] != -100).sum()}")
+            return None  # Skip this batch
         
         if batch_idx == 0 and self.trainer.is_global_zero:
             print(f"GPU {torch.cuda.current_device()} memory after validation_step forward:")
@@ -535,6 +541,9 @@ def main():
     
     # Initialize logger
     loggers = configure_loggers(config)
+    
+    # Set seed for reproducibility
+    pl.seed_everything(config.seed, workers=True)
     
     # Initialize trainer
     trainer = pl.Trainer(

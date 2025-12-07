@@ -50,6 +50,9 @@ class HFDatasetConfig:
     num_proc: int = 8
     """Number of processes for dataset loading"""
     
+    cache_dir: Optional[str] = None
+    """Directory to cache the downloaded dataset"""
+    
     load_kwargs: Dict[str, Any] = field(default_factory=dict)
     """Additional keyword arguments to pass to load_dataset"""
     
@@ -57,6 +60,17 @@ class HFDatasetConfig:
     custom_converter: Optional[Callable] = None
     """Optional custom function to convert a dataset sample to input/output dict.
     Should have signature: func(sample: Dict) -> Dict[str, str] with keys 'input' and 'output'"""
+    
+    def __post_init__(self):
+        """Validate configuration after initialization."""
+        if self.train_split_ratio <= 0 or self.train_split_ratio >= 1:
+            raise ValueError(
+                f"train_split_ratio must be between 0 and 1, got {self.train_split_ratio}"
+            )
+        if self.val_test_split_ratio < 0 or self.val_test_split_ratio > 1:
+            raise ValueError(
+                f"val_test_split_ratio must be between 0 and 1, got {self.val_test_split_ratio}"
+            )
 
 
 class SFTDataset(Dataset):
@@ -68,16 +82,98 @@ class SFTDataset(Dataset):
         tokenizer: AutoTokenizer,
         max_seq_length: int = 2048,
         is_test: bool = False,
+        min_output_tokens: int = 1,
     ):
+        """
+        Initialize SFT Dataset.
+        
+        Args:
+            data_path: Path to JSONL file
+            tokenizer: HuggingFace tokenizer
+            max_seq_length: Maximum sequence length
+            is_test: Whether this is a test dataset
+            min_output_tokens: Minimum number of output tokens required (prevents all-masked samples)
+        """
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
         self.is_test = is_test
+        self.min_output_tokens = min_output_tokens
         
-        # Load JSONL data
+        # Load JSONL data with validation
         self.samples = []
+        skipped_count = 0
+        total_count = 0
+        
         with open(data_path, 'r', encoding='utf-8') as f:
             for line in f:
-                self.samples.append(json.loads(line))
+                total_count += 1
+                try:
+                    sample = json.loads(line)
+                    
+                    # Pre-validate that sample will have some output tokens
+                    if self._validate_sample(sample):
+                        self.samples.append(sample)
+                    else:
+                        skipped_count += 1
+                except json.JSONDecodeError as e:
+                    print(f"⚠ Warning: Failed to parse JSON line {total_count}: {e}")
+                    skipped_count += 1
+                except Exception as e:
+                    print(f"⚠ Warning: Error validating sample {total_count}: {e}")
+                    skipped_count += 1
+        
+        if skipped_count > 0:
+            print(
+                f"⚠ Skipped {skipped_count}/{total_count} samples "
+                f"({100*skipped_count/total_count:.1f}%) with insufficient output tokens or errors"
+            )
+        
+        if len(self.samples) == 0:
+            raise ValueError(f"No valid samples loaded from {data_path}")
+        
+        print(f"✓ Loaded {len(self.samples)} valid samples from {data_path.name}")
+    
+    def _validate_sample(self, sample: Dict[str, Any]) -> bool:
+        """
+        Validate that sample will have enough output tokens.
+        Output is never truncated, so we only check the raw output length.
+        
+        Args:
+            sample: Sample dictionary with 'input' and 'output' keys
+            
+        Returns:
+            True if sample is valid, False otherwise
+        """
+        # Check that required keys exist
+        if 'input' not in sample or 'output' not in sample:
+            return False
+        
+        # Check that output is not empty
+        if not sample['output'] or not sample['output'].strip():
+            return False
+        
+        try:
+            # Tokenize output to check length
+            output_tokenized = self.tokenizer(
+                sample['output'],
+                truncation=False,
+                padding=False,
+                return_tensors=None,
+                add_special_tokens=False,
+            )
+            
+            output_length = len(output_tokenized['input_ids'])
+            
+            # Reject if output alone exceeds max sequence length
+            # (leave room for at least a BOS token)
+            if output_length >= self.max_seq_length:
+                return False
+            
+            # Ensure we have at least min_output_tokens
+            return output_length >= self.min_output_tokens
+            
+        except Exception:
+            return False
     
     def __len__(self):
         return len(self.samples)
@@ -85,43 +181,75 @@ class SFTDataset(Dataset):
     def __getitem__(self, idx):
         sample = self.samples[idx]
         
-        # Concatenate input and output for causal LM training
-        full_text = sample['input'] + sample['output']
-        
-        # Tokenize the full text
-        tokenized = self.tokenizer(
-            full_text,
-            truncation=True,
-            max_length=self.max_seq_length,
-            padding=False,
-            return_tensors=None,
-            add_special_tokens=True,
-        )
-        
-        input_ids = tokenized['input_ids']
-        
-        # Create labels (for causal LM, labels = input_ids)
-        labels = input_ids.copy()
-        
-        # Tokenize only the input to find where output starts
+        # Tokenize input and output separately
         input_tokenized = self.tokenizer(
             sample['input'],
-            truncation=True,
-            max_length=self.max_seq_length,
+            truncation=False,
             padding=False,
             return_tensors=None,
-            add_special_tokens=True,
+            add_special_tokens=True,  # Add BOS token
         )
-        input_length = len(input_tokenized['input_ids'])
         
-        # Mask the input portion in labels (set to -100 to ignore in loss)
-        # We want the model to only learn to predict the output, not the input
-        labels[:input_length] = [-100] * input_length
+        output_tokenized = self.tokenizer(
+            sample['output'],
+            truncation=False,
+            padding=False,
+            return_tensors=None,
+            add_special_tokens=False,
+        )
+        
+        input_ids_list = input_tokenized['input_ids']
+        output_ids_list = output_tokenized['input_ids']
+        
+        # Calculate lengths
+        input_length = len(input_ids_list)
+        output_length = len(output_ids_list)
+        total_length = input_length + output_length
+        
+        # Truncate from the LEFT of the input if necessary to preserve output
+        if total_length > self.max_seq_length:
+            # Calculate how much input we can keep
+            max_input_length = self.max_seq_length - output_length
+            
+            if max_input_length < 1:
+                # Output alone is too long - truncate output from right as last resort
+                # But ideally this should be filtered out in _validate_sample
+                print(f"⚠ Warning: Sample {idx} output alone exceeds max_seq_length. Truncating output.")
+                output_ids_list = output_ids_list[:self.max_seq_length - 1]
+                input_ids_list = input_ids_list[:1]  # Keep at least BOS token
+                input_length = 1
+                output_length = len(output_ids_list)
+            else:
+                # Truncate input from the LEFT (keep the most recent context)
+                input_ids_list = input_ids_list[-max_input_length:]
+                input_length = len(input_ids_list)
+        
+        # Combine input and output
+        input_ids = input_ids_list + output_ids_list
+        
+        # Create labels: mask input portion, keep output portion
+        labels = ([-100] * input_length) + output_ids_list
+        
+        # Ensure lengths match
+        assert len(input_ids) == len(labels), (
+            f"Length mismatch: input_ids={len(input_ids)}, labels={len(labels)}"
+        )
+        
+        # Verify we have valid labels (this should always pass now)
+        valid_label_count = sum(1 for label in labels if label != -100)
+        if valid_label_count == 0:
+            raise ValueError(
+                f"Sample {idx} has no valid labels. This should not happen. "
+                f"Input length: {input_length}, Output length: {output_length}"
+            )
+        
+        # Create attention mask
+        attention_mask = [1] * len(input_ids)
         
         return {
             'input_ids': input_ids,
             'labels': labels,
-            'attention_mask': tokenized.get('attention_mask', [1] * len(input_ids))
+            'attention_mask': attention_mask
         }
 
 
@@ -138,6 +266,7 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
         num_workers: int = 8,
         pin_memory: bool = True,
         persistent_workers: bool = False,
+        min_output_tokens: int = 1,
     ):
         """
         Initialize the data module.
@@ -151,6 +280,7 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
             num_workers: Number of data loading workers
             pin_memory: Whether to pin memory
             persistent_workers: Whether to keep workers persistent
+            min_output_tokens: Minimum output tokens required per sample
         """
         super().__init__()
         self.config = config
@@ -161,14 +291,15 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.persistent_workers = persistent_workers
+        self.min_output_tokens = min_output_tokens
         
         # Create dataset directory
         self.dataset_root.mkdir(parents=True, exist_ok=True)
         
-        # Initialize tokenizer
+        # Initialize tokenizer (will be set in setup)
         self.tokenizer = None
     
-    def _convert_sample(self, sample: Dict[str, Any]) -> Dict[str, str]:
+    def _convert_sample(self, sample: Dict[str, Any]) -> Optional[Dict[str, str]]:
         """
         Convert a single dataset sample to input/output format.
         
@@ -176,31 +307,54 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
             sample: A dictionary containing the dataset sample
             
         Returns:
-            Dictionary with 'input' and 'output' keys
+            Dictionary with 'input' and 'output' keys, or None if conversion fails
         """
         # Use custom converter if provided
         if self.config.custom_converter is not None:
-            return self.config.custom_converter(sample)
+            try:
+                result = self.config.custom_converter(sample)
+                # Validate result
+                if result is None or 'input' not in result or 'output' not in result:
+                    return None
+                return result
+            except Exception as e:
+                print(f"⚠ Custom converter failed: {e}")
+                return None
         
         # Apply field mapping if provided
         if self.config.field_mapping is not None:
-            mapped_sample = {
-                placeholder: sample.get(self.config.field_mapping.get(placeholder, placeholder), "")
-                for placeholder in self._extract_template_fields()
-            }
+            mapped_sample = {}
+            for placeholder in self._extract_template_fields():
+                field_name = self.config.field_mapping.get(placeholder, placeholder)
+                value = sample.get(field_name, "")
+                
+                # Handle None values
+                if value is None:
+                    value = ""
+                
+                mapped_sample[placeholder] = str(value)
         else:
-            mapped_sample = sample
+            # Convert all values to strings and handle None
+            mapped_sample = {k: str(v) if v is not None else "" for k, v in sample.items()}
         
         # Format input and output using templates
         try:
             input_text = self.config.input_template.format(**mapped_sample)
             output_text = self.config.output_template.format(**mapped_sample)
         except KeyError as e:
-            raise KeyError(
-                f"Missing field {e} in dataset sample. "
+            print(
+                f"⚠ Missing field {e} in dataset sample. "
                 f"Available fields: {list(sample.keys())}. "
-                f"Consider using field_mapping to map template placeholders to dataset columns."
+                f"Check field_mapping configuration."
             )
+            return None
+        except Exception as e:
+            print(f"⚠ Error formatting sample: {e}")
+            return None
+        
+        # Validate that output is not empty
+        if not output_text.strip():
+            return None
         
         return {"input": input_text, "output": output_text}
     
@@ -215,17 +369,34 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
     
     def _convert_hf_dataset_to_jsonl(self, dataset, path: Path):
         """
-        Convert HuggingFace dataset to JSONL format.
+        Convert HuggingFace dataset to JSONL format, skipping invalid samples.
         
         Args:
             dataset: HuggingFace dataset or dataset split
             path: Output path for JSONL file
         """
+        converted_count = 0
+        skipped_count = 0
+        
         with open(path, "w", encoding='utf-8') as f:
-            for sample in dataset:
+            for idx, sample in enumerate(dataset):
                 converted = self._convert_sample(sample)
-                json_string = json.dumps(converted, ensure_ascii=False) + "\n"
-                f.write(json_string)
+                if converted is not None:
+                    try:
+                        json_string = json.dumps(converted, ensure_ascii=False) + "\n"
+                        f.write(json_string)
+                        converted_count += 1
+                    except Exception as e:
+                        print(f"⚠ Error writing sample {idx}: {e}")
+                        skipped_count += 1
+                else:
+                    skipped_count += 1
+        
+        skip_pct = 100 * skipped_count / (converted_count + skipped_count) if (converted_count + skipped_count) > 0 else 0
+        print(f"  Converted: {converted_count}, Skipped: {skipped_count} ({skip_pct:.1f}%)")
+        
+        if converted_count == 0:
+            raise ValueError(f"No valid samples were converted for {path.name}")
     
     def _load_and_split_dataset(self) -> DatasetDict:
         """
@@ -234,12 +405,21 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
         Returns:
             DatasetDict with 'train', 'val', and 'test' splits
         """
+        # Prepare load_dataset kwargs
+        load_kwargs = self.config.load_kwargs.copy()
+        if self.config.cache_dir:
+            load_kwargs['cache_dir'] = self.config.cache_dir
+        
         # Load dataset
+        print(f"Loading dataset '{self.config.dataset_name}'...")
+        if self.config.dataset_config:
+            print(f"  Config: {self.config.dataset_config}")
+        
         dataset = load_dataset(
             self.config.dataset_name,
             self.config.dataset_config,
             num_proc=self.config.num_proc,
-            **self.config.load_kwargs
+            **load_kwargs
         )
         
         # Get the initial split
@@ -250,15 +430,18 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
             )
         
         initial_data = dataset[self.config.split]
+        print(f"  Initial split '{self.config.split}' size: {len(initial_data)}")
         
         # Split into train and (val+test)
         train_testval = initial_data.train_test_split(
-            test_size=1.0 - self.config.train_split_ratio
+            test_size=1.0 - self.config.train_split_ratio,
+            seed=42,  # For reproducibility
         )
         
         # Split (val+test) into val and test
         test_val = train_testval['test'].train_test_split(
-            test_size=self.config.val_test_split_ratio
+            test_size=self.config.val_test_split_ratio,
+            seed=42,  # For reproducibility
         )
         
         # Create final DatasetDict
@@ -267,6 +450,11 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
             'val': test_val['train'],
             'test': test_val['test']
         })
+        
+        print(f"  Split sizes:")
+        print(f"    Train: {len(split_dataset['train'])}")
+        print(f"    Val: {len(split_dataset['val'])}")
+        print(f"    Test: {len(split_dataset['test'])}")
         
         return split_dataset
     
@@ -291,25 +479,36 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
 
         if self.trainer is None or self.trainer.is_global_zero:
             if not os.path.exists(marker_file):
-                print(f"Loading dataset '{self.config.dataset_name}'...")
+                print("\n" + "=" * 80)
+                print("Preparing dataset...")
+                print("=" * 80)
+                
                 hf_dataset = self._load_and_split_dataset()
                 
-                print(f"Converting to JSONL format...")
-                print(f"  Train samples: {len(hf_dataset['train'])}")
-                print(f"  Val samples: {len(hf_dataset['val'])}")
-                print(f"  Test samples: {len(hf_dataset['test'])}")
-                
+                print(f"\nConverting to JSONL format...")
+                print(f"Training set:")
                 self._convert_hf_dataset_to_jsonl(hf_dataset['train'], self.train_path)
+                
+                print(f"Validation set:")
                 self._convert_hf_dataset_to_jsonl(hf_dataset['val'], self.validation_path)
+                
+                print(f"Test set:")
                 self._convert_hf_dataset_to_jsonl(hf_dataset['test'], self.test_path)
                 
+                # Create marker file
                 with open(marker_file, 'w') as f:
                     f.write('ready')
-            print("Dataset preparation complete!")
+                
+                print("=" * 80)
+                print("Dataset preparation complete!")
+                print("=" * 80 + "\n")
+            else:
+                print(f"✓ Dataset already prepared at {self.dataset_root}")
         else:
-            print(f"Global rank: {self.trainer.global_rank} waiting for data preparation to complete...")
+            print(f"Global rank: {self.trainer.global_rank} waiting for data preparation...")
             while not os.path.exists(marker_file):
                 time.sleep(10)
+            print(f"Global rank: {self.trainer.global_rank} - data preparation complete!")
         
         super().prepare_data()
     
@@ -317,6 +516,7 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
         """Setup datasets for training/validation/testing."""
         # Initialize tokenizer
         if self.tokenizer is None:
+            print(f"Loading tokenizer: {self.tokenizer_name}")
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.tokenizer_name,
                 use_fast=True,
@@ -325,21 +525,36 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
             # Ensure pad token is set
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
+                print(f"  Set pad_token to eos_token: {self.tokenizer.eos_token}")
         
         # Create datasets
         if stage == "fit" or stage is None:
+            print("\nSetting up datasets...")
             self.train_dataset = SFTDataset(
                 self.train_path,
                 self.tokenizer,
                 self.max_seq_length,
                 is_test=False,
+                min_output_tokens=self.min_output_tokens,
             )
             self.val_dataset = SFTDataset(
                 self.validation_path,
                 self.tokenizer,
                 self.max_seq_length,
                 is_test=True,
+                min_output_tokens=self.min_output_tokens,
             )
+            
+            # Print dataset statistics
+            print("\n" + "=" * 80)
+            print("Dataset Statistics")
+            print("=" * 80)
+            print(f"Training samples: {len(self.train_dataset)}")
+            print(f"Validation samples: {len(self.val_dataset)}")
+            print(f"Max sequence length: {self.max_seq_length}")
+            print(f"Micro batch size: {self.micro_batch_size}")
+            
+            print("=" * 80 + "\n")
         
         if stage == "test" or stage is None:
             self.test_dataset = SFTDataset(
@@ -347,6 +562,7 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
                 self.tokenizer,
                 self.max_seq_length,
                 is_test=True,
+                min_output_tokens=self.min_output_tokens,
             )
     
     def collate_fn(self, batch):

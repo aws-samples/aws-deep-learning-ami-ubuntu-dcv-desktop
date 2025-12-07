@@ -1,21 +1,21 @@
-"""
-Test script for PTL checkpoint using DeepSpeed tensor parallelism.
-Must be launched with: deepspeed --num_gpus=8 test_checkpoint.py [args]
-"""
 import os
 import argparse
 import json
 import re
+import time
+import shutil
+import tempfile
+import gc
 from dataclasses import dataclass, fields, MISSING
 from pathlib import Path
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from peft import get_peft_model, LoraConfig, TaskType
-import evaluate
-from tqdm import tqdm
-import deepspeed
 
-os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
+import torch
+import torch.distributed.checkpoint as dcp
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from peft import LoraConfig, get_peft_model
+import evaluate
+from vllm import LLM, SamplingParams
+
 
 @dataclass
 class Config:
@@ -33,23 +33,25 @@ class Config:
     lora_target_modules: str = "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
     
     # Data
-    test_path: str = "datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%/test.jsonl"
+    test_path: str = None
     max_samples: int = 1024
+    batch_size: int = 128
     
     # Generation settings
     temperature: float = 0.1
-    top_k: int = 0
+    top_k: int = -1  # vLLM uses -1 for disabled
     top_p: float = 0.95
-    max_in_tokens: int = 2048
-    max_tokens: int = 4096
-    max_batch_size: int = 8
+    max_tokens: int = 512  # max_new_tokens
     
-    # DeepSpeed
-    local_rank: int = -1
+    # vLLM settings
+    tensor_parallel_size: int = 8
+    gpu_memory_utilization: float = 0.9
+    max_model_len: int = 8192
+    dtype: str = "bfloat16"
     
     @property
     def output_path(self) -> str:
-       return str(Path(self.checkpoint_path) / "predictions.jsonl")
+        return str(Path(self.checkpoint_path) / "predictions.jsonl")
     
     @property
     def checkpoint_path(self) -> str:
@@ -65,6 +67,8 @@ class Config:
             raise FileNotFoundError(f"No checkpoint directories found in {ckpt_dir_path}")
         return str(ckpt_dirs[-1])
     
+
+    
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> 'Config':
         config_fields = {f.name for f in fields(cls)}
@@ -74,7 +78,16 @@ class Config:
     def __post_init__(self):
         if self.checkpoints_dir is None:
             self.checkpoints_dir = f"results/{self.base_model}"
-    
+        
+        if self.test_path is None:
+            datasets_path = Path("datasets")
+            test_files = list(datasets_path.rglob("test.jsonl"))
+            if test_files:
+                self.test_path = str(test_files[0])
+                print(f"Found test file: {self.test_path}")
+            else:
+                raise ValueError("No test.jsonl file found under datasets folder")
+
 def create_parser_from_dataclass(dataclass_type) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     for f in fields(dataclass_type):
@@ -87,158 +100,179 @@ def create_parser_from_dataclass(dataclass_type) -> argparse.ArgumentParser:
         )
     return parser
 
-def load_model_and_tokenizer(config:Config):
-    """Load model from FSDP checkpoint with DeepSpeed tensor parallelism."""
-    import torch.distributed.checkpoint as dcp
+def load_checkpoint_in_memory(config: Config):
+    """Load FSDP checkpoint and optionally merge LoRA adapters in memory."""
     
-    local_rank = int(os.environ["LOCAL_RANK"])
-    torch.cuda.set_device(torch.device(f"cuda:{local_rank}"))
-    
-    is_main = torch.distributed.get_rank() == 0
-    base_model_id = config.base_model
-    checkpoint_path = config.checkpoint_path
-    max_out_tokens = config.max_tokens
-
-    if is_main:
-        print(f"Loading tokenizer from: {base_model_id}")
-        print(f"Full fine-tuning mode: {config.full_ft}")
-    tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side='left'
-    
-    if is_main:
-        print(f"Loading checkpoint from: {checkpoint_path}")
+    print("=" * 80)
+    print("LOADING CHECKPOINT INTO MEMORY")
+    print("=" * 80)
+    print(f"Source: {config.checkpoint_path}")
+    print(f"Mode: {'Full Fine-Tuning' if config.full_ft else 'LoRA (will merge adapters)'}")
+    print("=" * 80)
     
     # Load base model
+    print("\n[1/3] Loading base model...")
     base_model = AutoModelForCausalLM.from_pretrained(
-        base_model_id,
-        dtype=torch.bfloat16,
+        config.base_model,
+        torch_dtype=torch.bfloat16,
         trust_remote_code=True,
     )
     
-    # Apply LoRA config only if not full fine-tuning
-    if not config.full_ft:
-        if is_main:
-            print("Applying LoRA configuration...")
+    # Load FSDP checkpoint
+    print("\n[2/3] Loading FSDP checkpoint weights...")
+    fsdp_checkpoint_dir = Path(config.checkpoint_path) / "pytorch_model_fsdp_0"
+    
+    if not fsdp_checkpoint_dir.exists():
+        raise FileNotFoundError(f"FSDP checkpoint not found: {fsdp_checkpoint_dir}")
+    
+    state_dict = {}
+    dcp.load(state_dict, checkpoint_id=str(fsdp_checkpoint_dir))
+    
+    if config.full_ft:
+        # For full fine-tuning, load weights directly into base model
+        print("Loading full fine-tuning weights...")
+        base_model.load_state_dict(state_dict, strict=False)
+        final_model = base_model
+    else:
+        # For LoRA, need to apply LoRA config, load weights, then merge
+        print("Applying LoRA configuration...")
         peft_config = LoraConfig(
-            task_type=TaskType.CAUSAL_LM,
+            task_type="CAUSAL_LM",
             r=config.lora_rank,
             lora_alpha=config.lora_alpha,
             lora_dropout=config.lora_dropout,
             target_modules=[m.strip() for m in config.lora_target_modules.split(',')],
             bias="none",
         )
-        model = get_peft_model(base_model, peft_config)
-    else:
-        model = base_model
+        model_with_adapters = get_peft_model(base_model, peft_config)
+        
+        print("Loading LoRA weights...")
+        model_with_adapters.load_state_dict(state_dict, strict=False)
+        
+        print("\n[3/3] Merging LoRA adapters...")
+        final_model = model_with_adapters.merge_and_unload()
     
-    # Load FSDP checkpoint
-    if is_main:
-        print("Loading FSDP checkpoint weights...")
+    print("\n✓ Checkpoint loaded and ready for inference!")
+    print("=" * 80)
     
-    fsdp_checkpoint_dir = Path(checkpoint_path) / "pytorch_model_fsdp_0"
-    state_dict = {}
-    dcp.load(state_dict, checkpoint_id=str(fsdp_checkpoint_dir))
-    model.load_state_dict(state_dict, strict=False)
-    model.eval()
+    return final_model
+
+def load_model_with_vllm(config: Config):
+    """Load model using vLLM for efficient inference with temporary model storage."""
     
-    # Initialize DeepSpeed Inference
-    world_size = torch.distributed.get_world_size()
-    if is_main:
-        print(f"Initializing DeepSpeed Inference (TP={world_size})...")
+    # Load checkpoint and merge in memory
+    model = load_checkpoint_in_memory(config)
     
-    model = deepspeed.init_inference(
-        model,
-        config={
-            "tensor_parallel": {"enabled": True, "tp_size": world_size},
-            "dtype": "bf16",
-            "replace_with_kernel_inject": True,
-            "max_out_tokens": max_out_tokens
-        },
+    # Create temporary directory for the model
+    temp_dir = tempfile.mkdtemp(prefix="vllm_model_")
+    
+    try:
+        print("\n" + "=" * 80)
+        print("INITIALIZING vLLM")
+        print("=" * 80)
+        print(f"Base model: {config.base_model}")
+        print(f"Tensor parallel size: {config.tensor_parallel_size}")
+        print(f"GPU memory utilization: {config.gpu_memory_utilization}")
+        print(f"Max model length: {config.max_model_len}")
+        print("=" * 80)
+        
+        # Save model and tokenizer to temp directory
+        print(f"\nSaving model to temporary directory: {temp_dir}")
+        model.save_pretrained(temp_dir)
+        
+        tokenizer = AutoTokenizer.from_pretrained(config.base_model, trust_remote_code=True)
+        tokenizer.save_pretrained(temp_dir)
+        
+        # Initialize vLLM from temp directory
+        print("Loading model into vLLM...")
+        llm = LLM(
+            model=temp_dir,
+            tensor_parallel_size=config.tensor_parallel_size,
+            gpu_memory_utilization=config.gpu_memory_utilization,
+            max_model_len=config.max_model_len,
+            dtype=config.dtype,
+            disable_log_stats=True,
+        )
+        
+        print("\n✓ vLLM initialized successfully!")
+        print("=" * 80 + "\n")
+        
+        # Store temp_dir path so we can clean it up later
+        llm._temp_dir = temp_dir
+        
+        return llm
+        
+    except Exception as e:
+        # Clean up temp directory if initialization fails
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise e
+
+def generate_and_save_predictions(llm: LLM, config: Config):
+    """Generate predictions for test samples using vLLM batched inference."""
+    
+    sampling_params = SamplingParams(
+        temperature=config.temperature if config.temperature > 0 else 0.0,
+        top_k=config.top_k if config.top_k > 0 else -1,
+        top_p=config.top_p if config.temperature > 0 else 1.0,
+        max_tokens=config.max_tokens,
     )
     
-    if is_main:
-        print("✓ Model loaded successfully!")
-    return model, tokenizer
-
-def generate_and_save_predictions(model, tokenizer, config):
-    """Generate predictions for test samples using batched generation."""
-    is_main = torch.distributed.get_rank() == 0
+    print(f"\nGenerating predictions (batch_size={config.batch_size})...")
+    start_time = time.time()
     
-    # Only main process reads data and writes output
-    if is_main:
-        samples = []
-        with open(config.test_path, 'r') as f:
-            for idx, line in enumerate(f):
+    total_samples = 0
+    total_tokens_generated = 0
+    
+    with open(config.output_path, 'w') as f_out:
+        chunk_inputs = []
+        chunk_labels = []
+        
+        with open(config.test_path, 'r') as f_in:
+            for idx, line in enumerate(f_in):
                 if idx >= config.max_samples:
                     break
-                samples.append(json.loads(line))
-        
-        total_samples = len(samples)
-        print(f"\nGenerating predictions for {total_samples} samples in batches of {config.max_batch_size}...")
-    else:
-        samples = []
-        total_samples = 0
-    
-    # Broadcast number of samples
-    total_samples = torch.tensor(total_samples if is_main else 0, device='cuda')
-    torch.distributed.broadcast(total_samples, 0)
-    total_samples = total_samples.item()
-    
-    if is_main:
-        f_out = open(config.output_path, 'w')
-    
-    if is_main:
-        pbar = tqdm(range(0, total_samples, config.max_batch_size))
-    else:
-        pbar = range(0, total_samples, config.max_batch_size)
-    
-    for batch_start in pbar:
-        if is_main:
-            batch_samples = samples[batch_start:batch_start + config.max_batch_size]
-            batch_inputs = [s['input'] for s in batch_samples]
-            batch_labels = [s['output'] for s in batch_samples]
-        else:
-            batch_inputs = []
-            batch_labels = []
-        
-        # Broadcast batch inputs to all ranks
-        # In a real implementation, you'd need proper broadcasting
-        # For simplicity, we'll have all ranks do the computation
-        
-        if is_main:
-            inputs = tokenizer(batch_inputs, return_tensors="pt", 
-                               padding=True, truncation=True, max_length=config.max_in_tokens).to('cuda')
-            
-            with torch.no_grad():
-                outputs = model.generate(
-                    **inputs,
-                    temperature=config.temperature,
-                    top_k=config.top_k,
-                    top_p=config.top_p,
-                    do_sample=config.temperature > 0,
-                    pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
-                )
-            
-            decoded_outputs = tokenizer.batch_decode(outputs, skip_special_tokens=True)
-            
-            for input_text, label, full_response in zip(batch_inputs, batch_labels, decoded_outputs):
-                if full_response.startswith(input_text):
-                    prediction = full_response[len(input_text):].strip()
-                else:
-                    prediction = full_response
                 
-                result = {
+                sample = json.loads(line)
+                chunk_inputs.append(sample['input'])
+                chunk_labels.append(sample['output'])
+                
+                if len(chunk_inputs) >= config.batch_size:
+                    outputs = llm.generate(chunk_inputs, sampling_params)
+                    for input_text, label, output in zip(chunk_inputs, chunk_labels, outputs):
+                        f_out.write(json.dumps({
+                            'input': input_text,
+                            'label': label,
+                            'prediction': output.outputs[0].text
+                        }) + '\n')
+                        total_tokens_generated += len(output.outputs[0].token_ids)
+                    
+                    total_samples += len(chunk_inputs)
+                    print(f"  Processed {total_samples} samples...")
+                    chunk_inputs = []
+                    chunk_labels = []
+        
+        # Process remaining samples
+        if chunk_inputs:
+            outputs = llm.generate(chunk_inputs, sampling_params)
+            for input_text, label, output in zip(chunk_inputs, chunk_labels, outputs):
+                f_out.write(json.dumps({
                     'input': input_text,
                     'label': label,
-                    'prediction': prediction
-                }
-                f_out.write(json.dumps(result) + '\n')
+                    'prediction': output.outputs[0].text
+                }) + '\n')
+                total_tokens_generated += len(output.outputs[0].token_ids)
+            total_samples += len(chunk_inputs)
     
-    if is_main:
-        f_out.close()
-        print(f"\n✓ Predictions saved to: {config.output_path}")
+    generation_time = time.time() - start_time
+    tokens_per_sec = total_tokens_generated / generation_time
+    
+    print(f"\n✓ Predictions saved to: {config.output_path}")
+    print(f"\nTiming Statistics:")
+    print(f"  Total time:            {generation_time:.2f}s")
+    print(f"  Samples/sec:           {total_samples/generation_time:.2f}")
+    print(f"  Total tokens generated: {total_tokens_generated}")
+    print(f"  Tokens/sec:            {tokens_per_sec:.0f}")
+    print(f"  Avg tokens/sample:     {total_tokens_generated/total_samples:.1f}")
 
 def evaluate_predictions(output_path):
     """Evaluate predictions using multiple metrics."""
@@ -256,9 +290,9 @@ def evaluate_predictions(output_path):
     print("\nComputing metrics...")
     bert_scores = bertscore.compute(predictions=predictions, references=references, lang='en')
     
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("EVALUATION RESULTS")
-    print("="*80)
+    print("=" * 80)
     print(f"\nBERTScore F1: {sum(bert_scores['f1'])/len(bert_scores['f1']):.4f}")
     print("="*80)
     
@@ -266,28 +300,27 @@ def evaluate_predictions(output_path):
         'bertscore': sum(bert_scores['f1'])/len(bert_scores['f1'])
     }
 
-def run_testing(config):
-    is_main = torch.distributed.get_rank() == 0
+def run_testing(config: Config):
+    print("=" * 80)
+    print("Testing Model with vLLM")
+    print("=" * 80)
+    print(f"Checkpoint: {config.checkpoint_path}")
+    print(f"Base Model: {config.base_model}")
+    print(f"Mode: {'Full Fine-Tuning' if config.full_ft else 'LoRA'}")
+    print("=" * 80)
     
-    if is_main:
-        print("=" * 80)
-        print("Testing PTL PEFT Model with Test Dataset (DeepSpeed TP)")
-        print("=" * 80)
-        print(f"Checkpoint: {config.checkpoint_path}")
-        print(f"Model: {config.base_model}")
-        print("=" * 80)
-    
-    # Load model
-    if is_main:
-        print("\n[1/2] Loading model...")
-    model, tokenizer = load_model_and_tokenizer(config=config)
-    
-    # Generate predictions (batched)
-    if is_main:
+    llm = None
+    temp_dir = None
+    try:
+        # Load model with vLLM
+        print("\n[1/2] Loading model with vLLM...")
+        llm = load_model_with_vllm(config)
+        temp_dir = llm._temp_dir if hasattr(llm, '_temp_dir') else None
+        
+        # Generate predictions
         print("\n[2/2] Generating predictions...")
-    generate_and_save_predictions(model=model, tokenizer=tokenizer, config=config)
-    
-    if is_main:
+        generate_and_save_predictions(llm, config)
+        
         # Display sample predictions
         print("\n" + "=" * 80)
         print("SAMPLE PREDICTIONS")
@@ -303,6 +336,17 @@ def run_testing(config):
                 print(f"\nPredicted:\n{pred['prediction'][:200]}...")
                 print("-" * 80)
         
+        # Unload vLLM model and clear GPU memory
+        print("\n" + "=" * 80)
+        print("UNLOADING VLLM MODEL")
+        print("=" * 80)
+        del llm
+        llm = None
+        gc.collect()
+        torch.cuda.empty_cache()
+        print("✓ GPU memory cleared")
+        print("=" * 80)
+        
         # Evaluate
         print("\n" + "=" * 80)
         print("EVALUATING PREDICTIONS")
@@ -310,15 +354,18 @@ def run_testing(config):
         evaluate_predictions(config.output_path)
         
         print("\n✓ Complete!")
+        
+    finally:
+        # Clean up temporary directory
+        if temp_dir is not None:
+            print(f"\nCleaning up temporary model directory: {temp_dir}")
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            print("✓ Cleanup complete!")
 
 def main():
-    # DeepSpeed adds local_rank automatically
     parser = create_parser_from_dataclass(Config)
     args = parser.parse_args()
     config = Config.from_args(args)
-    
-    # Initialize DeepSpeed distributed backend
-    deepspeed.init_distributed()
     
     run_testing(config)
 

@@ -32,14 +32,14 @@ from tqdm import tqdm
 @dataclass
 class Config:
     # Checkpoint
-    nemo_logs_dir: str = "outputs/Qwen/Qwen3-8B/nemo_logs"
+    nemo_logs_dir: str = None
 
     # Data
-    test_path: str = "datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%/test.jsonl"
+    test_path: str = None
     max_samples: int = 1024
     
     # Parallelism
-    num_gpus: int = 8
+    gpus_per_node: int = 8
     num_nodes: int = 1
     tensor_parallel_size: int = 8
     pipeline_parallel_size: int = 1
@@ -102,6 +102,25 @@ class Config:
         config_fields = {f.name for f in fields(cls)}
         kwargs = {k: v for k, v in vars(args).items() if k in config_fields}
         return cls(**kwargs)
+    
+    def __post_init__(self):
+        if self.nemo_logs_dir is None:
+            outputs_path = Path("outputs")
+            nemo_logs_dirs = list(outputs_path.rglob("nemo_logs"))
+            if nemo_logs_dirs:
+                self.nemo_logs_dir = str(max(nemo_logs_dirs, key=lambda p: p.stat().st_mtime))
+                print(f"Found nemo_logs directory: {self.nemo_logs_dir}")
+            else:
+                raise ValueError("No nemo_logs folder found under outputs folder")
+            
+        if self.test_path is None:
+            datasets_path = Path("datasets")
+            test_files = list(datasets_path.rglob("test.jsonl"))
+            if test_files:
+                self.test_path = str(max(test_files, key=lambda p: p.stat().st_mtime))
+                print(f"Found test file: {self.test_path}")
+            else:
+                raise ValueError("No test.jsonl file found under datasets folder")
 
 config = None
 
@@ -358,7 +377,7 @@ def run_testing():
 
     trainer = nl.Trainer(
         accelerator="gpu",
-        devices=config.num_gpus,
+        devices=config.gpus_per_node,
         num_nodes=config.num_nodes,
         strategy=strategy,
         plugins=nl.MegatronMixedPrecision(

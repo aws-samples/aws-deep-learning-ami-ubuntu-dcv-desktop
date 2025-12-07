@@ -486,27 +486,28 @@ After training, test your checkpoint with batch evaluation using NeMo's inferenc
 torchrun --standalone \
   --nproc-per-node=8 \
    test_checkpoint.py \
-  --nemo_logs_dir outputs/Qwen/Qwen3-8B/nemo_logs \
   --max_samples 1024 \
-  --max_batch_size 16 \
-  --num_gpus 8
+  --max_batch_size 16
 ```
 
-Latest checkpoint under {nemo_logs_dir} is automatically loaded.
+The script automatically:
+- Finds the latest `nemo_logs` directory under `outputs/`
+- Discovers the latest checkpoint within that directory
+- Discovers the latest `test.jsonl` file under `datasets/`
+- Uses NeMo's dynamic inference engine for efficient batched generation
+- Evaluates predictions using BERTScore
 
 **Parameters:**
-- `--nemo_logs_dir`: Directory containing NeMo logs (default: `outputs/{base_model}/nemo_logs`)
-- `--test_path`: Path to test dataset JSONL file (default: `datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%/test.jsonl`)
+- `--nemo_logs_dir`: Directory containing NeMo logs (optional, auto-discovered from `outputs/`)
+- `--test_path`: Path to test dataset JSONL file (optional, auto-discovered from `datasets/`)
 - `--max_samples`: Maximum number of test samples to evaluate (default: 1024)
 - `--max_batch_size`: Batch size for generation (default: 16)
-- `--num_gpus`: Number of GPUs to use (default: 8)
+- `--gpus_per_node`: Number of GPUs to use (default: 8)
 - `--tensor_parallel_size`: Tensor parallelism size (default: 8)
 - `--pipeline_parallel_size`: Pipeline parallelism size (default: 1)
 - `--temperature`: Sampling temperature (default: 0.1)
 - `--top_p`: Nucleus sampling parameter (default: 0.95)
 - `--num_tokens_to_generate`: Maximum tokens to generate (default: 512)
-
-**Note:** The default `test_path` matches the auto-generated data directory structure from the training script. If you use a custom dataset or different split ratios, update the test path accordingly.
 
 **Output:**
 - Predictions saved to: `{checkpoint_path}.jsonl`
@@ -517,15 +518,24 @@ Latest checkpoint under {nemo_logs_dir} is automatically loaded.
 Convert your NeMo checkpoint to standard Hugging Face format for deployment:
 
 ```bash
-python convert_checkpoint_to_hf.py \
-  --nemo_logs_dir outputs/Qwen/Qwen3-8B/nemo_logs
+python convert_checkpoint_to_hf.py
 ```
 
+The script automatically:
+- Finds the latest `nemo_logs` directory under `outputs/`
+- Discovers the latest checkpoint within that directory
+- Exports to HuggingFace format with LoRA weights merged by default
+
 **Parameters:**
-- `--nemo_logs_dir`: Directory containing NeMo logs (default: outputs/{base_model}/nemo_logs)
+- `--nemo_logs_dir`: Directory containing NeMo logs (optional, auto-discovered from `outputs/`)
 - `--target`: Target format (default: "hf")
-- `--no_merge`: Not merge lora weights into base model (default: False)
+- `--no_merge`: Save as LoRA adapter instead of merging (default: False)
 - `--overwrite`: Whether to overwrite existing files (default: False)
+
+**LoRA Merging:**
+- By default, LoRA weights are **merged** into the base model for maximum compatibility
+- Merged models work with vLLM, TGI, and all Hugging Face tools
+- Use `--no_merge` to save as a separate LoRA adapter
 
 ## Project Structure
 

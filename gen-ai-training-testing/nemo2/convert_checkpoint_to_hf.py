@@ -11,7 +11,7 @@ from nemo.collections.llm import peft
 class ExportConfig:
     """Configuration for exporting NeMo 2.0 PEFT checkpoints to HuggingFace format."""
     # Checkpoint
-    nemo_logs_dir: str = "outputs/Qwen/Qwen3-8B/nemo_logs"
+    nemo_logs_dir: str = None
     
     # Export settings
     target: str = "hf"  # Target format (default: HuggingFace)
@@ -69,6 +69,16 @@ class ExportConfig:
         kwargs = {k: v for k, v in vars(args).items() 
                  if k in config_fields and v is not None}
         return cls(**kwargs)
+    
+    def __post_init__(self):
+        if self.nemo_logs_dir is None:
+            outputs_path = Path("outputs")
+            nemo_logs_dirs = list(outputs_path.rglob("nemo_logs"))
+            if nemo_logs_dirs:
+                self.nemo_logs_dir = str(max(nemo_logs_dirs, key=lambda p: p.stat().st_mtime))
+                print(f"Found nemo_logs directory: {self.nemo_logs_dir}")
+            else:
+                raise ValueError("No nemo_logs folder found under outputs folder")
     
     def validate(self):
         """Validate the configuration."""
