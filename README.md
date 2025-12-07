@@ -1,6 +1,6 @@
 # AWS Deep Learning Desktop with Amazon DCV
 
-Launch an AWS deep learning desktop with [Amazon DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning models.
+Launch an AWS deep learning desktop with [Amazon DCV](https://aws.amazon.com/hpc/dcv/) for developing, training, testing, and visualizing deep learning, and generative AI models.
 
 ## Overview
 
@@ -14,11 +14,8 @@ Launch an AWS deep learning desktop with [Amazon DCV](https://aws.amazon.com/hpc
 * **General Purpose:** Selected [m5](https://aws.amazon.com/ec2/instance-types/m5/), [c5](https://aws.amazon.com/ec2/instance-types/c5/), [r5](https://aws.amazon.com/ec2/instance-types/r5/)
 
 **Key Features:**
-* Pre-installed [CUDA](https://developer.nvidia.com/cuda-toolkit), CUDA Compatibility package, and [cuDNN](https://developer.nvidia.com/cudnn) for GPU instances
-* [Visual Studio Code](https://code.visualstudio.com/) IDE for development
-* Can serve as head node for [deep learning clusters](EFA-CLUSTER.md) with [EFA](https://aws.amazon.com/hpc/efa/) and [Open MPI](https://www.open-mpi.org/)
-
-**Note:** Automatic or manual CUDA driver upgrades may require manually installing a new [CUDA Compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/index.html) package.
+* Generative AI [Inference](#generative-ai-inference-testing) and [Training](#generative-ai-training-testing)
+* [Amazon SageMaker AI](#amazon-sagemaker-ai) integration
 
 ## Getting Started
 
@@ -85,18 +82,71 @@ See [CloudFormation Parameters](#desktop-cloudformation-template-parameters) for
 
 ## Using the Desktop
 
-### Generative AI Testing
+### Generative AI Inference Testing
 
-**Inference Testing:**
-* See [Inference Testing Guide](./gen-ai-inference-testing/README.md) for local Generative AI inference
+The desktop provides comprehensive inference testing frameworks for LLMs and embedding models. See [Inference Testing Guide](./gen-ai-inference-testing/README.md) for complete documentation.
 
-**Training Testing:**
-* [Nemo 2.0 Framework](./gen-ai-training-testing/nemo2/README.md) - Fine-tuning with Nemo 2.0
-* [PyTorch Lightning (PTL)](./gen-ai-training-testing/ptl/README.md) - Fine-tuning with PTL
-* [Accelerate](./gen-ai-training-testing/accelerate/README.md) - Fine-tuning with Hugging Face Accelerate
-* [Ray Train](./gen-ai-training-testing/ray_train/README.md) - Fine-tuning with Ray Train
+**Supported Inference Servers:**
+* [Triton Inference Server](https://github.com/triton-inference-server) - NVIDIA's production inference server
+* [DJL Serving](https://docs.djl.ai/master/docs/serving/serving/docs/lmi/index.html) - Deep Java Library with LMI
+* OpenAI-compatible Server - Standard OpenAI API interface
 
-### Data Storage
+**Supported Backends:**
+* [vLLM](https://github.com/vllm-project/vllm) - High-performance inference (GPU and Neuron)
+* [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) - Optimized for NVIDIA GPUs
+* Custom Python backends for embeddings
+
+**Key Features:**
+* Docker containers for all server/backend combinations
+* Locust-based load testing with configurable concurrency
+* Automatic model caching to EFS
+* Hardware auto-detection (CUDA GPUs or Neuron devices)
+* Performance metrics with latency, throughput, and error rates
+
+### Generative AI Training Testing
+
+The desktop provides four frameworks for fine-tuning LLMs with PEFT (LoRA) or full fine-tuning. See [Training Testing Guide](./gen-ai-training-testing/README.md) for complete documentation.
+
+**Available Frameworks:**
+
+| Framework | Key Features |
+|-----------|---------------|
+| [NeMo 2.0](./gen-ai-training-testing/nemo2/README.md) | Tensor/pipeline parallelism, Megatron-LM optimizations |
+| [PyTorch Lightning](./gen-ai-training-testing/ptl/README.md) |  Full control, flexible callbacks |
+| [Accelerate](./gen-ai-training-testing/accelerate/README.md) |  Simple API, minimal code |
+| [Ray Train](./gen-ai-training-testing/ray_train/README.md) | Distributed orchestration, auto-recovery |
+
+**Common Features:**
+* Generalized HuggingFace dataset pipeline with flexible templates
+* Multi-node, multi-GPU distributed training with FSDP
+* LoRA and full fine-tuning support
+* Automatic checkpoint conversion to HuggingFace format
+* Comprehensive testing and evaluation scripts
+* Docker containers for reproducibility
+
+### Amazon SageMaker AI
+
+The desktop is pre-configured for [Amazon SageMaker AI](https://aws.amazon.com/sagemaker-ai/).
+
+**Clone SageMaker AI Examples GitHUb Repository:**
+```bash
+mkdir ~/sagemaker-ai
+cd ~/sagemaker-ai
+git clone -b distributed-training-pipeline https://github.com/aws/amazon-sagemaker-examples.git
+```
+Install Python extension in Visual Code, and open the cloned `amazon-sagemaker-examples` repository within Visual Code.
+
+**Inference Examples:**
+1. Navigate to: `amazon-sagemaker-examples/advanced_functionality/large-model-inference-testing/large_model_inference.ipynb`
+2. Use conda `base` environment as kernel
+3. Skip to  **Initialize Notebook**
+
+**Training Examples (FSx for Lustre must be enabled on the Deep Learning desktop):**
+1. Navigate to: `amazon-sagemaker-examples/advanced_functionality/distributed-training-pipeline/dist_training_pipeline.ipynb`
+2. Use conda `base` environment as kernel
+3. Skip to **Initialize Notebook**
+
+### Data Storage and File Systems
 
 **S3 Access:**
 The desktop has access to your specified S3 bucket. Verify access:
@@ -111,31 +161,6 @@ No output means the bucket is empty (normal). An error indicates access issues.
 * **[Amazon FSx for Lustre](https://aws.amazon.com/fsx/):** Optional, mounted at `/home/ubuntu/fsx` by default (enable via `FSxForLustre` parameter)
 
 **Important:** EBS volumes are deleted on termination. EFS file-systems persist. 
-
-### Amazon SageMaker AI
-
-The desktop is pre-configured for [Amazon SageMaker AI](https://aws.amazon.com/sagemaker-ai/).
-
-**Quick Start:**
-```bash
-mkdir ~/git
-cd ~/git
-git clone -b distributed-training-pipeline https://github.com/aws/amazon-sagemaker-examples.git
-jupyter-lab 1>lab.out 2>&1 &
-```
-This starts Jupyter Lab and opens it in your browser.
-
-**Inference Examples:**
-1. Navigate to: `amazon-sagemaker-examples/advanced_functionality/large-model-inference-testing/large_model_inference.ipynb`
-2. Use any Python kernel
-3. Skip to **Initialize SageMaker session** cell
-4. Set `s3_bucket` to your desktop's S3 bucket
-
-**Training Examples (Advanced - requires FSx for Lustre):**
-1. Navigate to: `amazon-sagemaker-examples/advanced_functionality/distributed-training-pipeline/dist_training_pipeline.ipynb`
-2. Use the `base` kernel
-3. Skip to **Initialize SageMaker session** cell
-4. Set `s3_bucket` to your desktop's S3 bucket
 
 ## Managing the Desktop
 
@@ -201,8 +226,6 @@ All output variables are exported prefixed with the stack name.
 | FsxId | Desktop FSx Lustre file-system id, if FSx Luster is enabled. |
 | FsxMountName | Desktop FSx Lustre file-system mount name, if FSx Luster is enabled. |
 | FsxMountPath | Desktop FSx Lustre file-system mount path, if FSx Luster is enabled. |
-
-
 
 ## Security
 
