@@ -46,6 +46,8 @@ class Config:
     micro_batch_size: int = 8
     accumulate_grad_batches: int = 8
     limit_val_batches: int = 100
+    early_stopping_patience: int = 3
+    early_stopping_threshold: float = 0.001
     
     # LoRA Configuration
     peft_scheme: str = "lora"
@@ -220,8 +222,8 @@ def configure_callbacks():
     early_stopping_callback = run.Config(
         EarlyStopping,
         monitor='val_loss',           
-        min_delta=0.001,              
-        patience=3,                   
+        min_delta=config.early_stopping_threshold,              
+        patience=config.early_stopping_patience,                   
         verbose=True,                 
         mode='min',                   
         strict=True,                 
@@ -363,6 +365,7 @@ def main():
     nemo_recipe.trainer.strategy.pipeline_model_parallel_size=config.pipeline_parallel_size
     nemo_recipe.trainer.strategy.context_parallel_size=config.context_parallel_size
     nemo_recipe.trainer.callbacks.extend(configure_callbacks())
+    nemo_recipe.trainer.strategy.ckpt_load_strictness = False
     nemo_recipe.tokenizer="data"
 
     try:
