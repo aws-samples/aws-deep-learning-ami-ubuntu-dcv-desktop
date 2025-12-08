@@ -210,28 +210,11 @@ Delete CloudFormation stacks from the AWS console when no longer needed.
 | S3Import | *Optional*. S3 import prefix for FSx file-system. See FSxForLustre parameter. |
 | UbuntuAMIOverride | *Optional* advanced parameter to override the AMI. Leave blank to use default AMIs. See AWSUbuntuAMIType. |
 
-### Desktop CloudFormation Stack Outputs
-
-All output variables are exported prefixed with the stack name.
-
-| Output Key | Output Description |
-| --- | ----------- |
-| Ami | Desktop AMI id. |
-| VpcId | Desktop VPC id |
-| KeyPairName | Desktop EC2 key pair name |
-| InstanceProfileArn | Desktop EC2 Instance Profile ARN |
-| SecurityGroupId | Desktop security group id. |
-| EfsId | Desktop EFS file-system Id. |
-| EfsMountPath | Desktop EFS file-system mount path. |
-| FsxId | Desktop FSx Lustre file-system id, if FSx Luster is enabled. |
-| FsxMountName | Desktop FSx Lustre file-system mount name, if FSx Luster is enabled. |
-| FsxMountPath | Desktop FSx Lustre file-system mount path, if FSx Luster is enabled. |
-
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
 
 ## License
 
-This library is licensed under the MIT-0 License. See the LICENSE file.
+This project is licensed under the MIT-0 [License](./LICENSE).
 
