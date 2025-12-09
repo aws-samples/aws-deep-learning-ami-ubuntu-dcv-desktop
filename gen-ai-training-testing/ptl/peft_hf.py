@@ -188,6 +188,7 @@ class HFCausalLMModule(pl.LightningModule):
             trust_remote_code=trust_remote_code,
             dtype=dtype,
             attn_implementation="flash_attention_2",  # Use flash attention for stability
+            low_cpu_mem_usage=True,
             **model_kwargs
         )
         

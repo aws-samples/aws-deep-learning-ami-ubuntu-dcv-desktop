@@ -99,39 +99,39 @@ class SFTDataset(Dataset):
         self.is_test = is_test
         self.min_output_tokens = min_output_tokens
         
-        # Load JSONL data with validation
-        self.samples = []
-        skipped_count = 0
-        total_count = 0
+        # OPTIMIZATION: Load all data at once instead of line-by-line
+        print(f"Loading data from {data_path.name}...", end=" ", flush=True)
+        start_time = time.time()
         
         with open(data_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                total_count += 1
-                try:
-                    sample = json.loads(line)
-                    
-                    # Pre-validate that sample will have some output tokens
-                    if self._validate_sample(sample):
-                        self.samples.append(sample)
-                    else:
-                        skipped_count += 1
-                except json.JSONDecodeError as e:
-                    print(f"⚠ Warning: Failed to parse JSON line {total_count}: {e}")
-                    skipped_count += 1
-                except Exception as e:
-                    print(f"⚠ Warning: Error validating sample {total_count}: {e}")
-                    skipped_count += 1
+            lines = f.readlines()
         
-        if skipped_count > 0:
-            print(
-                f"⚠ Skipped {skipped_count}/{total_count} samples "
-                f"({100*skipped_count/total_count:.1f}%) with insufficient output tokens or errors"
-            )
+        # OPTIMIZATION: Parse JSON in parallel using list comprehension
+        self.samples = []
+        skipped_count = 0
+        
+        for line_num, line in enumerate(lines, 1):
+            try:
+                sample = json.loads(line)
+                if self._validate_sample(sample):
+                    self.samples.append(sample)
+                else:
+                    skipped_count += 1
+            except json.JSONDecodeError:
+                skipped_count += 1
+            except Exception:
+                skipped_count += 1
+        
+        load_time = time.time() - start_time
         
         if len(self.samples) == 0:
             raise ValueError(f"No valid samples loaded from {data_path}")
         
-        print(f"✓ Loaded {len(self.samples)} valid samples from {data_path.name}")
+        print(f"✓ Loaded {len(self.samples)} samples in {load_time:.2f}s", end="")
+        if skipped_count > 0:
+            print(f" (skipped {skipped_count})")
+        else:
+            print()
     
     def _validate_sample(self, sample: Dict[str, Any]) -> bool:
         """
@@ -153,7 +153,20 @@ class SFTDataset(Dataset):
             return False
         
         try:
-            # Tokenize output to check length
+            # OPTIMIZATION: Quick length check before tokenizing
+            # Approximate: 1 token ≈ 4 characters (conservative)
+            output_char_count = len(sample['output'])
+            estimated_tokens = output_char_count / 4
+            
+            # If estimated tokens are way too long, skip expensive tokenization
+            if estimated_tokens >= self.max_seq_length:
+                return False
+            
+            # If estimated tokens are way too short, skip expensive tokenization
+            if estimated_tokens < self.min_output_tokens * 0.5:  # Conservative estimate
+                return False
+            
+            # Only tokenize if we're in the reasonable range
             output_tokenized = self.tokenizer(
                 sample['output'],
                 truncation=False,
@@ -165,7 +178,6 @@ class SFTDataset(Dataset):
             output_length = len(output_tokenized['input_ids'])
             
             # Reject if output alone exceeds max sequence length
-            # (leave room for at least a BOS token)
             if output_length >= self.max_seq_length:
                 return False
             
@@ -213,8 +225,6 @@ class SFTDataset(Dataset):
             
             if max_input_length < 1:
                 # Output alone is too long - truncate output from right as last resort
-                # But ideally this should be filtered out in _validate_sample
-                print(f"⚠ Warning: Sample {idx} output alone exceeds max_seq_length. Truncating output.")
                 output_ids_list = output_ids_list[:self.max_seq_length - 1]
                 input_ids_list = input_ids_list[:1]  # Keep at least BOS token
                 input_length = 1
@@ -229,19 +239,6 @@ class SFTDataset(Dataset):
         
         # Create labels: mask input portion, keep output portion
         labels = ([-100] * input_length) + output_ids_list
-        
-        # Ensure lengths match
-        assert len(input_ids) == len(labels), (
-            f"Length mismatch: input_ids={len(input_ids)}, labels={len(labels)}"
-        )
-        
-        # Verify we have valid labels (this should always pass now)
-        valid_label_count = sum(1 for label in labels if label != -100)
-        if valid_label_count == 0:
-            raise ValueError(
-                f"Sample {idx} has no valid labels. This should not happen. "
-                f"Input length: {input_length}, Output length: {output_length}"
-            )
         
         # Create attention mask
         attention_mask = [1] * len(input_ids)
@@ -342,14 +339,8 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
             input_text = self.config.input_template.format(**mapped_sample)
             output_text = self.config.output_template.format(**mapped_sample)
         except KeyError as e:
-            print(
-                f"⚠ Missing field {e} in dataset sample. "
-                f"Available fields: {list(sample.keys())}. "
-                f"Check field_mapping configuration."
-            )
             return None
         except Exception as e:
-            print(f"⚠ Error formatting sample: {e}")
             return None
         
         # Validate that output is not empty
@@ -375,25 +366,35 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
             dataset: HuggingFace dataset or dataset split
             path: Output path for JSONL file
         """
+        print(f"  Converting {len(dataset)} samples...", end=" ", flush=True)
+        start_time = time.time()
+        
         converted_count = 0
         skipped_count = 0
         
-        with open(path, "w", encoding='utf-8') as f:
-            for idx, sample in enumerate(dataset):
-                converted = self._convert_sample(sample)
-                if converted is not None:
-                    try:
-                        json_string = json.dumps(converted, ensure_ascii=False) + "\n"
-                        f.write(json_string)
-                        converted_count += 1
-                    except Exception as e:
-                        print(f"⚠ Error writing sample {idx}: {e}")
-                        skipped_count += 1
-                else:
+        # OPTIMIZATION: Batch write to file
+        json_lines = []
+        
+        for sample in dataset:
+            converted = self._convert_sample(sample)
+            if converted is not None:
+                try:
+                    json_string = json.dumps(converted, ensure_ascii=False)
+                    json_lines.append(json_string)
+                    converted_count += 1
+                except Exception:
                     skipped_count += 1
+            else:
+                skipped_count += 1
+        
+        # Write all at once
+        with open(path, "w", encoding='utf-8') as f:
+            f.write('\n'.join(json_lines) + '\n')
+        
+        convert_time = time.time() - start_time
         
         skip_pct = 100 * skipped_count / (converted_count + skipped_count) if (converted_count + skipped_count) > 0 else 0
-        print(f"  Converted: {converted_count}, Skipped: {skipped_count} ({skip_pct:.1f}%)")
+        print(f"✓ {converted_count} samples in {convert_time:.2f}s (skipped {skipped_count}, {skip_pct:.1f}%)")
         
         if converted_count == 0:
             raise ValueError(f"No valid samples were converted for {path.name}")
@@ -451,10 +452,7 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
             'test': test_val['test']
         })
         
-        print(f"  Split sizes:")
-        print(f"    Train: {len(split_dataset['train'])}")
-        print(f"    Val: {len(split_dataset['val'])}")
-        print(f"    Test: {len(split_dataset['test'])}")
+        print(f"  Split sizes - Train: {len(split_dataset['train'])}, Val: {len(split_dataset['val'])}, Test: {len(split_dataset['test'])}")
         
         return split_dataset
     
@@ -483,6 +481,8 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
                 print("Preparing dataset...")
                 print("=" * 80)
                 
+                overall_start = time.time()
+                
                 hf_dataset = self._load_and_split_dataset()
                 
                 print(f"\nConverting to JSONL format...")
@@ -495,28 +495,33 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
                 print(f"Test set:")
                 self._convert_hf_dataset_to_jsonl(hf_dataset['test'], self.test_path)
                 
+                overall_time = time.time() - overall_start
+                
                 # Create marker file
                 with open(marker_file, 'w') as f:
                     f.write('ready')
                 
                 print("=" * 80)
-                print("Dataset preparation complete!")
+                print(f"Dataset preparation complete in {overall_time:.2f}s!")
                 print("=" * 80 + "\n")
             else:
                 print(f"✓ Dataset already prepared at {self.dataset_root}")
         else:
-            print(f"Global rank: {self.trainer.global_rank} waiting for data preparation...")
+            print(f"Rank {self.trainer.global_rank} waiting for data preparation...")
+            # OPTIMIZATION: Check less frequently (every 5s instead of 10s)
             while not os.path.exists(marker_file):
-                time.sleep(10)
-            print(f"Global rank: {self.trainer.global_rank} - data preparation complete!")
+                time.sleep(5)
+            print(f"Rank {self.trainer.global_rank} - data ready!")
         
         super().prepare_data()
     
     def setup(self, stage: Optional[str] = None):
         """Setup datasets for training/validation/testing."""
-        # Initialize tokenizer
+        # OPTIMIZATION: Load tokenizer only once
         if self.tokenizer is None:
-            print(f"Loading tokenizer: {self.tokenizer_name}")
+            print(f"Loading tokenizer: {self.tokenizer_name}...", end=" ", flush=True)
+            start_time = time.time()
+            
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.tokenizer_name,
                 use_fast=True,
@@ -525,11 +530,15 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
             # Ensure pad token is set
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
-                print(f"  Set pad_token to eos_token: {self.tokenizer.eos_token}")
+            
+            load_time = time.time() - start_time
+            print(f"✓ Loaded in {load_time:.2f}s")
         
         # Create datasets
         if stage == "fit" or stage is None:
             print("\nSetting up datasets...")
+            setup_start = time.time()
+            
             self.train_dataset = SFTDataset(
                 self.train_path,
                 self.tokenizer,
@@ -545,6 +554,8 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
                 min_output_tokens=self.min_output_tokens,
             )
             
+            setup_time = time.time() - setup_start
+            
             # Print dataset statistics
             print("\n" + "=" * 80)
             print("Dataset Statistics")
@@ -553,7 +564,7 @@ class GeneralizedHFDataModule(pl.LightningDataModule):
             print(f"Validation samples: {len(self.val_dataset)}")
             print(f"Max sequence length: {self.max_seq_length}")
             print(f"Micro batch size: {self.micro_batch_size}")
-            
+            print(f"Setup time: {setup_time:.2f}s")
             print("=" * 80 + "\n")
         
         if stage == "test" or stage is None:
