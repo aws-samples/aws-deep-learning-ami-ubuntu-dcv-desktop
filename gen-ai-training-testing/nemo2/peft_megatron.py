@@ -206,6 +206,7 @@ def configure_logger():
         mode="min",
         save_last="link",
         save_top_k=1,
+        save_weights_only=True,
     )
 
 
