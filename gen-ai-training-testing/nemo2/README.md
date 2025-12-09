@@ -307,25 +307,30 @@ All configuration parameters are defined in the Config class in `peft_megatron.p
 - `full_ft`: Enable full fine-tuning instead of PEFT (default: False)
 
 #### Paths
-- `data_dir`: Directory for processed datasets (default: auto-generated based on dataset configuration as `datasets/{dataset_name}/{dataset_config}/train={train_%}-val={val%}-test={test%}`)
+- `data_dir`: Directory for processed datasets (default: auto-generated as `datasets/{dataset_name}/{dataset_config}/train={train_%}-val={val%}-test={test%}`)
 - `output_dir`: Base directory for training outputs (default: `outputs/{hf_model_id}`)
-- `nemo_ckpt_dir`: Directory for imported Nemo checkpoints (default: `{output_dir}/imported_hf_ckpt`)
+- `nemo_ckpt_dir`: Directory for imported NeMo checkpoints (default: `{output_dir}/imported_hf_ckpt`)
 
-**Note on data_dir**: When not explicitly set, the framework automatically generates a self-documenting directory path based on your dataset configuration. For example, with the default Dolphin dataset (train_split_ratio=0.9, val_test_split_ratio=0.5), the path becomes: `datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%`. This ensures each dataset configuration has a unique directory and makes it easy to identify the split ratios used.
+**Note on data_dir**: When not explicitly set, the framework automatically generates a self-documenting directory path. For example, with the default Dolphin dataset (train_split_ratio=0.9, val_test_split_ratio=0.5), the path becomes: `datasets/cognitivecomputations_dolphin/flan1m-alpaca-uncensored/train=90%-val=5%-test=5%`
 
 #### Distributed Training
 - `num_nodes`: Number of compute nodes (default: 1)
 - `gpus_per_node`: GPUs per node (default: 8)
-- `num_gpus`: Total GPUs (computed: num_nodes × gpus_per_node)
+- `node_rank`: Node rank for multi-node training (default: 0)
+- `tensor_parallel_size`: Tensor parallelism size (default: 8)
+- `pipeline_parallel_size`: Pipeline parallelism size (default: 1)
+- `context_parallel_size`: Context parallelism size (default: 1)
 
 #### Training Hyperparameters
 - `max_steps`: Maximum training steps (default: 10000)
-- `val_check_interval`: Validation frequency in steps (default: 100)
+- `val_check_interval`: Validation frequency in steps (default: 800)
 - `log_every_n_steps`: Logging frequency (default: 10)
 - `micro_batch_size`: Batch size per GPU (default: 8)
 - `accumulate_grad_batches`: Gradient accumulation steps (default: 8)
-- `global_batch_size`: Effective batch size (computed: micro_batch_size × accumulate_grad_batches)
-- `limit_val_batches`: Maximum validation batches (default: 100)
+- `global_batch_size`: Effective batch size (computed: micro_batch_size × accumulate_grad_batches × data_parallel_size)
+- `limit_val_batches`: Maximum validation batches (default: 80)
+- `early_stopping_patience`: Early stopping patience (default: 3)
+- `early_stopping_threshold`: Early stopping threshold (default: 0.001)
 
 #### Sequence Configuration
 - `max_seq_length`: Maximum sequence length (default: 2048)
@@ -362,14 +367,16 @@ nemo_recipe.peft.lora_tuning.adapter.dropout = 0.05
 
 #### Parallelism Strategy
 
-The framework automatically configures parallelism based on your cluster setup:
-- `tensor_model_parallel_size`: Set to `gpus_per_node` (default: 8)
-- `pipeline_model_parallel_size`: Set to `num_nodes` (default: 1)
+The framework configures parallelism via Config parameters:
+- `tensor_parallel_size`: Tensor parallelism size (default: 8)
+- `pipeline_parallel_size`: Pipeline parallelism size (default: 1)
+- `context_parallel_size`: Context parallelism size (default: 1)
 
-For custom parallelism, modify the recipe after initialization:
+These are applied to the recipe:
 ```python
-nemo_recipe.trainer.strategy.tensor_model_parallel_size = 8
-nemo_recipe.trainer.strategy.pipeline_model_parallel_size = 2
+nemo_recipe.trainer.strategy.tensor_model_parallel_size = config.tensor_parallel_size
+nemo_recipe.trainer.strategy.pipeline_model_parallel_size = config.pipeline_parallel_size
+nemo_recipe.trainer.strategy.context_parallel_size = config.context_parallel_size
 ```
 
 ### Monitoring Training
@@ -378,8 +385,10 @@ nemo_recipe.trainer.strategy.pipeline_model_parallel_size = 2
 
 ```bash
 # In a separate terminal
-tensorboard --logdir outputs/{hf_model_id}/tb_logs
+tensorboard --logdir tb_logs
 ```
+
+TensorBoard logs are saved to `tb_logs/peft_megatron/` by default.
 
 ## CLI Usage Examples
 
@@ -480,38 +489,45 @@ python peft_megatron.py \
 
 ### Testing a Checkpoint
 
-After training, test your checkpoint with batch evaluation using NeMo's inference API:
+After training, test your checkpoint with batch evaluation using NeMo's dynamic inference engine:
 
 ```bash
 torchrun --standalone \
   --nproc-per-node=8 \
-   test_checkpoint.py \
+  test_checkpoint.py \
   --max_samples 1024 \
   --max_batch_size 16
 ```
 
 The script automatically:
 - Finds the latest `nemo_logs` directory under `outputs/`
-- Discovers the latest checkpoint within that directory
+- Discovers the latest checkpoint within that directory (format: `nemo_logs--val_loss={}-epoch={}-consumed_samples={}`)
 - Discovers the latest `test.jsonl` file under `datasets/`
-- Uses NeMo's dynamic inference engine for efficient batched generation
+- Uses Megatron-Core's DynamicInferenceEngine for efficient batched generation
 - Evaluates predictions using BERTScore
 
 **Parameters:**
 - `--nemo_logs_dir`: Directory containing NeMo logs (optional, auto-discovered from `outputs/`)
 - `--test_path`: Path to test dataset JSONL file (optional, auto-discovered from `datasets/`)
 - `--max_samples`: Maximum number of test samples to evaluate (default: 1024)
-- `--max_batch_size`: Batch size for generation (default: 16)
+- `--max_batch_size`: Maximum concurrent requests for dynamic batching (default: 16)
 - `--gpus_per_node`: Number of GPUs to use (default: 8)
+- `--num_nodes`: Number of nodes (default: 1)
 - `--tensor_parallel_size`: Tensor parallelism size (default: 8)
 - `--pipeline_parallel_size`: Pipeline parallelism size (default: 1)
+- `--context_parallel_size`: Context parallelism size (default: 1)
 - `--temperature`: Sampling temperature (default: 0.1)
+- `--top_k`: Top-k sampling (default: 0)
 - `--top_p`: Nucleus sampling parameter (default: 0.95)
 - `--num_tokens_to_generate`: Maximum tokens to generate (default: 512)
+- `--inference_max_seq_length`: Maximum sequence length for inference (default: 8192)
+- `--buffer_size_gb`: KV cache buffer size in GB (default: 20.0)
+- `--block_size_tokens`: KV cache block size (default: 256)
+- `--max_tokens`: Max tokens per batch (default: 65536)
 
 **Output:**
 - Predictions saved to: `{checkpoint_path}.jsonl`
-- Evaluation metrics: BERTScore
+- Evaluation metrics: BERTScore F1
 
 ### Converting to Hugging Face Format
 
@@ -523,19 +539,27 @@ python convert_checkpoint_to_hf.py
 
 The script automatically:
 - Finds the latest `nemo_logs` directory under `outputs/`
-- Discovers the latest checkpoint within that directory
-- Exports to HuggingFace format with LoRA weights merged by default
+- Discovers the latest checkpoint within that directory (format: `nemo_logs--val_loss={}-epoch={}-consumed_samples={}`)
+- Merges LoRA weights with base model (if using LoRA)
+- Exports to HuggingFace format
+- Saves to `{checkpoint_path}.hf_model` (merged) or `{checkpoint_path}.hf_peft` (adapter only)
 
 **Parameters:**
 - `--nemo_logs_dir`: Directory containing NeMo logs (optional, auto-discovered from `outputs/`)
 - `--target`: Target format (default: "hf")
 - `--no_merge`: Save as LoRA adapter instead of merging (default: False)
 - `--overwrite`: Whether to overwrite existing files (default: False)
+- `--use_modelopt`: Enable ModelOpt for quantized models (default: False)
 
 **LoRA Merging:**
 - By default, LoRA weights are **merged** into the base model for maximum compatibility
 - Merged models work with vLLM, TGI, and all Hugging Face tools
-- Use `--no_merge` to save as a separate LoRA adapter
+- Use `--no_merge` to save as a separate LoRA adapter (requires PEFT library to load)
+
+**Export Process:**
+1. If using LoRA: Merges adapter weights with base model (creates `.merged` checkpoint)
+2. Exports merged/full checkpoint to HuggingFace format using `api.export_ckpt`
+3. Saves model files including config.json, tokenizer files, and model weights
 
 ## Project Structure
 
@@ -550,8 +574,8 @@ The script automatically:
 │   └── {dataset_name}/             # e.g., cognitivecomputations_dolphin
 │       └── {dataset_config}/       # e.g., flan1m-alpaca-uncensored
 │           └── train={train_%}-val={val%}-test={test%}/  # e.g., train=90%-val=5%-test=5%
-│               ├── train.jsonl
-│               ├── val.jsonl
+│               ├── training.jsonl
+│               ├── validation.jsonl
 │               ├── test.jsonl
 │               └── .data_ready
 └── outputs/                        # Training outputs and logs
@@ -561,13 +585,13 @@ The script automatically:
         │   └── weights/
         ├── nemo_logs/              # Training logs and checkpoints
         │   └── {timestamp}/        # e.g., 2024-01-15_10-30-00
-        │       ├── checkpoints/
+        │       └── checkpoints/
         │           ├── nemo_logs--val_loss={}-epoch={}-consumed_samples={}/
         │           │   ├── context/
         │           │   └── weights/
         │           ├── nemo_logs--val_loss={}-epoch={}-consumed_samples={}.jsonl      # Test predictions
+        │           ├── nemo_logs--val_loss={}-epoch={}-consumed_samples={}.merged/    # Merged checkpoint (LoRA)
         │           └── nemo_logs--val_loss={}-epoch={}-consumed_samples={}.hf_model/  # Exported HF model
-        │       
         ├── tb_logs/                # TensorBoard logs
         ├── wandb_logs/             # Weights & Biases logs (if enabled)
         ├── mem_profile/            # Memory profiling data (if enabled)

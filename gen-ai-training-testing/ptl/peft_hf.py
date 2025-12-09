@@ -43,11 +43,13 @@ class Config:
 
     # Training Hyperparameters
     max_steps: int = 10000
-    val_check_interval: int = 100
+    val_check_interval: int = 400
     log_every_n_steps: int = 10
     micro_batch_size: int = 2
     accumulate_grad_batches: int = 4
-    limit_val_batches: int = 100
+    limit_val_batches: int = 40
+    early_stopping_patience: int = 3
+    early_stopping_threshold: float = 0.001
     
     # Optimizer Configuration
     warmup_steps: int = 100
@@ -356,8 +358,8 @@ def configure_callbacks(config: Config):
     """Configure training callbacks."""
     early_stopping_callback = EarlyStopping(
         monitor='val_loss',
-        min_delta=0.001,
-        patience=3,
+        min_delta=config.early_stopping_threshold,
+        patience=config.early_stopping_patience,
         verbose=True,
         mode='min',
         strict=True,

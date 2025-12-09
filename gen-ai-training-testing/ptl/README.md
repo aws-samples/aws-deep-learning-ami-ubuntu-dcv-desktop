@@ -1,17 +1,18 @@
-# PyTorch Lightning Parameter-Efficient Fine-Tuning (PEFT) Flexible Framework
+# PyTorch Lightning with FSDP
 
-This project provides a flexible framework for Parameter-Efficient Fine-Tuning (PEFT) of Large Language Models using PyTorch Lightning and FSDP (Fully Sharded Data Parallel). The framework provides a generalized data pipeline for HuggingFace datasets and streamlined configuration for distributed training with LoRA and other PEFT methods.
+This project provides a flexible framework for fine-tuning Large Language Models using PyTorch Lightning and FSDP (Fully Sharded Data Parallel). The framework provides a generalized data pipeline for HuggingFace datasets and streamlined configuration for distributed training with LoRA or full fine-tuning.
 
 ## Features
 
 - **Generalized HuggingFace Dataset Support**: Easy integration with any HuggingFace dataset through flexible templates and field mapping
 - **Distributed Training**: Multi-node, multi-GPU training with FSDP for efficient memory usage
-- **PEFT Methods**: Support for LoRA and other parameter-efficient fine-tuning schemes via HuggingFace PEFT
+- **LoRA and Full Fine-Tuning**: Support for LoRA parameter-efficient fine-tuning or full fine-tuning
 - **Automatic Data Conversion**: Converts HuggingFace datasets to JSONL format for efficient loading
 - **Customizable Training**: Extensive configuration options for hyperparameters, callbacks, and training strategies
 - **Flash Attention 2**: Optimized attention implementation for faster training
 - **Activation Checkpointing**: Reduce memory usage for large models
-- **DeepSpeed Inference**: Test checkpoints with DeepSpeed tensor parallelism for efficient batch evaluation
+- **Early Stopping**: Automatic training termination based on validation loss
+- **vLLM Inference**: Test checkpoints with vLLM for efficient batch evaluation
 
 ## Table of Contents
 
@@ -308,7 +309,7 @@ python peft_hf.py \
   --full_ft
 ```
 
-**Note:** Full fine-tuning requires significantly more memory and uses different learning rates (max_lr=1e-4, min_lr=1e-5) compared to LoRA (max_lr=5e-5, min_lr=1e-6).
+**Note:** Full fine-tuning requires significantly more memory. Learning rates are configured in the Config class (default: max_lr=1e-5, min_lr=1e-7).
 
 ### Advanced Configuration Options
 
@@ -444,8 +445,9 @@ python test_checkpoint.py \
 ```
 
 The script automatically:
-- Finds the latest checkpoint in `results/{base_model}/checkpoints/`
-- Discovers the latest `test.jsonl` file under `datasets/`
+- Finds the latest checkpoint (by modification time) in `results/{base_model}/checkpoints/`
+- Discovers the latest `test.jsonl` file (by modification time) under `datasets/`
+- Detects checkpoint type (LoRA or full fine-tuned) automatically
 - Loads the checkpoint and merges LoRA weights (if applicable)
 - Uses vLLM for fast batched inference
 - Evaluates predictions using BERTScore
@@ -463,8 +465,9 @@ The script automatically:
 - `--tensor_parallel_size`: vLLM tensor parallelism (default: 8)
 - `--gpu_memory_utilization`: GPU memory utilization (default: 0.9)
 - `--max_model_len`: Maximum model sequence length (default: 8192)
+- `--lora_rank`, `--lora_alpha`, `--lora_dropout`, `--lora_target_modules`: LoRA configuration (must match training)
 
-**Output:** Predictions are saved to `{checkpoint_path}/predictions.jsonl` and evaluated using BERTScore.
+**Output:** Predictions are saved to `{checkpoint_path}.jsonl` (replacing `.ckpt` extension) and evaluated using BERTScore.
 
 ### Converting to Hugging Face Format
 
@@ -481,10 +484,11 @@ The script automatically finds the latest checkpoint in `results/{base_model}/ch
 - `--base_model`: Base model ID (must match the model used for training)
 - `--checkpoints_dir`: Directory containing checkpoint files (optional, default: `results/{base_model}/checkpoints`)
 - `--no_merge`: If set, save as LoRA adapter; otherwise merge into base model (default: merge)
-- `--full_ft`: Set to True if checkpoint is from full fine-tuning (default: False)
+- `--lora_rank`, `--lora_alpha`, `--lora_dropout`, `--lora_target_modules`: LoRA configuration (must match training)
 
-**LoRA Merging:**
-- By default, LoRA weights are **merged** into the base model for maximum compatibility
+**Checkpoint Type Detection:**
+- The script automatically detects whether the checkpoint is LoRA or full fine-tuned
+- For LoRA checkpoints: By default, weights are **merged** into the base model for maximum compatibility
 - Merged models work with vLLM, TGI, and all Hugging Face tools
 - Use `--no_merge` to save as a separate LoRA adapter (smaller file size, requires PEFT library)
 - Output is saved as `.hf_model` (merged) or `.hf_peft` (adapter) suffix on checkpoint filename
@@ -495,7 +499,7 @@ The script automatically finds the latest checkpoint in `results/{base_model}/ch
 .
 ├── peft_hf.py                      # Main training script
 ├── dataset_module.py               # Dataset processing module
-├── test_checkpoint.py              # Test checkpoint with DeepSpeed TP
+├── test_checkpoint.py              # Test checkpoint with vLLM
 ├── convert_checkpoint_to_hf.py     # Convert to Hugging Face format
 ├── README.md                       # This file
 ├── datasets/                       # Downloaded and processed datasets
@@ -510,11 +514,11 @@ The script automatically finds the latest checkpoint in `results/{base_model}/ch
     └── Qwen/
         └── Qwen3-8B/
             ├── checkpoints/
-            │   ├── model-peft-lora-epoch={epoch:02d}-step={step}.ckpt
-            │   ├── model-ft-epoch={epoch:02d}-step={step}.ckpt
-            │   ├── model-peft-lora-epoch={epoch:02d}-step={step}.jsonl
-            │   ├── model-peft-lora-epoch={epoch:02d}-step={step}.hf_model/
-            │   └── model-peft-lora-epoch={epoch:02d}-step={step}.hf_peft/
+            │   ├── model-peft-lora-{epoch:02d}-{step}.ckpt
+            │   ├── model-ft-{epoch:02d}-{step}.ckpt
+            │   ├── model-peft-lora-{epoch:02d}-{step}.jsonl  # Test predictions
+            │   ├── model-peft-lora-{epoch:02d}-{step}.hf_model/  # Converted merged model
+            │   └── model-peft-lora-{epoch:02d}-{step}.hf_peft/   # Converted LoRA adapter
             ├── tb_logs/
             └── wandb_logs/
 ```
@@ -588,10 +592,9 @@ The framework automatically handles gradient clipping in the `on_before_optimize
 
 **Learning rates**
 ```python
-# Learning rates are automatically set based on full_ft flag
-# For LoRA: max_lr=5e-5, min_lr=1e-6
-# For full fine-tuning: max_lr=1e-4, min_lr=1e-5
-# Override by modifying the @property methods in Config class
+# Learning rates are configured in the Config class
+# Default: max_lr=1e-5, min_lr=1e-7
+# Override by passing --max_learning_rate and --min_learning_rate arguments
 ```
 
 **Optimizer configuration**
@@ -599,20 +602,16 @@ The framework automatically handles gradient clipping in the `on_before_optimize
 - Separate weight decay for parameters (no decay for bias/norm layers)
 - Cosine annealing scheduler with warmup
 
-### DeepSpeed Testing Issues
+### vLLM Testing Issues
 
-**Must use deepspeed launcher**
+**Run directly with python**
 ```bash
-# Correct
-deepspeed --num_gpus=8 test_checkpoint.py [args]
-
-# Incorrect
-python test_checkpoint.py [args]
+python test_checkpoint.py --base_model "Qwen/Qwen3-8B"
 ```
 
 **Tensor parallelism configuration**
 
-The test script uses DeepSpeed inference with tensor parallelism enabled. Ensure all GPUs are available and visible.
+The test script uses vLLM with tensor parallelism (default: 8 GPUs). Ensure all GPUs are available and visible. Adjust with `--tensor_parallel_size` if needed.
 
 ## Additional Notes
 
@@ -621,8 +620,9 @@ The training script uses `attn_implementation="flash_attention_2"` for improved 
 
 ### Checkpoint Format
 - Training checkpoints are saved as `.ckpt` files with PyTorch Lightning format
-- Checkpoint filenames indicate training type: `model-peft-lora-*` or `model-ft-*`
+- Checkpoint filenames indicate training type: `model-peft-lora-{epoch:02d}-{step}.ckpt` or `model-ft-{epoch:02d}-{step}.ckpt`
 - Latest checkpoint is automatically selected by modification time
+- State dict keys have `model.` prefix which is automatically removed during conversion
 
 ### Memory Optimization
 - `PYTORCH_ALLOC_CONF=expandable_segments:True` is set for better memory management

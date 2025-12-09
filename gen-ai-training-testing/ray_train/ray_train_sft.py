@@ -103,7 +103,7 @@ class Config:
     save_steps: int = 100
     eval_steps: int = 100
     save_total_limit: int = 2
-    max_eval_samples: int = None
+    max_eval_samples: int = 640
     use_wandb: bool = False
     
     # Other settings

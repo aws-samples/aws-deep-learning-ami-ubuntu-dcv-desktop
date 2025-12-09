@@ -1,16 +1,17 @@
-# Hugging Face Accelerate Parameter-Efficient Fine-Tuning (PEFT) Framework
+# Hugging Face Trainer with Accelerate
 
-This project provides a flexible framework for Parameter-Efficient Fine-Tuning (PEFT) of Large Language Models using Hugging Face Trainer with FSDP (Fully Sharded Data Parallel). The framework provides a generalized data pipeline for HuggingFace datasets and streamlined configuration for distributed training with LoRA.
+This project provides a flexible framework for fine-tuning Large Language Models using Hugging Face Trainer with Accelerate and FSDP (Fully Sharded Data Parallel). The framework provides a generalized data pipeline for HuggingFace datasets and streamlined configuration for distributed training with LoRA or full fine-tuning.
 
 ## Features
 
 - **Generalized HuggingFace Dataset Support**: Easy integration with any HuggingFace dataset through flexible templates and field mapping
 - **Distributed Training**: Multi-node, multi-GPU training with FSDP for efficient memory usage
-- **PEFT Methods**: Support for LoRA parameter-efficient fine-tuning via HuggingFace PEFT
+- **LoRA and Full Fine-Tuning**: Support for LoRA parameter-efficient fine-tuning or full fine-tuning
 - **Automatic Data Conversion**: Converts HuggingFace datasets to JSONL format for efficient loading
 - **Customizable Training**: Extensive configuration options for hyperparameters and training strategies
 - **Flash Attention 2**: Optimized attention implementation for faster training
 - **Gradient Checkpointing**: Reduce memory usage for large models
+- **Early Stopping**: Automatic training termination based on validation loss
 
 ## Table of Contents
 
@@ -134,7 +135,7 @@ The `accelerate_config.yaml` file configures the distributed training setup:
 - **FSDP Strategy**: FULL_SHARD for maximum memory efficiency
 - **Mixed Precision**: BFloat16 for training stability
 - **Backward Prefetch**: BACKWARD_PRE for improved performance
-- **Number of Processes**: Set to match your GPU count
+- **Number of Processes**: Set to match your GPU count (default: 8)
 
 ### Multi-Node Training
 
@@ -208,7 +209,7 @@ accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
 | `--output_dir` | str | Output directory | `results/{hf_model_id}` |
 | `--logging_steps` | int | Logging frequency | `10` |
 | `--eval_steps` | int | Evaluation frequency | `100` |
-| `--max_eval_samples` | int | Max eval samples | `None` |
+| `--max_eval_samples` | int | Max eval samples | `640` |
 | `--early_stopping_patience` | int | Early stopping patience | `3` |
 | `--early_stopping_threshold` | float | Early stopping threshold | `0.001` |
 | `--use_wandb` | flag | Enable Weights & Biases logging | `False` |
@@ -272,7 +273,7 @@ python convert_checkpoint_to_hf.py \
 ├── test_checkpoint.py           # Checkpoint testing script
 ├── convert_checkpoint_to_hf.py  # Checkpoint conversion script
 ├── dataset_module.py            # Dataset processing module
-├── accelerate_config.yaml             # FSDP configuration
+├── accelerate_config.yaml       # Accelerate FSDP configuration
 ├── README.md                    # This file
 ├── datasets/                    # Downloaded and processed datasets
 │   └── {dataset_name}/
@@ -284,11 +285,10 @@ python convert_checkpoint_to_hf.py \
 │               └── .data_ready
 └── results/                     # Training outputs and logs
     └── {hf_model_id}/
-        ├── checkpoint-*/         # FSDP checkpoints
+        ├── checkpoint-*/         # Training checkpoints
+        │   └── pytorch_model_fsdp_0/  # FSDP checkpoint files
         ├── final/                # Final model
         └── logs/                 # TensorBoard logs
-            ├── checkpoint-{step}/
-            └── final/
 ```
 
 ## Troubleshooting
@@ -374,13 +374,20 @@ The training script uses `attn_implementation="flash_attention_2"` for improved 
 
 ### Checkpoint Format
 
-- Checkpoints are saved in HuggingFace format
-- LoRA adapters can be loaded with PEFT library
-- Checkpoints include both model weights and tokenizer
+- Checkpoints are saved in FSDP format under `pytorch_model_fsdp_0/` directory
+- Use `convert_checkpoint_to_hf.py` to convert to standard HuggingFace format
+- LoRA adapters can be merged or saved separately
+- Final model includes both model weights and tokenizer
 
 ### Memory Optimization
 
 - `PYTORCH_ALLOC_CONF=expandable_segments:True` is set for better memory management
 - FSDP uses FULL_SHARD strategy for maximum memory efficiency
 - Gradient checkpointing is enabled by default
-- CPU offload available via configuration
+- CPU offload available via accelerate_config.yaml configuration
+
+### Training Features
+
+- **Early Stopping**: Automatically stops training when validation loss stops improving
+- **Best Model Saving**: Only saves checkpoints when validation loss improves
+- **Data Collator**: Uses DataCollatorForSeq2Seq for robust padding with label masking

@@ -4,13 +4,15 @@ This project provides a framework for Parameter-Efficient Fine-Tuning (PEFT) of 
 
 ## Features
 
-- **Ray Train Integration**: Distributed training with Ray's native orchestration
-- **Generalized HuggingFace Dataset Support**: Easy integration with any HuggingFace dataset
-- **FSDP Support**: Multi-GPU training with FSDP for efficient memory usage
-- **PEFT Methods**: Support for LoRA via HuggingFace PEFT
-- **Automatic Data Conversion**: Converts HuggingFace datasets to JSONL format
-- **Flash Attention 2**: Optimized attention implementation
+- **Ray Train Integration**: Distributed training with Ray's native orchestration and fault tolerance
+- **Generalized HuggingFace Dataset Support**: Easy integration with any HuggingFace dataset via HFDatasetConfig
+- **FSDP Support**: Multi-GPU training with native PyTorch FSDP (FULL_SHARD strategy)
+- **PEFT Methods**: Support for LoRA via HuggingFace PEFT library
+- **Automatic Data Conversion**: Converts HuggingFace datasets to JSONL format with train/val/test splits
+- **Flash Attention 2**: Optimized attention implementation for faster training
 - **Gradient Checkpointing**: Reduce memory usage for large models
+- **Custom Callbacks**: SaveOnBestMetricCallback and EarlyStoppingCallback for efficient training
+- **vLLM Testing**: Built-in testing script with vLLM for fast inference and BERTScore evaluation
 
 ## Prerequisites
 
@@ -49,16 +51,16 @@ python ray_train_sft.py
 
 This will:
 1. Download the Qwen/Qwen3-8B model from HuggingFace
-2. Load and process the Dolphin dataset
-3. Start LoRA fine-tuning with available GPUs using FSDP
+2. Load and process the cognitivecomputations/dolphin dataset (flan1m-alpaca-uncensored config)
+3. Start LoRA fine-tuning with all available GPUs using FSDP
 
 ## Training Different Models
 
 ### Supported Models
 
-The framework supports any HuggingFace causal language model:
+The framework supports any HuggingFace causal language model with Flash Attention 2:
 
-- **Qwen Family**: `Qwen/Qwen3-8B`, `Qwen/Qwen3-14B`, `Qwen/Qwen3-70B`
+- **Qwen Family**: `Qwen/Qwen3-8B` (default), `Qwen/Qwen3-14B`, `Qwen/Qwen3-70B`
 - **Llama Family**: `meta-llama/Llama-3-8B`, `meta-llama/Meta-Llama-3.1-8B`, `meta-llama/Meta-Llama-3.1-70B`
 - **Mistral**: `mistralai/Mistral-7B-v0.1`, `mistralai/Mixtral-8x7B-v0.1`
 - **Phi**: `microsoft/Phi-3-medium-4k-instruct`
@@ -70,31 +72,40 @@ python ray_train_sft.py \
   --hf_model_id "meta-llama/Llama-3-8B" \
   --max_steps 5000 \
   --per_device_train_batch_size 2 \
-  --gradient_accumulation_steps 8
+  --gradient_accumulation_steps 4
 ```
 
 ## Using Different Datasets
 
-The framework uses `HFDatasetConfig` to define dataset loading and formatting. Modify the configuration in `ray_train_sft.py`:
+The framework uses `HFDatasetConfig` to define dataset loading and formatting. Use CLI arguments with `hfdc_` prefix:
+
+```bash
+python ray_train_sft.py \
+  --hfdc_dataset_name "your-org/your-dataset" \
+  --hfdc_dataset_config "subset-name" \
+  --hfdc_input_template "Your input: {field1}\n{field2}\n" \
+  --hfdc_output_template "Your output: {field3}" \
+  --hfdc_field_mapping '{"field1": "actual_column_1", "field2": "actual_column_2", "field3": "actual_column_3"}'
+```
+
+Or modify the default configuration in `ray_train_sft.py`:
 
 ```python
-@dataclass
-class Config:
-    hf_dataset_config: HFDatasetConfig = field(default_factory=lambda: HFDatasetConfig(
-        dataset_name="your-org/your-dataset",
-        dataset_config="subset-name",  # Optional
-        split="train",
-        train_split_ratio=0.9,
-        val_test_split_ratio=0.5,
-        input_template="Your input format: {field1}\\n{field2}\\n",
-        output_template="Your output format: {field3}",
-        field_mapping={
-            "field1": "actual_column_1",
-            "field2": "actual_column_2",
-            "field3": "actual_column_3"
-        },
-        num_proc=8
-    ))
+hf_dataset_config: HFDatasetConfig = field(default_factory=lambda: HFDatasetConfig(
+    dataset_name="cognitivecomputations/dolphin",
+    dataset_config='flan1m-alpaca-uncensored',
+    split="train",
+    train_split_ratio=0.9,
+    val_test_split_ratio=0.5,
+    input_template="### Instruction:\\n{instruction}\\n ### Input:\\n{input}\\n",
+    output_template="### Response:\\n{output}",
+    field_mapping={
+        "instruction": "instruction",
+        "input": "input",
+        "output": "output"
+    },
+    num_proc=8
+))
 ```
 
 ## GPU Requirements
@@ -142,14 +153,14 @@ Key parameters in the Config class:
 
 - **Model**: `hf_model_id` - HuggingFace model identifier
 - **Paths**: 
-  - `data_dir`: Directory for processed datasets (auto-generated)
-  - `results_dir`: Base directory for training outputs
+  - `data_dir`: Directory for processed datasets (auto-generated from dataset config)
+  - `results_dir`: Base directory for training outputs (default: "results")
   - `logging_dir`: TensorBoard logging directory (auto-generated)
-- **Training**: `max_steps`, `per_device_train_batch_size`, `gradient_accumulation_steps`, `learning_rate`
+- **Training**: `max_steps`, `per_device_train_batch_size`, `per_device_eval_batch_size`, `gradient_accumulation_steps`, `learning_rate`, `min_learning_rate`
 - **Optimizer**: `weight_decay`, `warmup_ratio`, `lr_scheduler_type`, `max_grad_norm`
 - **LoRA**: `lora_rank`, `lora_alpha`, `lora_dropout`, `lora_target_modules`, `full_ft`
-- **Sequence**: `max_seq_length` - Maximum sequence length
-- **Logging**: `logging_steps`, `save_steps`, `eval_steps`, `save_total_limit`, `max_eval_samples`
+- **Sequence**: `max_seq_length` - Maximum sequence length (default: 2048)
+- **Logging**: `logging_steps`, `save_steps`, `eval_steps`, `save_total_limit`, `max_eval_samples`, `use_wandb`
 - **Early Stopping**: `early_stopping_patience`, `early_stopping_threshold`
 - **Other**: `seed`, `dataloader_num_workers`, `remove_unused_columns`
 
@@ -166,10 +177,11 @@ python ray_train_sft.py \
 ### Early Stopping and Best Model Saving
 
 The framework includes:
-- **SaveOnBestMetricCallback**: Saves checkpoints only when `eval_loss` improves
+- **SaveOnBestMetricCallback**: Custom callback that saves checkpoints only when `eval_loss` improves
 - **EarlyStoppingCallback**: Stops training if no improvement for `early_stopping_patience` evaluations
 - Default settings: patience=3, threshold=0.001
 - Evaluation frequency controlled by `eval_steps` (default: 100)
+- Metric for best model: `eval_loss` (lower is better)
 
 ### Limiting Validation Samples
 
@@ -194,36 +206,44 @@ python test_checkpoint.py \
 ```
 
 The script automatically:
-- Finds the latest checkpoint in `results/{base_model}/`
+- Finds the latest `checkpoint_*` directory in `results/{base_model}/`
 - Discovers the latest `test.jsonl` file under `datasets/`
-- Loads the checkpoint and merges LoRA weights (if applicable)
-- Uses vLLM for fast batched inference
+- Loads the checkpoint from Ray Train format
+- Merges LoRA weights into base model (if using LoRA)
+- Saves merged model to temporary directory for vLLM
+- Uses vLLM for fast batched inference with configurable tensor parallelism
 - Evaluates predictions using BERTScore
+- Cleans up temporary files after completion
 
 ### Converting to Hugging Face Format
 
-Convert your checkpoint to standard Hugging Face format:
+Convert your Ray Train checkpoint to standard Hugging Face format:
 
 ```bash
 python convert_checkpoint_to_hf.py \
   --base_model "Qwen/Qwen3-8B"
 ```
 
-The script automatically finds the latest checkpoint in `results/{base_model}/`. By default, it merges LoRA weights into the base model for maximum compatibility.
+The script automatically:
+- Finds the latest `checkpoint_*` directory in `results/{base_model}/`
+- Loads the checkpoint from Ray Train FSDP format
+- Converts to standard Hugging Face format
+- Saves to `{checkpoint_path}.hf_model` (merged) or `{checkpoint_path}.hf_peft` (adapter only)
 
 **LoRA Merging:**
-- By default, LoRA weights are **merged** into the base model
+- By default, LoRA weights are **merged** into the base model (recommended)
 - Merged models work with vLLM, TGI, and all Hugging Face tools
-- Use `--no_merge` to save as a separate LoRA adapter
+- Use `--no_merge` to save as a separate LoRA adapter (requires PEFT library to load)
+- Full fine-tuned models are saved directly without merging
 
 ## Project Structure
 
 ```
 .
-├── ray_train_sft.py              # Main training script
-├── dataset_module.py             # Dataset processing module
-├── test_checkpoint.py            # Test checkpoint script
-├── convert_checkpoint_to_hf.py   # Convert to Hugging Face format
+├── ray_train_sft.py              # Main training script with Ray Train
+├── dataset_module.py             # HFDatasetConfig and dataset processing
+├── test_checkpoint.py            # Test checkpoint with vLLM
+├── convert_checkpoint_to_hf.py   # Convert Ray Train checkpoint to HF format
 ├── README.md                     # This file
 ├── datasets/                     # Downloaded and processed datasets
 │   └── {dataset_name}/
@@ -297,7 +317,7 @@ python ray_train_sft.py \
 | `--save_steps` | int | Save frequency | `100` |
 | `--eval_steps` | int | Evaluation frequency | `100` |
 | `--save_total_limit` | int | Max checkpoints to keep | `2` |
-| `--max_eval_samples` | int | Max eval samples | `None` |
+| `--max_eval_samples` | int | Max eval samples | `640` |
 | `--early_stopping_patience` | int | Early stopping patience | `3` |
 | `--early_stopping_threshold` | float | Early stopping threshold | `0.001` |
 | `--seed` | int | Random seed | `16257` |
@@ -355,12 +375,15 @@ print("Sample data:", ds['train'][0])
 
 ### Ray Initialization Issues
 
-If Ray fails to initialize:
+Ray is automatically initialized in the script. If you encounter issues:
 ```bash
-# Start Ray cluster manually
-ray start --head
+# Check Ray status
+ray status
 
-# Then run training
+# Stop any existing Ray instance
+ray stop
+
+# Then run training (Ray will auto-initialize)
 python ray_train_sft.py
 ```
 
@@ -381,10 +404,13 @@ The training script uses `attn_implementation="flash_attention_2"` for improved 
 - Flexible resource management
 
 ### Training Features
-- **FSDP**: Full sharding for memory efficiency
-- **Flash Attention 2**: Optimized attention implementation
-- **Gradient Checkpointing**: Reduces memory usage
+- **Ray Train**: Distributed orchestration with fault tolerance (max_failures=2)
+- **FSDP**: Full sharding strategy for memory efficiency with native PyTorch FSDP
+- **Flash Attention 2**: Optimized attention implementation (attn_implementation="flash_attention_2")
+- **Gradient Checkpointing**: Reduces memory usage with use_reentrant=False
 - **Early Stopping**: Automatic stopping when validation loss plateaus
-- **Best Model Saving**: Only saves checkpoints that improve validation loss
+- **Best Model Saving**: SaveOnBestMetricCallback only saves checkpoints that improve eval_loss
 - **Cosine LR Schedule**: With warmup for stable training
 - **Mixed Precision**: BFloat16 for faster training
+- **Optimized Optimizer**: adamw_torch_fused for better performance
+- **Data Collator**: DataCollatorForSeq2Seq with pad_to_multiple_of=8 for tensor cores

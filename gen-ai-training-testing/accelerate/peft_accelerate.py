@@ -6,7 +6,7 @@ import json
 import time
 from dataclasses import dataclass, field, fields, MISSING
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import torch
 from accelerate.utils import set_seed
@@ -104,7 +104,7 @@ class TrainingConfig:
     # Logging
     logging_steps: int = 10
     eval_steps: int = 100
-    max_eval_samples: Optional[int] = None
+    max_eval_samples: int = 640
     use_wandb: bool = False
     
     # Other

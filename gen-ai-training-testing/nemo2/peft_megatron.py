@@ -41,11 +41,11 @@ class Config:
 
     # Training Hyperparameters
     max_steps: int = 10000
-    val_check_interval: int = 100
+    val_check_interval: int = 800
     log_every_n_steps: int = 10
     micro_batch_size: int = 8
     accumulate_grad_batches: int = 8
-    limit_val_batches: int = 100
+    limit_val_batches: int = 80
     early_stopping_patience: int = 3
     early_stopping_threshold: float = 0.001
     
@@ -85,7 +85,8 @@ class Config:
     
     @property
     def global_batch_size(self) -> int:
-        return self.micro_batch_size * self.accumulate_grad_batches
+        dp_size = (self.num_nodes * self.gpus_per_node) // self.tensor_parallel_size // self.pipeline_parallel_size
+        return self.micro_batch_size * self.accumulate_grad_batches * dp_size
     
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> 'Config':
