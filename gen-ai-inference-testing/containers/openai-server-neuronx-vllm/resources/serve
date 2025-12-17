@@ -121,7 +121,7 @@ def start_server():
             f"--port={http}"
         ]
 
-        with open('/tmp/config.yaml', 'r') as f:
+        with open(vllm_config, 'r') as f:
             config = yaml.safe_load(f)
 
         for key, value in config.items():
