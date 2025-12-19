@@ -174,7 +174,7 @@ Parameters:
       - p4de.24xlarge
       - p5.48xlarge
       - p5e.48xlarge
-      - p5en.48xlarge	
+      - p5en.48xlarge
       - trn1.2xlarge
       - trn1.32xlarge
       - trn1n.32xlarge
@@ -870,7 +870,7 @@ Resources:
               # update and install required packages
               apt-get update
 
-              apt-get -y install git tar
+              apt-get -y install git tar curl jq
               apt-get -y install software-properties-common
               
               # install docker if it is not installed
@@ -1143,12 +1143,25 @@ Resources:
               fi
             
               echo "conda activate" >> /home/ubuntu/.bashrc
-
-              # install aws cli
-              snap install aws-cli --classic
-
               # install visual code 
               apt-get -y install code
+
+              # install Kiro
+              URL=$(curl -s https://prod.download.desktop.kiro.dev/stable/metadata-linux-x64-stable.json | jq -r '.releases[] | select(.updateTo.url | endswith(".tar.gz")) | .updateTo.url')
+              mkdir -p /opt/kiro
+              curl -L "$URL" | tar -xz -C /opt/kiro --strip-components=1
+              chown -R root:root /opt/kiro
+              chmod 4755 /opt/kiro/chrome-sandbox
+              ln -sf /opt/kiro/bin/kiro /usr/local/bin/kiro
+              cat <<EOF > /usr/share/applications/kiro.desktop
+              [Desktop Entry]
+              Name=Kiro
+              Exec=/opt/kiro/bin/kiro %F
+              Icon=/opt/kiro/resources/app/resources/linux/code.png
+              Type=Application
+              Categories=Development;IDE;
+              EOF
+
               echo "Deep Learning Desktop is Ready!" > /etc/motd
 Outputs:
   Ami:
