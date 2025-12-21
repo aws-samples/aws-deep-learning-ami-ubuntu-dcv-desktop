@@ -1,0 +1,15 @@
+endpoint_url: "http://localhost:8080/v2/models/model/infer"
+module_name: "masked_lm_prompts"
+module_dir: "modules/wikitext"
+prompt_generator: "MaskedLMInputGenerator"
+template: {
+  "inputs": [
+    {
+      "name": "text_input",
+      "shape": [1, 1], 
+      "datatype": "BYTES",
+      "data": []
+    }
+  ]
+}
+template_keys: ["inputs.[0].data"]

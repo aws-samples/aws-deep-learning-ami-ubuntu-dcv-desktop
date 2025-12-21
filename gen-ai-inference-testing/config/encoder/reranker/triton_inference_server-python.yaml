@@ -1,0 +1,21 @@
+endpoint_url: "http://localhost:8080/v2/models/model/infer"
+module_name: "reranking_pairs"
+module_dir: "modules/ms-marco"
+prompt_generator: "RerankerInputGenerator"
+template: {
+  "inputs": [
+    {
+        "name": "query",
+        "shape": [1],
+        "datatype": "BYTES",
+        "data": []
+    },
+    {
+        "name": "texts",
+        "shape": [],
+        "datatype": "BYTES",
+        "data": []
+    }
+  ]
+}
+template_keys: ["inputs.[0].data",  "inputs.[1].data", "inputs.[1].shape",]

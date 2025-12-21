@@ -1,189 +1,214 @@
 # Gen AI Inference Testing
 
-Comprehensive inference testing framework for Generative AI models using multiple inference servers and backends on [AWS Deep Learning Desktop](https://github.com/aws-samples/aws-deep-learning-ami-ubuntu-dcv-desktop).
+A comprehensive testing framework for evaluating generative AI inference performance across multiple inference servers, engines, and hardware accelerators. This project provides automated testing capabilities for both decoder (text generation) and encoder (embeddings, classification) models using Locust load testing and LiteLLM proxy integration.
 
 ## Overview
 
-This directory provides Docker containers, scripts, and Jupyter notebooks for testing LLM and embedding model inference performance using:
-
-**Inference Servers:**
-* [Triton Inference Server](https://github.com/triton-inference-server)
-* [DJL Serving](https://docs.djl.ai/master/docs/serving/serving/docs/lmi/index.html) with LMI (Large Model Inference)
-* OpenAI-compatible Server
-
-**Backends:**
-* [vLLM](https://github.com/vllm-project/vllm) - GPU and Neuron
-* [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) - GPU only
-* DJL-LMI - Neuron only
-* Custom Python backend for embeddings
-
-**Supported Hardware:**
-* NVIDIA GPUs (CUDA)
-* AWS Trainium/Inferentia (Neuron)
-
-## Quick Start
-
-### LLM Inference Testing
-
-Launch Visual Studio Code and open [load_testing.ipynb](./locust-testing/load_testing.ipynb) to:
-1. Build Docker containers for your target hardware
-2. Download and cache Hugging Face models
-3. Launch inference servers locally
-4. Run Locust load tests with configurable concurrency
-5. Visualize performance metrics
-
-### Embeddings Model Testing
-
-Open [load_testing_embeddings.ipynb](./locust-testing/load_testing_embeddings.ipynb) for testing embedding models with Triton Inference Server.
-
-### LiteLLM Testing
-
-Open [litellm_testing.ipynb](./locust-testing/litellm_testing.ipynb) for testing with LiteLLM proxy.
-
-## Directory Structure
-
-### containers/
-
-Docker container definitions for all inference server and backend combinations:
-
-* **djl-serving-neuronx-lmi/** - DJL Serving with LMI for Neuron
-* **openai-server-cuda-vllm/** - OpenAI-compatible server with vLLM on CUDA
-* **openai-server-neuronx-vllm/** - OpenAI-compatible server with vLLM on Neuron (includes vLLM patches)
-* **tritonserver-cuda-trtllm/** - Triton with TensorRT-LLM on CUDA
-* **tritonserver-cuda-vllm/** - Triton with vLLM on CUDA
-* **tritonserver-neuronx-djl-lmi/** - Triton with DJL-LMI backend on Neuron
-* **tritonserver-neuronx-vllm/** - Triton with vLLM on Neuron (includes vLLM patches)
-
-### scripts/
-
-Build scripts for Docker containers:
-* `build-djl-serving-neuronx-lmi.sh`
-* `build-openai-server-cuda-vllm.sh`
-* `build-openai-server-neuronx-vllm.sh`
-* `build-tritonserver-cuda-trtllm.sh`
-* `build-tritonserver-cuda-vllm.sh`
-* `build-tritonserver-neuronx.sh`
-* `build-tritonserver-neuronx-djl-lmi.sh`
-* `build-tritonserver-neuronx-vllm.sh`
-
-### djl-serving/
-
-DJL Serving deployment configurations and scripts:
-
-* **compose/** - Docker Compose files for different Neuron device counts (1, 6, 12, 16) and CUDA
-* **tensorrt-llm/** - TensorRT-LLM backend scripts and compose files
-* **vllm/** - vLLM backend scripts for CUDA and Neuron
-* **tests/** - Test scripts for DJL-LMI endpoints
-
-### openai-server/
-
-OpenAI-compatible server deployment:
-
-* **compose/** - Docker Compose files for different Neuron device counts (1, 6, 12, 16) and CUDA
-* **vllm/** - vLLM backend scripts for CUDA and Neuron
-
-### triton-server/
-
-Triton Inference Server deployment configurations:
-
-* **compose/** - Docker Compose files for different Neuron device counts (1, 6, 12, 16) and CUDA
-* **djl-lmi/** - DJL-LMI backend with custom Python backend (`tnx_lmi_backend.py`)
-* **embeddings/** - Custom Python backend for embeddings (`triton_embeddings_backend.py`)
-* **tensorrt-llm/** - TensorRT-LLM backend with engine build scripts
-* **vllm/** - vLLM backend scripts for CUDA and Neuron
-* **tests/** - Test scripts for Triton endpoints (vLLM, TensorRT-LLM, DJL-LMI)
-
-### locust-testing/
-
-Locust-based load testing framework:
-
-**Notebooks:**
-* `load_testing.ipynb` - Main LLM inference testing notebook
-* `load_testing_embeddings.ipynb` - Embeddings model testing notebook
-* `litellm_testing.ipynb` - LiteLLM proxy testing notebook
-
-**Configuration:**
-* **config/** - YAML configurations for different server/backend combinations
-  * **code-gen/** - Configs for code generation models
-  * **multi-modal/** - Configs for multi-modal models
-  * Base configs for text generation and embeddings
-
-**Modules:**
-* **modules/inst-semeval2017/** - Embedding and reranking prompt generators
-* **modules/mminstruction-m3it/** - Multi-modal prompt generators
-* **modules/nicholasKluge-toxic-text/** - Llama Guard prompt generators
-* **modules/ronneldan_tinystories/** - Tiny stories prompt generators
-* **modules/sahil2801-codealpca20k/** - Code generation prompt generators
-* **modules/thudm-longbench/** - Long context prompt generators
-
-**Scripts:**
-* `build-containers.sh` - Build all LLM inference containers
-* `build-containers-embeddings.sh` - Build embeddings containers
-* `run_locust.sh` - Execute Locust load tests
-* `run_llm_perf_openai.sh` - Run LLM performance benchmarks
-* `endpoint_user.py` - Locust user implementation
-* `custom_endpoint_handler.py` - Custom endpoint handler
-* `litellm_config.yaml` - LiteLLM configuration
-
-## Usage Examples
-
-### Testing with Triton + vLLM on GPU
-
-```python
-# In load_testing.ipynb
-inference_server = 'triton_inference_server'
-backend = 'vllm'
-hf_model_id = 'meta-llama/Llama-3.1-8B-Instruct'
-```
-
-### Testing with DJL Serving + TensorRT-LLM
-
-```python
-# In load_testing.ipynb
-inference_server = 'djl_serving'
-backend = 'trtllm'
-hf_model_id = 'meta-llama/Llama-3.1-70B-Instruct'
-```
-
-### Testing with OpenAI Server + vLLM on Neuron
-
-```python
-# In load_testing.ipynb
-inference_server = 'openai_server'
-backend = 'vllm'
-hf_model_id = 'meta-llama/Llama-3.1-8B-Instruct'
-# Automatically detects Neuron hardware
-```
-
-### Testing Embeddings Models
-
-```python
-# In load_testing_embeddings.ipynb
-inference_server = 'triton_inference_server'
-backend = 'embeddings'
-hf_model_id = 'BAAI/bge-large-en-v1.5'
-```
+This framework supports testing of Large Language Models (LLMs) and encoder models on both NVIDIA GPUs and AWS AI chips (Neuron) using containerized inference servers. The main entry points are Jupyter notebooks that guide you through the complete testing workflow.
 
 ## Key Features
 
-* **Automated Model Caching** - Downloads and caches Hugging Face models to EFS
-* **Hardware Auto-Detection** - Automatically detects CUDA GPUs or Neuron devices
-* **Flexible Configuration** - YAML-based configs for different workloads
-* **Dynamic Prompt Generation** - Pluggable prompt generators for various datasets
-* **Concurrent Load Testing** - Locust-based testing with configurable concurrency
-* **Performance Metrics** - CSV output with latency, throughput, and error rates
-* **Docker Compose Orchestration** - Easy deployment with multiple device configurations
+- **Multiple Inference Servers**: Triton Inference Server, OpenAI Server (vLLM), and DJL Serving
+- **Multiple Engines**: vLLM, TensorRT-LLM, and Python backends
+- **Hardware Support**: NVIDIA CUDA GPUs and AWS Neuron chips
+- **Testing Frameworks**: Locust load testing and LiteLLM proxy testing
+- **Model Types**: Text generation, multimodal, code generation, embeddings, classification, and reranking
+- **Automated Containerization**: Docker-based deployment with automated container building
 
-## Requirements
+## Project Structure
 
-* AWS Deep Learning Desktop with GPU or Neuron instances
-* Docker and Docker Compose
-* Hugging Face account and access token (for gated models)
-* EFS mounted at `/home/ubuntu/efs` for model caching
+```
+gen-ai-inference-testing/
+├── litellm.ipynb              # LiteLLM testing notebook (main entry point)
+├── locust_decoder.ipynb       # Locust testing for decoder models
+├── locust_encoder.ipynb       # Locust testing for encoder models
+├── launch.sh                  # Main launcher script for inference servers
+├── run_locust.sh             # Locust test execution script
+├── endpoint_user.py          # Locust user implementation
+├── custom_endpoint_handler.py # LiteLLM custom endpoint handler
+├── config/                   # Configuration files
+│   ├── decoder/             # Decoder model configurations
+│   │   ├── text_only/       # Text-only model configs
+│   │   ├── text_image/      # Multimodal model configs
+│   │   └── code_gen/        # Code generation model configs
+│   ├── encoder/             # Encoder model configurations
+│   │   ├── embeddings/      # Text embedding configs
+│   │   ├── reranker/        # Reranking model configs
+│   │   ├── sequence_classification/
+│   │   ├── token_classification/
+│   │   └── masked_lm/       # Masked language model configs
+│   └── litellm/             # LiteLLM proxy configuration
+├── modules/                  # Test prompt generators
+│   ├── inst-semeval2017/    # Text generation prompts
+│   ├── ms-marco/            # Reranking prompts
+│   ├── squad-context/       # Context-based prompts
+│   ├── sahil2801-codealpca20k/ # Code generation prompts
+│   └── [other datasets]/   # Various specialized prompt generators
+├── scripts/                 # Container build scripts
+├── containers/              # Docker container definitions
+├── compose/                 # Docker Compose files
+├── triton_inference_server/ # Triton server configurations
+├── openai_server/           # OpenAI server configurations
+└── djl_serving/             # DJL serving configurations
+```
 
-## Notes
+## Supported Configurations
 
-* Neuron vLLM containers support both stock vLLM and [Neuron Upstreaming to vLLM](https://github.com/aws-neuron/upstreaming-to-vllm)
-* TensorRT-LLM requires model-specific conversion scripts
-* Tensor parallel size is auto-configured based on available device cores
-* All containers mount `/snapshots` for model access
+### Inference Servers
+- **Triton Inference Server**: NVIDIA's inference server with multiple backend support
+- **OpenAI Server**: vLLM's OpenAI-compatible API server
+- **DJL Serving**: Deep Java Library serving framework
+
+### Inference Engines
+- **vLLM**: High-performance LLM inference engine
+- **TensorRT-LLM**: NVIDIA's optimized inference engine
+- **Python**: Custom Python backend for specialized models
+
+### Model Types
+
+#### Decoder Models
+- **Text Only**: Standard text generation models (Llama, Mistral, etc.)
+- **Text + Image**: Multimodal models supporting both text and image inputs
+- **Code Generation**: Specialized code generation models
+
+#### Encoder Models
+- **Embeddings**: Text embedding models for semantic search
+- **Reranker**: Document reranking models
+- **Sequence Classification**: Text classification models
+- **Token Classification**: Named entity recognition models
+- **Masked Language Models**: BERT-style models
+
+## Configuration System
+
+The project uses YAML configuration files that specify:
+- API endpoints and request templates
+- Prompt generator modules and classes
+- Template keys for dynamic content injection
+
+Example configuration:
+```yaml
+endpoint_url: "http://localhost:8080/v1/chat/completions"
+module_name: "llama3_prompt_generator"
+module_dir: "modules/inst-semeval2017"
+prompt_generator: "PromptGenerator"
+template:
+  model: ""
+  max_tokens: 2048
+  messages:
+    - role: "user"
+      content:
+        - type: "text"
+          text: ""
+template_keys: ["model", "messages.[0].content.[0].text"]
+```
+
+## Testing Frameworks
+
+### Locust Testing
+- Concurrent load testing with configurable users and workers
+- Real-time performance metrics
+- CSV output for analysis
+- Customizable test duration and spawn rates
+
+### LiteLLM Testing
+- OpenAI-compatible API standardization
+- Custom endpoint handler for non-standard APIs
+- Proxy-based testing architecture
+- Integration with existing OpenAI tooling
+
+## Prompt Generators
+
+The `modules/` directory contains specialized prompt generators for different datasets and use cases:
+
+- **inst-semeval2017**: Technical writing and keyphrase generation
+- **ms-marco**: Document reranking pairs
+- **squad-context**: Question-answering contexts
+- **sahil2801-codealpca20k**: Code generation prompts
+- **thudm-longbench**: Long context evaluation
+- **mminstruction-m3it**: Multimodal instruction following
+
+Each module provides dataset-specific prompt generation with appropriate formatting for different model types.
+
+## Container Management
+
+The framework automatically builds and manages Docker containers for different inference configurations:
+
+```bash
+# Build containers for detected hardware
+bash scripts/build-containers.sh
+
+# Launch inference server
+bash launch.sh up
+
+# Stop inference server
+bash launch.sh down
+```
+
+## Performance Optimization
+
+- **Tensor Parallelism**: Automatic configuration based on available hardware
+- **Dynamic Batching**: Configurable batch sizes for optimal throughput
+- **Model Caching**: EFS-based model storage for faster startup
+- **Hardware Detection**: Automatic CUDA/Neuron detection and configuration
+
+## Output and Analysis
+
+Test results are saved in structured formats:
+- **Locust**: CSV files with detailed performance metrics
+- **LiteLLM**: JSON responses with timing information
+- **Logs**: Comprehensive logging for debugging and analysis
+
+## Advanced Usage
+
+### Custom Prompt Generators
+Create custom prompt generators by implementing the generator interface. The generator must return a list of items that map 1:1 to the template keys defined in your configuration file (excluding "model"). These items are injected into the template in the order specified by `template_keys`.
+
+```python
+class CustomPromptGenerator:
+    def __init__(self):
+        # Initialize your dataset or prompt source
+        pass
+    
+    def __call__(self):
+        # Yield lists of values that correspond to template_keys
+        # Example: if template_keys = ["messages.[0].content.[0].text"]
+        # then yield a single-item list with the prompt text
+        for prompt in your_prompts:
+            yield [prompt]  # Single item for single template key
+            
+        # For multiple template keys (excluding "model"):
+        # if template_keys = ["messages.[0].content.[0].text", "max_tokens"]
+        # then yield [prompt_text, max_tokens_value]
+```
+
+**Important Notes**:
+- The number of items in the returned list must match the number of `template_keys` (excluding "model")
+- Each item will be injected into the corresponding template key position
+- **Model injection is handled automatically**: If "model" appears in `template_keys`, it is injected externally from the `MODEL` environment variable. Your prompt generator should NOT return a model value.
+
+### Custom Configurations
+Add new model configurations by creating YAML files in the appropriate `config/` subdirectory following the existing template structure.
+
+### Environment Variables
+Key environment variables for customization:
+- `HF_TOKEN`: Hugging Face access token
+- `MAX_MODEL_LEN`: Maximum model context length
+- `TENSOR_PARALLEL_SIZE`: Tensor parallelism configuration
+- `MAX_NUM_SEQS`: Maximum batch size
+
+## Troubleshooting
+
+- **Container Build Failures**: Check `/tmp/build.log` for detailed error messages
+- **Model Download Issues**: Verify HF_TOKEN and model access permissions
+- **Memory Issues**: Adjust tensor parallel size or use smaller models
+- **Network Timeouts**: Increase timeout values in configuration files
+
+## Contributing
+
+When adding new inference servers, engines, or model types:
+1. Add appropriate configuration files in `config/`
+2. Create container definitions in `containers/`
+3. Add build scripts in `scripts/`
+4. Update documentation and examples
+
+This framework provides a comprehensive foundation for evaluating generative AI inference performance across diverse hardware and software configurations.

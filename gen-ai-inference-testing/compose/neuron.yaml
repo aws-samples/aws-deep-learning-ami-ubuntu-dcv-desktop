@@ -1,0 +1,24 @@
+services:
+  server_0:
+    image: ${IMAGE}
+    command: ${COMMAND}
+    privileged: true  # Grants hardware access
+    environment:
+      - AWS_NEURON_VISIBLE_DEVICES=ALL # Automatically uses all chips found
+      - MODEL_ID=${MODEL_ID}
+      - HF_HOME=/snapshots/huggingface
+      - HF_TOKEN=${HF_TOKEN}
+      - OMP_NUM_THREADS=${OMP_NUM_THREADS:-16}
+      - MAX_MODEL_LEN=${MAX_MODEL_LEN:-2048}
+      - TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE:-2}
+      - MAX_NUM_SEQS=${MAX_NUM_SEQS:-2}
+      - VLLM_NEURON_FRAMEWORK=${VLLM_NEURON_FRAMEWORK:-neuronx-distributed-inference}
+      - DEVICE=neuron
+    shm_size: 32Gb
+    volumes:
+      - /dev:/dev  # Maps all potential neuron devices
+      - ${HOME}/scripts:/scripts:ro
+      - ${HOME}/snapshots:/snapshots:rw
+      - ${HOME}/cache:/cache:rw
+    ports:
+      - "8080:8080"

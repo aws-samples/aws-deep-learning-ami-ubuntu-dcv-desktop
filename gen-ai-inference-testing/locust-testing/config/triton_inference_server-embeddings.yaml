@@ -1,6 +1,0 @@
-endpoint_url: "http://localhost:8080/v2/models/model/generate"
-module_name: "narrativeqa_context"
-module_dir: "modules/thudm-longbench"
-prompt_generator: "TextInputGenerator"
-template: { "text_input": "" }
-template_keys: [ "text_input" ]
