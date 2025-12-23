@@ -5,7 +5,6 @@ DIR=$scripts_dir/..
 
 cd $DIR/containers/triton_inference_server-vllm-neuron
 
-# Check if USE_NEURON_VLLM environment variable is set, default to false
-USE_NEURON_VLLM=${USE_NEURON_VLLM:-false}
-docker buildx build  --build-arg USE_NEURON_VLLM="${USE_NEURON_VLLM}" \
+VLLM_NEURON=${VLLM_NEURON:-"git+https://github.com/aws-neuron/upstreaming-to-vllm.git@2.26.1"}
+docker buildx build  --build-arg VLLM_NEURON="${VLLM_NEURON}" \
     -t triton_inference_server-vllm:neuron .

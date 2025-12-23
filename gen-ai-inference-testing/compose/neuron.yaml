@@ -12,7 +12,7 @@ services:
       - MAX_MODEL_LEN=${MAX_MODEL_LEN:-2048}
       - TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE:-2}
       - MAX_NUM_SEQS=${MAX_NUM_SEQS:-2}
-      - VLLM_NEURON_FRAMEWORK=${VLLM_NEURON_FRAMEWORK:-neuronx-distributed-inference}
+      - VLLM_NEURON_USE_V1=${VLLM_NEURON_USE_V1:-false}
       - DEVICE=neuron
     shm_size: 32Gb
     volumes:

@@ -5,7 +5,7 @@ Description: >-
 Parameters:
   AWSUbuntuAMIType:
     Description: >- 
-      Ubuntu Pro 24.04 not supported with AWS Trainium/Inferentia2.
+      Ubuntu Pro 24.04 now supports Nvidia GPU and AWS Trainium/Inferentia2.
     Type: String
     Default: "UbuntuPro2404LTS"
     AllowedValues:
@@ -360,22 +360,6 @@ Conditions:
 
   HasCapacityReservation: !Not [!Equals [!Ref CapacityReservationId, ""]]
 
-Rules:
-  Ubuntu2404TrainiumInferentiaRule:
-    RuleCondition: !Equals [!Ref AWSUbuntuAMIType, "UbuntuPro2404LTS"]
-    Assertions:
-      - Assert: !Not
-        - !Or
-          - !Equals [!Ref DesktopInstanceType, "trn1.2xlarge"]
-          - !Equals [!Ref DesktopInstanceType, "trn1.32xlarge"]
-          - !Equals [!Ref DesktopInstanceType, "trn1n.32xlarge"]
-          - !Equals [!Ref DesktopInstanceType, "trn2.48xlarge"]
-          - !Equals [!Ref DesktopInstanceType, "inf2.xlarge"]
-          - !Equals [!Ref DesktopInstanceType, "inf2.8xlarge"]
-          - !Equals [!Ref DesktopInstanceType, "inf2.24xlarge"]
-          - !Equals [!Ref DesktopInstanceType, "inf2.48xlarge"]
-        AssertDescription: "Ubuntu Pro 24.04 LTS is not supported with AWS Trainium (trn*) or Inferentia2 (inf*) instance types. Please use Ubuntu Pro 22.04 LTS instead."
-        
 Resources:
   
   DesktopSecurityGroup:

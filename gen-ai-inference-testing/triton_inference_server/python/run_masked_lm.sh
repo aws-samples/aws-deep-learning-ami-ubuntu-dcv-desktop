@@ -18,6 +18,8 @@ if [ "$DEVICE" == "neuron" ]; then
     export NEURON_CC_FLAGS="--model-type=transformer --enable-fast-loading-neuron-binaries"
     export NEURON_COMPILE_CACHE_URL="/cache"
     export FI_EFA_FORK_SAFE=1
+    export NEURON_COMPILED_ARTIFACTS="$CACHE_DIR/$MODEL_ID/neuron-compiled-artifacts-tp-$TENSOR_PARALLEL_SIZE"
+    mkdir -p "$NEURON_COMPILED_ARTIFACTS"
     echo "Running in Neuron mode..."
 else
     echo "Running in CUDA mode..."
