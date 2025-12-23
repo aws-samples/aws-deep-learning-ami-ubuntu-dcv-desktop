@@ -2,3 +2,5 @@
 **/.ipynb_checkpoints
 **/*.log
 **output/
+.vscode
+.DS_Store

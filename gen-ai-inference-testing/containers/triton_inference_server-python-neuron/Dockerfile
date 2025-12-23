@@ -33,8 +33,6 @@ RUN git clone --depth=1 --branch=r25.05 https://github.com/triton-inference-serv
     cp -r /server/build/opt/* /opt/ && \
     cd / && rm -rf /server
 
-RUN pip3 install --no-cache-dir pydantic pandas transformers==4.46.3
-
 # Application Setup
 COPY resources /opt/program
 RUN chmod u+x /opt/program/serve
