@@ -9,6 +9,7 @@
 : ${TENSOR_PARALLEL_SIZE:=8}
 : ${MAX_MODEL_LEN:=8192}
 : ${OMP_NUM_THREADS:=16}
+: ${MAX_NUM_SEQS:=8}
 
 # 3. Hardware-specific setup
 if [ "$DEVICE" == "neuron" ]; then
@@ -27,9 +28,10 @@ option.model_id=$MODEL_ID
 option.tensor_parallel_degree=$TENSOR_PARALLEL_SIZE
 option.dtype=fp16
 option.max_model_len=$MAX_MODEL_LEN
+option.max_num_batched_tokens=$MAX_MODEL_LEN
 option.model_loading_timeout=1800
 option.rolling_batch=vllm
-option.max_rolling_batch_size=8
+option.max_rolling_batch_size=$MAX_NUM_SEQS
 option.output_formatter=json
 EOF
 

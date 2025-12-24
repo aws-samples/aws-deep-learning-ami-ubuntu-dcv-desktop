@@ -22,22 +22,15 @@ case "$INFERENCE_SERVER" in
             "vllm")
                 case "$DEVICE" in
                     "cuda")
-                        export IMAGE="deepjavalibrary/djl-serving:0.34.0-lmi"
+                        export IMAGE="deepjavalibrary/djl-serving:0.36.0-lmi"
                         ;;
                     "neuron") 
                         export IMAGE="djl_serving-lmi:neuron"
                         ;;
                 esac
                 ;;
-            "trtllm")
-                if [[ "$DEVICE" != "cuda" ]]; then
-                    echo "Error: For djl_serving/trtllm, DEVICE must be 'cuda'."
-                    exit 1
-                fi
-                export IMAGE="deepjavalibrary/djl-serving:0.34.0-tensorrt-llm"
-                ;;
             *)
-                echo "Error: For djl_serving, INFERENCE_ENGINE must be 'vllm' or 'trtllm'."
+                echo "Error: For djl_serving, INFERENCE_ENGINE must be 'vllm'."
                 exit 1
                 ;;
         esac
