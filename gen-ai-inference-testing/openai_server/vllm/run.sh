@@ -35,6 +35,7 @@ max-num-seqs: $MAX_NUM_SEQS
 dtype: auto
 max-model-len: $MAX_MODEL_LEN
 max-num-batched-tokens: $MAX_MODEL_LEN
+trust-remote-code: true
 EOF
 
 # Add V0-specific options for Neuron
