@@ -6,7 +6,7 @@
 [ -z "$DEVICE" ] && echo "DEVICE must be set" && exit 1
 
 # Defaults
-VLLM_NEURON_USE_V1=${VLLM_NEURON_USE_V1:-false}
+VLLM_NEURON_USE_V1=${VLLM_NEURON_USE_V1:-true}
 BLOCK_SIZE=${BLOCK_SIZE:-16}
 TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE:-8}
 MAX_MODEL_LEN=${MAX_MODEL_LEN:-8192}
@@ -46,6 +46,7 @@ EOF
 else
 cat >> /tmp/config.yaml <<EOF
 block-size: $BLOCK_SIZE
+no-enable-prefix-caching: true
 EOF
 fi
 

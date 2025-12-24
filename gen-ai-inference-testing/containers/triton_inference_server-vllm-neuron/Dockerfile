@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=public.ecr.aws/neuron/pytorch-inference-neuronx:2.9.0-neuronx-py312-sdk2.27.0-ubuntu24.04
+ARG BASE_IMAGE=public.ecr.aws/neuron/pytorch-inference-vllm-neuronx:0.11.0-neuronx-py312-sdk2.27.0-ubuntu24.04
 FROM $BASE_IMAGE
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget gnupg2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Python Build Essentials
-RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel virtualenv build
+RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel virtualenv build cmake==3.28.3
 
 # Triton Core Build - Configure to use conda Python
 RUN git clone --depth=1 --branch=r25.05 https://github.com/triton-inference-server/server.git /server && \
@@ -39,15 +39,6 @@ RUN git clone --depth=1 --branch=r25.05 https://github.com/triton-inference-serv
     mkdir -p /opt/tritonserver/backends/vllm && \
     cp -r src/* /opt/tritonserver/backends/vllm/ && \
     rm -rf /tmp/vllm_backend
-
-# vLLM Installation
-ARG VLLM_NEURON="git+https://github.com/aws-neuron/upstreaming-to-vllm.git@2.26.1"
-ENV VLLM_TARGET_DEVICE=neuron
-RUN pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
-      pip3 install --no-cache-dir $VLLM_NEURON
-
-RUN sed -i 's/AutoConfig\.register("aimv2", AIMv2Config)/# AutoConfig\.register("aimv2", AIMv2Config)/' \
- /opt/conda/lib/python3.12/site-packages/vllm/transformers_utils/configs/ovis.py
 
 # Application Setup
 COPY resources /opt/program

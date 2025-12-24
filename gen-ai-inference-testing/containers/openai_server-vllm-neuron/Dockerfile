@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=public.ecr.aws/neuron/pytorch-inference-neuronx:2.9.0-neuronx-py312-sdk2.27.0-ubuntu24.04
+ARG BASE_IMAGE=public.ecr.aws/neuron/pytorch-inference-vllm-neuronx:0.11.0-neuronx-py312-sdk2.27.0-ubuntu24.04
 FROM $BASE_IMAGE
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -21,18 +21,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
             wget \
             nginx \
       && rm -rf /var/lib/apt/lists/*
-
-# Upgrade core tools in the existing environment
-RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel virtualenv build
-
-# vLLM Installation
-ARG VLLM_NEURON="git+https://github.com/vllm-project/vllm.git@v0.9.0.1"
-ENV VLLM_TARGET_DEVICE=neuron
-RUN pip3 config set global.extra-index-url https://pip.repos.neuron.amazonaws.com && \
-      pip3 install --no-cache-dir $VLLM_NEURON
-
-RUN sed -i 's/AutoConfig\.register("aimv2", AIMv2Config)/# AutoConfig\.register("aimv2", AIMv2Config)/' \
- /opt/conda/lib/python3.12/site-packages/vllm/transformers_utils/configs/ovis.py
 
 # App Setup
 COPY resources /opt/program
