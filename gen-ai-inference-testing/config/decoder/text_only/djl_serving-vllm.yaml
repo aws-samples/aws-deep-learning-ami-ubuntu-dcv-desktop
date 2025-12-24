@@ -2,5 +2,15 @@ endpoint_url: "http://localhost:8080/invocations"
 module_name: "llama3_prompt_generator"
 module_dir: "modules/inst-semeval2017"
 prompt_generator: "PromptGenerator"
-template: { "inputs": "", "parameters": { "do_sample": true, "max_new_tokens": 1024, "top_k": 50 }  }
-template_keys: ["inputs"]
+template: { 
+  "model": "lmi", 
+  "max_tokens": 2048, 
+  "top_k": 50, 
+  "messages": [ 
+    { 
+      "role": "user", 
+      "content": "" 
+    } 
+  ] 
+}
+template_keys: ["messages.[0].content"]

@@ -1,0 +1,19 @@
+endpoint_url: "http://localhost:8080/invocations"
+module_name: "mm_prompt_generator"
+module_dir: "modules/mminstruction-m3it"
+prompt_generator: "MultiModalPromptGenerator"
+template: { 
+  "model": "lmi", 
+  "max_tokens": 2048, 
+  "top_k": 50, 
+  "messages": [ 
+    { 
+      "role": "user", 
+      "content": [ 
+        {"type": "text", "text": ""}, 
+        {"type": "image_url", "image_url": { "url": ""} } 
+      ] 
+    } 
+  ] 
+}
+template_keys: [ "model", "messages.[0].content.[0].text", "messages.[0].content.[1].image_url.url"]

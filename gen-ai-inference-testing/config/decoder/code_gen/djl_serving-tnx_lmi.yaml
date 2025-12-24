@@ -1,6 +1,0 @@
-endpoint_url: "http://localhost:8080/invocations"
-module_name: "prompt_generator"
-module_dir: "modules/sahil2801-codealpca20k"
-prompt_generator: "PromptGenerator"
-template: { "inputs": "", "parameters": { "do_sample": true, "max_new_tokens": 8192, "top_k": 50 }  }
-template_keys: ["inputs"]
