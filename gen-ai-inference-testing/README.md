@@ -198,10 +198,63 @@ Key environment variables for customization:
 
 ## Troubleshooting
 
+### Common Issues
+
 - **Container Build Failures**: Check `/tmp/build.log` for detailed error messages
 - **Model Download Issues**: Verify HF_TOKEN and model access permissions
 - **Memory Issues**: Adjust tensor parallel size or use smaller models
 - **Network Timeouts**: Increase timeout values in configuration files
+
+### Models with Custom Code (trust-remote-code Error)
+
+**Error Symptoms**:
+When launching certain models (e.g., Phi-3-Vision, some multimodal models), the server fails to start with:
+```
+pydantic_core._pydantic_core.ValidationError for ModelConfig
+Value error, The repository [...] contains custom code which must be executed to correctly
+load the model. Please pass the argument `trust_remote_code=True` to allow custom code to be run.
+```
+
+**Cause**:
+Some models (particularly newer multimodal models) include custom modeling code in their HuggingFace repositories. vLLM requires explicit permission to execute this code for security reasons.
+
+**Security Consideration**:
+Enabling `trust-remote-code` allows the model repository to execute arbitrary Python code during model loading. Only enable this for models from trusted sources (official HuggingFace repositories from verified organizations like Microsoft, Meta, Mistral, etc.).
+
+**Solution**:
+To enable support for models with custom code, modify the vLLM configuration:
+
+**File**: `openai_server/vllm/run.sh` (or `triton_inference_server/vllm/run.sh` for Triton)
+
+**Location**: In the config generation section
+
+**Add this line**:
+```bash
+# Generate config
+cat > /tmp/config.yaml <<EOF
+tokenizer: $MODEL_ID
+model-impl: auto
+tensor-parallel-size: $TENSOR_PARALLEL_SIZE
+max-num-seqs: $MAX_NUM_SEQS
+dtype: auto
+max-model-len: $MAX_MODEL_LEN
+max-num-batched-tokens: $MAX_MODEL_LEN
+trust-remote-code: true    # Add this line
+EOF
+```
+
+**After making the change**:
+```bash
+bash launch.sh down
+bash launch.sh up
+```
+
+**Models that commonly require this flag**:
+- `microsoft/Phi-3-vision-128k-instruct`
+- `Qwen/Qwen2-VL-2B-Instruct`
+- Other multimodal or specialized architecture models
+
+**Note**: This flag is safe for standard models (Llama, Mistral text-only, etc.) and will be ignored if the model doesn't contain custom code. However, it should only be enabled when needed and with trusted model sources due to the security implications of executing remote code.
 
 ## Contributing
 
