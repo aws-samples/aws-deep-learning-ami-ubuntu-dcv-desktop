@@ -86,17 +86,13 @@ See [CloudFormation Parameters](#desktop-cloudformation-template-parameters) for
 
 The desktop provides comprehensive inference testing frameworks for LLMs and embedding models. See [Inference Testing Guide](./gen-ai-inference-testing/README.md) for complete documentation.
 
-**Note :** 
-Once you have successfully connected to the Deep Learning Desktop with DCV client, perform the below actions.
-
-1. Open Visual Studio Code (it's already installed in the Desktop) 
-2. Clone the project's git repository
-
+**Note:**
+Once you have successfully connected to the Deep Learning Desktop with the DCV client, perform the following steps:
+1. Clone the project's git repository to your home directory:
 ```bash
-   git clone <repository-url>
+   cd ~ && git clone <repository-url>
 ```
-
-ALternatively, you can also choose to run the inference and training Jupyter notebooks using Kiro which is also pre-installed in the Desktop.
+2. Open the cloned repository in Kiro (recommended) or Visual Studio Code (both are pre-installed).
 
 **Supported Inference Servers:**
 * [Triton Inference Server](https://github.com/triton-inference-server) - NVIDIA's production inference server
