@@ -222,7 +222,9 @@ Some models (particularly newer multimodal models) include custom modeling code 
 Enabling `trust-remote-code` allows the model repository to execute arbitrary Python code during model loading. Only enable this for models from trusted sources (official HuggingFace repositories from verified organizations like Microsoft, Meta, Mistral, etc.).
 
 **Solution**:
-To enable support for models with custom code, modify the vLLM configuration:
+To enable support for models with custom code, modify the configuration based on your inference server:
+
+#### For OpenAI Server or Triton Inference Server (vLLM)
 
 **File**: `openai_server/vllm/run.sh` (or `triton_inference_server/vllm/run.sh` for Triton)
 
@@ -240,6 +242,31 @@ dtype: auto
 max-model-len: $MAX_MODEL_LEN
 max-num-batched-tokens: $MAX_MODEL_LEN
 trust-remote-code: true    # Add this line
+EOF
+```
+
+#### For DJL Serving (vLLM)
+
+**File**: `djl_serving/vllm/run.sh`
+
+**Location**: In the serving.properties generation section
+
+**Add this line**:
+```bash
+# 4. Generate serving.properties
+cat > /opt/ml/model/serving.properties <<EOF
+engine=Python
+option.entryPoint=djl_python.lmi_vllm.vllm_async_service
+option.rolling_batch=disable
+option.async_mode=True
+option.model_id=$MODEL_ID
+option.tensor_parallel_degree=$TENSOR_PARALLEL_SIZE
+option.max_model_len=$MAX_MODEL_LEN
+option.max_num_batched_tokens=$MAX_MODEL_LEN
+option.model_loading_timeout=1800
+option.max_rolling_batch_size=$MAX_NUM_SEQS
+option.block_size=$BLOCK_SIZE
+option.trust_remote_code=true    # Add this line
 EOF
 ```
 
