@@ -1146,6 +1146,9 @@ Resources:
               Categories=Development;IDE;
               EOF
 
+              # install aws cli
+              snap install aws-cli --classic
+              
               echo "Deep Learning Desktop is Ready!" > /etc/motd
 Outputs:
   Ami:
