@@ -12,18 +12,7 @@
 : ${MAX_NUM_SEQS:=8}
 : ${BLOCK_SIZE:=16}
 
-# 3. Hardware-specific setup
-if [ "$DEVICE" == "neuron" ]; then
-    [ ! -d /cache ] && echo "/cache dir must exist for neuron" && exit 1
-    
-    CACHE_DIR=/cache
-    mkdir -p "$CACHE_DIR"
-    
-    export NEURON_CC_FLAGS="--model-type=transformer --enable-fast-loading-neuron-binaries"
-    export NEURON_COMPILE_CACHE_URL="$CACHE_DIR"
-fi
-
-# 4. Generate serving.properties
+# 3. Generate serving.properties
 cat > /opt/ml/model/serving.properties <<EOF
 engine=Python
 option.entryPoint=djl_python.lmi_vllm.vllm_async_service
@@ -37,6 +26,23 @@ option.model_loading_timeout=1800
 option.max_rolling_batch_size=$MAX_NUM_SEQS
 option.block_size=$BLOCK_SIZE
 EOF
+
+# 4. Hardware-specific setup
+if [ "$DEVICE" == "neuron" ]; then
+    [ ! -d /cache ] && echo "/cache dir must exist for neuron" && exit 1
+    
+    CACHE_DIR=/cache
+    mkdir -p "$CACHE_DIR"
+    
+    export NEURON_CC_FLAGS="--model-type=transformer --enable-fast-loading-neuron-binaries"
+    export NEURON_COMPILE_CACHE_URL="$CACHE_DIR"
+    cat >> /opt/ml/model/serving.properties <<EOF
+option.enable_prefix_caching=False
+option.enable_chunked_prefill=False
+EOF
+fi
+
+
 
 # 5. Start the service
 /usr/local/bin/dockerd-entrypoint.sh serve \
