@@ -1,0 +1,6 @@
+endpoint_url: "http://localhost:8080/v2/models/model/generate"
+module_name: "mm_prompt_generator"
+module_dir: "modules/mminstruction-m3it"
+prompt_generator: "MultiModalPromptGenerator"
+template: { "text_input": "", "image": "", "sampling_parameters": "{ \"top_k\": 50, \"max_tokens\": 2048 }" }
+template_keys: [ "text_input", "image" ]
