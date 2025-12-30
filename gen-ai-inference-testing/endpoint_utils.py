@@ -21,11 +21,15 @@ def get_health_endpoint(endpoint_url: str) -> str:
     if "/invocations" in endpoint_url:
         return endpoint_url.replace("/invocations", "/ping")
     
-    # 2. OpenAI / vLLM Style
-    if "/v1/chat/completions" in endpoint_url:
-        # /health is standard for vLLM liveness. 
-        # Optional: Use /v1/models if you want to ensure the model is actually loaded.
-        return endpoint_url.replace("/v1/chat/completions", "/health")
+    # 2. OpenAI / vLLM Style - handle all /v1 routes
+    if "/v1/" in endpoint_url:
+        # Extract everything up to and including /v1
+        # This handles /v1/chat/completions, /v1/completions, /v1/embeddings, etc.
+        v1_index = endpoint_url.find("/v1/")
+        base_url = endpoint_url[:v1_index]
+        # /health is standard for vLLM liveness
+        # Optional: Use /v1/models if you want to ensure the model is actually loaded
+        return base_url + "/health"
     
     # 3. Triton Inference Server (KServe v2)
     if "/v2/models/" in endpoint_url:
@@ -84,7 +88,7 @@ def get_prompt_generator(config: dict):
       
 def fill_template(template: dict, template_keys:list, inputs:list) -> dict:
         
-    assert len(template_keys) == len(inputs), f"template_keys: {template_keys}, prompts: {inputs}"
+    assert len(template_keys) <= len(inputs), f"template_keys: {template_keys}, prompts: {inputs}"
     for i, template_key in enumerate(template_keys):
         _template = template
         keys = template_key.split(".")

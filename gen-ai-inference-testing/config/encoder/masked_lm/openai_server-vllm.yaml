@@ -1,0 +1,9 @@
+endpoint_url: "http://localhost:8080/v1/embeddings"
+module_name: "masked_lm_prompts"
+module_dir: "modules/wikitext"
+prompt_generator: "MaskedLMInputGenerator"
+template: {
+  "model": "",
+  "input": ""
+}
+template_keys: ["model","input"]

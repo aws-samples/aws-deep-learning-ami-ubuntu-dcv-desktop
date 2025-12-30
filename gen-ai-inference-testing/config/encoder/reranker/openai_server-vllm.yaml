@@ -1,0 +1,10 @@
+endpoint_url: "http://localhost:8080/v1/rerank"
+module_name: "reranking_pairs"
+module_dir: "modules/ms-marco"
+prompt_generator: "RerankerInputGenerator"
+template: {
+  "model": "",
+  "query": "",
+  "documents": []
+}
+template_keys: ["model", "query", "documents"]

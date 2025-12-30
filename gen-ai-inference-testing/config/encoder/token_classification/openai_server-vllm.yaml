@@ -1,0 +1,9 @@
+endpoint_url: "http://localhost:8080/v1/embeddings"
+module_name: "token_classification_prompts"
+module_dir: "modules/conll2003"
+prompt_generator: "TokenClassificationInputGenerator"
+template: {
+  "model": "",
+  "input": ""
+}
+template_keys: ["model", "input"]

@@ -1,0 +1,9 @@
+endpoint_url: "http://localhost:8080/v1/embeddings"
+module_name: "squad_context"
+module_dir: "modules/squad-context"
+prompt_generator: "TextInputGenerator"
+template: {
+  "model": "",
+  "input": ""
+}
+template_keys: ["model", "input"]

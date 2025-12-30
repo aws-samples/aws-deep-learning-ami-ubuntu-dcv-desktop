@@ -1,0 +1,9 @@
+endpoint_url: "http://localhost:8080/classify"
+module_name: "sequence_classification_prompts"
+module_dir: "modules/imdb"
+prompt_generator: "SequenceClassificationInputGenerator"
+template: {
+  "model": "",
+  "input": ""
+}
+template_keys: ["model", "input"]
