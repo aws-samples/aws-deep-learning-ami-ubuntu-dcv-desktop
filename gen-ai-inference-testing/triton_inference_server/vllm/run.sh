@@ -20,6 +20,7 @@ max_batch_size: 0
 model_transaction_policy { decoupled: true }
 input [ 
   { name: "text_input", data_type: TYPE_STRING, dims: [1] },
+  { name: "image", data_type: TYPE_STRING, dims: [-1], optional: true },
   { name: "stream", data_type: TYPE_BOOL, dims: [1], optional: true },
   { name: "sampling_parameters", data_type: TYPE_STRING, dims: [1], optional: true },
   { name: "exclude_input_in_output", data_type: TYPE_BOOL, dims: [1], optional: true }
