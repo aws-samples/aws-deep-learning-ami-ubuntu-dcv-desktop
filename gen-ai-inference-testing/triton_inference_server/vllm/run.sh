@@ -12,6 +12,9 @@ TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE:-8}
 MAX_MODEL_LEN=${MAX_MODEL_LEN:-8192}
 MAX_NUM_SEQS=${MAX_NUM_SEQS:-8}
 OMP_NUM_THREADS=${OMP_NUM_THREADS:-16}
+# Uncomment for testing models and encoders that need remote code access
+# TRUST_REMOTE_CODE=${TRUST_REMOTE_CODE:-true}
+# LIMIT_MM_PER_PROMPT_IMAGE=${LIMIT_MM_PER_PROMPT_IMAGE:-1}
 
 # Triton config
 cat > /tmp/config.pbtxt <<EOF
@@ -52,6 +55,9 @@ cat > /tmp/model.json <<EOF
   "dtype": "auto",
   "max_model_len": $MAX_MODEL_LEN,
   "max_num_batched_tokens": $MAX_MODEL_LEN,
+# Uncomment below lines for testing multimodal models and encoders that need remote code access  
+#  "trust_remote_code": $TRUST_REMOTE_CODE,
+#  "limit_mm_per_prompt": {"image": $LIMIT_MM_PER_PROMPT_IMAGE},
 EOF
 
 # Add VLLM V0 options

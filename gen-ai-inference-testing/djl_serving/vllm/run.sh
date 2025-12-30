@@ -25,6 +25,8 @@ option.max_num_batched_tokens=$MAX_MODEL_LEN
 option.model_loading_timeout=1800
 option.max_rolling_batch_size=$MAX_NUM_SEQS
 option.block_size=$BLOCK_SIZE
+# Uncomment this line for testing models and tokenizers that need remote code access
+# option.trust_remote_code=true 
 EOF
 
 # 4. Hardware-specific setup
