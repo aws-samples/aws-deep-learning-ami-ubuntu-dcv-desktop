@@ -198,10 +198,10 @@ Delete CloudFormation stacks from the AWS console when no longer needed.
 
 | Parameter Name | Parameter Description |
 | --- | ----------- |
-| AWSUbuntuAMIType | **Required**. Selects the AMI type. Default is [AWS Deep Learning AMI (Ubuntu 18.04)](https://aws.amazon.com/marketplace/pp/Amazon-Web-Services-AWS-Deep-Learning-AMI-Ubuntu-1/B07Y43P7X5). |
-| DesktopAccessCIDR | Public IP CIDR range for desktop access, e.g. 1.2.3.4/32 or 7.8.0.0/16. Ignored if DesktopSecurityGroupId is specified. |
+| AWSUbuntuAMIType | **Required**. Selects the AMI type. |
+| DesktopAccessCIDR | Public IP CIDR range for desktop access. Use [AWS check ip](http://checkip.amazonaws.com/) to find your public IP address. Ignored if DesktopSecurityGroupId is specified. |
 | DesktopHasPublicIpAddress | **Required**. Specify if desktop has a public IP address. Set to "true" unless you have AWS [VPN](https://aws.amazon.com/vpn/) or [DirectConnect](https://aws.amazon.com/directconnect) enabled.
-| DesktopInstanceType | **Required**. Amazon EC2 instance type. G3, G4, P3 and P4 instance types are GPU enabled. |
+| DesktopInstanceType | **Required**. Amazon EC2 instance type. |
 | DesktopSecurityGroupId | *Optional* advanced parameter. EC2 security group for desktop. Must allow ports 22 (SSH) and 8443 (DCV) from DesktopAccessCIDR, access to EFS and FSx for Lustre, and all traffic within the security group. Leave blank to auto-create. |
 | DesktopVpcId | **Required**. Amazon VPC id. |
 | DesktopVpcSubnetId | **Required**. Amazon VPC subnet. Must be public with Internet Gateway (for Internet access) or private with NAT gateway. |
