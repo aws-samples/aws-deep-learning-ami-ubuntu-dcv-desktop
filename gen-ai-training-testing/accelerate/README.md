@@ -1,9 +1,11 @@
 # Hugging Face Trainer with Accelerate
 
-This project provides a flexible framework for fine-tuning Large Language Models using Hugging Face Trainer with Accelerate and FSDP (Fully Sharded Data Parallel). The framework provides a generalized data pipeline for HuggingFace datasets and streamlined configuration for distributed training with LoRA or full fine-tuning.
+This project provides a flexible framework for fine-tuning Large Language Models, training Reward Models, and performing alignment using PPO-based RLHF or Direct Preference Optimization (DPO) with Hugging Face Trainer, Accelerate, and FSDP (Fully Sharded Data Parallel). The framework provides a generalized data pipeline for HuggingFace datasets and streamlined configuration for distributed training with LoRA or full fine-tuning.
 
 ## Features
 
+- **Complete RLHF Pipeline**: SFT → Reward Model → PPO policy optimization
+- **DPO Pipeline**: SFT → DPO preference optimization (simpler, no reward model needed)
 - **Generalized HuggingFace Dataset Support**: Easy integration with any HuggingFace dataset through flexible templates and field mapping
 - **Distributed Training**: Multi-node, multi-GPU training with FSDP for efficient memory usage
 - **LoRA and Full Fine-Tuning**: Support for LoRA parameter-efficient fine-tuning or full fine-tuning
@@ -17,6 +19,10 @@ This project provides a flexible framework for fine-tuning Large Language Models
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Alignment Methods](#alignment-methods)
+  - [DPO Pipeline](#dpo-pipeline-recommended)
+  - [PPO-RLHF Pipeline](#ppo-rlhf-pipeline)
+- [Reward Model Training](#reward-model-training)
 - [Training Different Models](#training-different-models)
 - [Using Different Datasets](#using-different-datasets)
 - [Configuration](#configuration)
@@ -52,16 +58,218 @@ docker run --gpus all -it --rm \
 
 ## Quick Start
 
-Train the default Qwen3-8B model on the Dolphin dataset with optimal settings:
+### DPO Pipeline (Recommended)
+
+Run the DPO pipeline (SFT → DPO) with a single command:
+
+```bash
+bash run_dpo_pipeline.sh
+```
+
+This will:
+1. Train SFT model on Dolphin dataset
+2. Convert SFT checkpoint to HuggingFace format
+3. Train DPO policy using preference data (Anthropic/hh-rlhf)
+
+### PPO-RLHF Pipeline
+
+Run the complete RLHF pipeline (SFT → Reward Model → PPO):
+
+```bash
+bash run_ppo_pipeline.sh
+```
+
+This will:
+1. Train SFT model on Dolphin dataset
+2. Convert SFT checkpoint to HuggingFace format
+3. Train Reward Model on Anthropic/hh-rlhf dataset
+4. Convert Reward Model checkpoint to HuggingFace format
+5. Train PPO policy using the SFT and Reward models
+
+### Supervised Fine-Tuning (SFT) Only
+
+Train only the SFT model:
 
 ```bash
 accelerate launch --config_file accelerate_config.yaml peft_accelerate.py
 ```
 
-This will:
-1. Download the Qwen/Qwen3-8B model from HuggingFace
-2. Load and process the Dolphin dataset
-3. Start LoRA fine-tuning with 8 GPUs using FSDP
+## Alignment Methods
+
+### DPO Pipeline (Recommended)
+
+Direct Preference Optimization (DPO) is a simpler and more memory-efficient alternative to PPO-RLHF. It directly optimizes the policy using preference data without requiring a separate reward model.
+
+**Advantages of DPO:**
+- Simpler: No reward model training required
+- More stable: Direct optimization without RL complexity
+- Memory efficient: Only needs policy and reference models
+- Faster: Fewer training steps and components
+
+#### Using run_dpo_pipeline.sh
+
+```bash
+# Run full DPO pipeline with default settings
+bash run_dpo_pipeline.sh
+
+# Run with custom model
+bash run_dpo_pipeline.sh --base-model "meta-llama/Llama-3-8B"
+
+# Skip specific steps
+bash run_dpo_pipeline.sh --skip-sft  # Use existing SFT checkpoint
+
+# Pass additional arguments to training scripts
+bash run_dpo_pipeline.sh --max_steps 5000 --beta 0.2
+```
+
+#### Manual DPO Execution
+
+```bash
+# Step 1: Supervised Fine-Tuning
+accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
+  --hf_model_id "Qwen/Qwen3-8B"
+
+# Step 2: Convert SFT checkpoint
+python convert_checkpoint_to_hf.py --base_model "Qwen/Qwen3-8B"
+
+# Step 3: DPO Training
+accelerate launch --config_file accelerate_config.yaml dpo_accelerate.py \
+  --hf_model_id "Qwen/Qwen3-8B" \
+  --beta 0.1 \
+  --learning_rate 5e-7
+```
+
+#### DPO Configuration
+
+Key DPO hyperparameters:
+
+- `sft_model_path`: Path to SFT checkpoint (used as policy initialization)
+- `beta`: KL divergence penalty coefficient (default: 0.1, typical range: 0.1-0.5)
+- `learning_rate`: Learning rate (default: 5e-7, lower than SFT)
+- `max_steps`: Training steps (default: 10000)
+- `rmdc_dataset_name`: Preference dataset (default: "Anthropic/hh-rlhf")
+
+**Dataset Format**: DPO uses preference datasets with `chosen` and `rejected` responses (same format as reward model training).
+
+### PPO-RLHF Pipeline
+
+**⚠️ Note**: PPO is provided as a reference implementation but may encounter OOM (Out of Memory) errors on systems with limited GPU memory. PPO requires running multiple models simultaneously:
+- Policy model (trainable, on GPU)
+- Reference model (frozen, on CPU)
+- Reward model (frozen, on CPU)
+- vLLM inference engine (distributed across GPUs)
+
+This multi-model setup requires significant memory. **For most use cases, DPO is recommended** as it's simpler and more memory-efficient.
+
+#### Using run_ppo_pipeline.sh
+
+The easiest way to run the complete pipeline:
+
+```bash
+# Run full pipeline with default settings
+bash run_pipeline.sh
+
+# Run with custom model
+bash run_pipeline.sh --base-model "meta-llama/Llama-3-8B"
+
+# Skip specific steps
+bash run_pipeline.sh --skip-sft  # Use existing SFT checkpoint
+bash run_pipeline.sh --skip-reward  # Use existing reward model
+
+# Pass additional arguments to training scripts
+bash run_pipeline.sh --max_steps 5000 --learning_rate 1e-4
+```
+
+### Manual Step-by-Step Execution
+
+Alternatively, run each step manually:
+
+```bash
+# Step 1: Supervised Fine-Tuning
+accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
+  --hf_model_id "Qwen/Qwen3-8B"
+
+# Step 2: Convert SFT checkpoint
+python convert_checkpoint_to_hf.py --base_model "Qwen/Qwen3-8B"
+
+# Step 3: Train Reward Model
+accelerate launch --config_file accelerate_config.yaml reward_model_accelerate.py \
+  --hf_model_id "Qwen/Qwen3-8B"
+
+# Step 4: Convert Reward Model checkpoint
+python convert_checkpoint_to_hf.py \
+  --base_model "Qwen/Qwen3-8B" \
+  --checkpoints_dir "results/reward_Qwen/Qwen3-8B"
+
+# Step 5: PPO Policy Optimization
+accelerate launch --config_file accelerate_config.yaml ppo_accelerate.py \
+  --hf_model_id "Qwen/Qwen3-8B"
+```
+
+## Reward Model Training
+
+Train a reward model for RLHF. The reward model automatically uses the latest converted SFT checkpoint:
+
+```bash
+# Train from latest SFT checkpoint (automatic)
+accelerate launch --config_file accelerate_config.yaml reward_model_accelerate.py \
+  --hf_model_id "Qwen/Qwen3-8B"
+
+# Train from specific SFT checkpoint
+accelerate launch --config_file accelerate_config.yaml reward_model_accelerate.py \
+  --sft_model_path "results/Qwen/Qwen3-8B/checkpoint-1000.hf_model"
+
+# Use different reward dataset
+accelerate launch --config_file accelerate_config.yaml reward_model_accelerate.py \
+  --hf_model_id "Qwen/Qwen3-8B" \
+  --rmdc_dataset_name "OpenAssistant/oasst1"
+```
+
+### Reward Dataset Format
+
+Reward datasets support two formats:
+
+**Format 1: Separate input field**
+```json
+{"input": "prompt", "chosen": "good response", "rejected": "bad response"}
+```
+
+**Format 2: Combined format (no separate input)**
+```json
+{"chosen": "prompt + good response", "rejected": "prompt + bad response"}
+```
+
+Use custom converters for different dataset structures:
+
+```python
+# Example: Anthropic HH-RLHF converter
+def hh_rlhf_converter(sample):
+    return {
+        "chosen": sample["chosen"],
+        "rejected": sample["rejected"]
+    }
+
+# Pass to RMDatasetConfig
+config = RMDatasetConfig(
+    dataset_name="Anthropic/hh-rlhf",
+    custom_converter=hh_rlhf_converter
+)
+```
+
+See `rm_dataset_module.py` RewardModelDataset docstring for more converter examples.
+
+## DPO vs PPO: Which to Choose?
+
+| Aspect | DPO | PPO-RLHF |
+|--------|-----|----------|
+| **Complexity** | Simple (2 models) | Complex (4 models) |
+| **Memory** | Lower | Higher (may OOM) |
+| **Training Speed** | Faster | Slower |
+| **Stability** | More stable | Can be unstable |
+| **Dataset** | Preference pairs | Prompts + Reward model |
+| **Recommended For** | Most use cases | Research/experimentation |
+
+**Recommendation**: Use DPO unless you specifically need PPO for research purposes or have a well-tuned reward model.
 
 ## Training Different Models
 
@@ -216,7 +424,7 @@ accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
 | `--seed` | int | Random seed | `42` |
 | `--num_workers` | int | Dataloader workers | `8` |
 
-### Dataset Configuration CLI Arguments
+### SFT Dataset Configuration CLI Arguments
 
 | Argument | Type | Description |
 |----------|------|-------------|
@@ -229,6 +437,17 @@ accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
 | `--hfdc_output_template` | str | Output formatting template |
 | `--hfdc_field_mapping` | str (JSON) | Field name mapping |
 | `--hfdc_num_proc` | int | Number of processes |
+
+### Reward Model Dataset Configuration CLI Arguments
+
+| Argument | Type | Description |
+|----------|------|-------------|
+| `--rmdc_dataset_name` | str | HuggingFace dataset name |
+| `--rmdc_dataset_config` | str | Dataset configuration/subset |
+| `--rmdc_split` | str | Initial split to load |
+| `--rmdc_train_split_ratio` | float | Training data ratio |
+| `--rmdc_val_test_split_ratio` | float | Val/test split ratio |
+| `--rmdc_num_proc` | int | Number of processes |
 
 ## Testing Checkpoints
 
@@ -269,10 +488,16 @@ python convert_checkpoint_to_hf.py \
 
 ```
 .
-├── peft_accelerate.py           # Main training script
+├── peft_accelerate.py           # SFT training script
+├── reward_model_accelerate.py   # Reward model training script
+├── dpo_accelerate.py            # DPO training script
+├── ppo_accelerate.py            # PPO policy training script
 ├── test_checkpoint.py           # Checkpoint testing script
 ├── convert_checkpoint_to_hf.py  # Checkpoint conversion script
-├── dataset_module.py            # Dataset processing module
+├── dataset_module.py            # SFT dataset processing module
+├── rm_dataset_module.py         # Reward Model dataset processing module
+├── run_dpo_pipeline.sh          # DPO pipeline script (recommended)
+├── run_ppo_pipeline.sh          # PPO-RLHF pipeline script
 ├── accelerate_config.yaml       # Accelerate FSDP configuration
 ├── README.md                    # This file
 ├── datasets/                    # Downloaded and processed datasets
