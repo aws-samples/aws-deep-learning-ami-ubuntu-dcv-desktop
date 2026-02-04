@@ -6,12 +6,12 @@
 [ -z "$DEVICE" ] && echo "DEVICE must be set" && exit 1
 
 # Defaults
-VLLM_NEURON_USE_V1=${VLLM_NEURON_USE_V1:-true}
 TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE:-1}
 MAX_MODEL_LEN=${MAX_MODEL_LEN:-512}
 MAX_NUM_SEQS=${MAX_NUM_SEQS:-8}
 OMP_NUM_THREADS=${OMP_NUM_THREADS:-16}
 GPU_MEMORY_UTILIZATION=${GPU_MEMORY_UTILIZATION:-0.5}
+TRUST_REMOTE_CODE=${TRUST_REMOTE_CODE:-false}
 
 # Neuron setup
 if [ "$DEVICE" = "neuron" ]; then
@@ -36,6 +36,7 @@ dtype: auto
 max-model-len: $MAX_MODEL_LEN
 max-num-batched-tokens: $(($MAX_NUM_SEQS * $MAX_MODEL_LEN))
 gpu-memory-utilization: $GPU_MEMORY_UTILIZATION
+trust-remote-code: $TRUST_REMOTE_CODE
 task: "embed"
 EOF
 

@@ -12,9 +12,9 @@ services:
       - MAX_MODEL_LEN=${MAX_MODEL_LEN:-2048}
       - TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE:-2}
       - MAX_NUM_SEQS=${MAX_NUM_SEQS:-2}
-      - VLLM_NEURON_USE_V1=${VLLM_NEURON_USE_V1:-true}
       - DEVICE=neuron
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - TRUST_REMOTE_CODE=${TRUST_REMOTE_CODE:-false}
     shm_size: 32Gb
     volumes:
       - /dev:/dev  # Maps all potential neuron devices

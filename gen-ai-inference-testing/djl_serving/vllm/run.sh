@@ -11,6 +11,7 @@
 : ${OMP_NUM_THREADS:=16}
 : ${MAX_NUM_SEQS:=8}
 : ${BLOCK_SIZE:=16}
+: ${TRUST_REMOTE_CODE:=false}
 
 # 3. Generate serving.properties
 cat > /opt/ml/model/serving.properties <<EOF
@@ -25,8 +26,7 @@ option.max_num_batched_tokens=$MAX_MODEL_LEN
 option.model_loading_timeout=1800
 option.max_rolling_batch_size=$MAX_NUM_SEQS
 option.block_size=$BLOCK_SIZE
-# Uncomment this line for testing models and tokenizers that need remote code access
-# option.trust_remote_code=true 
+option.trust_remote_code=$TRUST_REMOTE_CODE 
 EOF
 
 # 4. Hardware-specific setup

@@ -6,12 +6,12 @@
 [ -z "$DEVICE" ] && echo "DEVICE must be set" && exit 1
 
 # Defaults
-VLLM_NEURON_USE_V1=${VLLM_NEURON_USE_V1:-true}
 BLOCK_SIZE=${BLOCK_SIZE:-16}
 TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE:-8}
 MAX_MODEL_LEN=${MAX_MODEL_LEN:-8192}
 MAX_NUM_SEQS=${MAX_NUM_SEQS:-8}
 OMP_NUM_THREADS=${OMP_NUM_THREADS:-16}
+TRUST_REMOTE_CODE=${TRUST_REMOTE_CODE:-false}
 
 # Neuron setup
 if [ "$DEVICE" = "neuron" ]; then
@@ -35,22 +35,10 @@ max-num-seqs: $MAX_NUM_SEQS
 dtype: auto
 max-model-len: $MAX_MODEL_LEN
 max-num-batched-tokens: $MAX_MODEL_LEN
-# Uncomment below line of code to test with models and encoders that need access to remote code
-# trust-remote-code: true
-EOF
-
-# Add V0-specific options for Neuron
-if [ "$DEVICE" = "neuron" ] && [ "$VLLM_NEURON_USE_V1" = "false" ]; then 
-cat >> /tmp/config.yaml <<EOF
-preemption-mode: swap
-swap-space: 4
-EOF
-else
-cat >> /tmp/config.yaml <<EOF
+trust-remote-code: $TRUST_REMOTE_CODE
 block-size: $BLOCK_SIZE
 no-enable-prefix-caching: true
 EOF
-fi
 
 # Final Execution
 export VLLM_CONFIG=/tmp/config.yaml

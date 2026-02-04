@@ -13,6 +13,7 @@ services:
       - TRTLLM_CONVERT_CKPT_SCRIPT=${TRTLLM_CONVERT_CKPT_SCRIPT}
       - TRITON_LAUNCH_SCRIPT=${TRITON_LAUNCH_SCRIPT}
       - DEVICE=cuda
+      - TRUST_REMOTE_CODE=${TRUST_REMOTE_CODE:-false}
     deploy:
       resources:
         reservations:

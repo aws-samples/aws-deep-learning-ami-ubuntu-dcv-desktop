@@ -12,6 +12,10 @@ if [[ "$DEVICE" != "cuda" && "$DEVICE" != "neuron" ]]; then
     exit 1
 fi
 
+build_script=scripts/"${INFERENCE_SERVER}-${INFERENCE_ENGINE}-${DEVICE}.sh"
+[ ! -f "$build_script" ] && echo "Build script $build_script not found!" && exit 1
+bash $build_script 1>/tmp/build.log 2>&1 
+
 # 3. SERVER and ENGINE logic Validation
 case "$INFERENCE_SERVER" in
     "triton_inference_server" | "openai_server")

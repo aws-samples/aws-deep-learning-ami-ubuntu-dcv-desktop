@@ -6,15 +6,13 @@
 [ -z "$DEVICE" ] && echo "DEVICE must be set" && exit 1
 
 # Defaults
-VLLM_NEURON_USE_V1=${VLLM_NEURON_USE_V1:-true}
 BLOCK_SIZE=${BLOCK_SIZE:-16}
 TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE:-8}
 MAX_MODEL_LEN=${MAX_MODEL_LEN:-8192}
 MAX_NUM_SEQS=${MAX_NUM_SEQS:-8}
 OMP_NUM_THREADS=${OMP_NUM_THREADS:-16}
-# Uncomment for testing models and encoders that need remote code access
-# TRUST_REMOTE_CODE=${TRUST_REMOTE_CODE:-true}
-# LIMIT_MM_PER_PROMPT_IMAGE=${LIMIT_MM_PER_PROMPT_IMAGE:-1}
+TRUST_REMOTE_CODE=${TRUST_REMOTE_CODE:-false}
+LIMIT_MM_PER_PROMPT_IMAGE=${LIMIT_MM_PER_PROMPT_IMAGE:-1}
 
 # Triton config
 cat > /tmp/config.pbtxt <<EOF
@@ -54,33 +52,13 @@ cat > /tmp/model.json <<EOF
   "max_num_seqs": $MAX_NUM_SEQS,
   "dtype": "auto",
   "max_model_len": $MAX_MODEL_LEN,
-  "max_num_batched_tokens": $MAX_MODEL_LEN,
-# Uncomment below lines for testing multimodal models and encoders that need remote code access  
-#  "trust_remote_code": $TRUST_REMOTE_CODE,
-#  "limit_mm_per_prompt": {"image": $LIMIT_MM_PER_PROMPT_IMAGE},
-EOF
-
-# Add VLLM V0 options
-if [ "$DEVICE" = "neuron" ] && [ "$VLLM_NEURON_USE_V1" = "false" ]; then
-  cat >> /tmp/model.json <<EOF
-  "preemption_mode": "swap",
-  "swap_space": 4,
-  "override_neuron_config": {
-    "continuous_batching": {
-      "max_num_seqs": $MAX_NUM_SEQS,
-      "optimized_paged_attention": true
-    }
-  }
-EOF
-else
-  cat >> /tmp/model.json <<EOF
+  "max_num_batched_tokens": $MAX_MODEL_LEN,  
+  "trust_remote_code": $TRUST_REMOTE_CODE,
+  "limit_mm_per_prompt": {"image": $LIMIT_MM_PER_PROMPT_IMAGE},
   "block_size": $BLOCK_SIZE,
   "enable_prefix_caching": false
+}
 EOF
-fi
-
-# Close JSON
-echo "}" >> /tmp/model.json
 
 # Deploy
 export MODEL_REPO=/opt/ml/model/model_repo
