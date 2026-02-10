@@ -5,8 +5,8 @@ Launch an AWS deep learning desktop with [Amazon DCV](https://aws.amazon.com/hpc
 ## Overview
 
 **Supported AMIs:**
-* Ubuntu Server Pro 24.04 LTS, Version 20250516 (Default)
-* Ubuntu Server Pro 22.04 LTS, Version 20250516
+* Ubuntu Server Pro 24.04 LTS, Version 20251212 (Default)
+* Ubuntu Server Pro 22.04 LTS, Version 20250516 (Deprecated)
 
 **Supported EC2 Instance Types:**
 * **Trainium/Inferentia:** [trn1](https://aws.amazon.com/ec2/instance-types/trn1/), [trn2](https://aws.amazon.com/ec2/instance-types/trn2/), [inf2](https://aws.amazon.com/ec2/instance-types/inf2/)
