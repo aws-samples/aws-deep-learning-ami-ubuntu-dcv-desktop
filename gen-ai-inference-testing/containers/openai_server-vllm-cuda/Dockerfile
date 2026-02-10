@@ -1,4 +1,4 @@
-ARG BASE_IMAGE="nvcr.io/nvidia/cuda:13.0.0-cudnn-devel-ubuntu24.04"
+ARG BASE_IMAGE="nvcr.io/nvidia/cuda:13.1.1-cudnn-devel-ubuntu24.04"
 FROM ${BASE_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive \
