@@ -3,16 +3,15 @@ Description: AWS Deep Learning Ubuntu EFA MPI cluster.
 Parameters:
 
   AWSUbuntuAMIType:
-    Description: Ubuntu Pro 22.04 LTS, Ubuntu Pro 24.04 LTS.
+    Description: Ubuntu Pro  24.04 LTS.
     Type: String
     Default: "UbuntuPro2404LTS"
     AllowedValues:
       - "UbuntuPro2404LTS"
-      - "UbuntuPro2204LTS"
   
   UbuntuAMIOverride:
     Description: >-
-      (Optional) Advanced option to override the Ubuntu 20.04 or 22.04 AMI.  
+      (Optional) Advanced option to override the Ubuntu 24.04 AMI.
       Leave blank, if unsure.
     Type: String
     AllowedPattern: '(ami-[0-9a-z]{17})?'
@@ -105,27 +104,6 @@ Parameters:
     Default: ""
 
 Mappings:
-  UbuntuPro2204LTS:
-    us-east-1:
-      AMI: ami-0f9de6e2d2f067fca
-    us-east-2:
-      AMI: ami-0c3b809fcf2445b6a
-    us-west-2:
-      AMI: ami-03f8acd418785369b
-    eu-west-1:
-      AMI: ami-0f0c3baa60262d5b9
-    eu-central-1:
-      AMI: ami-04a5bacc58328233d
-    ap-southeast-1:
-      AMI: ami-0c1907b6d738188e5
-    ap-southeast-2:
-      AMI: ami-0a2e29e3b4fc39212
-    ap-south-1:
-      AMI: ami-06b6e5225d1db5f46
-    ap-northeast-1:
-      AMI: ami-0f415cc2783de6675
-    ap-northeast-2:
-      AMI: ami-05a7f3469a7653972
   UbuntuPro2404LTS:
     us-east-1:
       AMI: ami-0b6c6ebed2801a5cb
@@ -167,17 +145,6 @@ Conditions:
     - 'trn1n.32xlarge'
 
   HasCapacityReservation: !Not [!Equals [!Ref CapacityReservationId, ""]]
-
-Rules:
-  Ubuntu2404TrainiumInferentiaRule:
-    RuleCondition: !Equals [!Ref AWSUbuntuAMIType, "UbuntuPro2404LTS"]
-    Assertions:
-      - Assert: !Not
-        - !Or
-          - !Equals [!Ref DesktopInstanceType, "trn1.32xlarge"]
-          - !Equals [!Ref DesktopInstanceType, "trn1n.32xlarge"]
-          - !Equals [!Ref DesktopInstanceType, "trn2.48xlarge"]
-        AssertDescription: "Ubuntu Pro 24.04 LTS is not supported with AWS Trainium (trn*) instance types. Please use Ubuntu Pro 22.04 LTS instead."
    
 Resources:
 
@@ -460,10 +427,6 @@ Resources:
                   dpkg -i cuda-keyring_1.1-1_all.deb && \
                   apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
                   apt-get -y install linux-headers-$(uname -r) build-essential && \
-                  ( ( [[ "$VERSION_ID" == 22.04* ]] && apt-get -y install gcc g++ cpp-11 gcc-11 g++-11 gcc-11-base libgcc-11-dev libstdc++-11-dev \
-                          cpp-12 gcc-12 g++-12 libgcc-12-dev libstdc++-12-dev && \
-                    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 50 --slave /usr/bin/g++ g++ /usr/bin/g++-11 && \
-                    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 --slave /usr/bin/g++ g++ /usr/bin/g++-12) || : ) && \
                   DRIVER_VERSION=$(apt-cache policy nvidia-fabricmanager-580 | awk '/Candidate:/ {print $2}') && \
                   DRIVER_MAJOR_VERSION=$(echo "$DRIVER_VERSION" | cut -d'.' -f1) && \
                   apt-get install -y libnvidia-cfg1-${DRIVER_MAJOR_VERSION}-server=$DRIVER_VERSION \
@@ -537,12 +500,8 @@ Resources:
                 if [[ "$VERSION_ID" == 24.04* ]]
                 then
                    add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu noble main"
-                elif [[ "$VERSION_ID" == 22.04* ]]
-                then   
-                  apt-get -y install lsb-core
-                  add-apt-repository "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main"
                 else
-                  echo "Ubuntu $VERSION_ID is not supported; must be one of 24.04, or 22.04"
+                  echo "Ubuntu $VERSION_ID is not supported; must be 24.04"
                   exit 1
                 fi
 
