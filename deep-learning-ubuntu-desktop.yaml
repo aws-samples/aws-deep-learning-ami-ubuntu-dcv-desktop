@@ -10,7 +10,6 @@ Parameters:
     Default: "UbuntuPro2404LTS"
     AllowedValues:
       - "UbuntuPro2404LTS"
-      - "UbuntuPro2204LTS"
   S3Bucket:
     Description: S3 bucket name for read write access from desktop
     Type: String
@@ -22,7 +21,7 @@ Parameters:
     Default: ""
   UbuntuAMIOverride:
     Description: >-
-      (Optional) Advanced option to override the Ubuntu 24.04 or 22.04 AMI.  
+      (Optional) Advanced option to override the Ubuntu 24.04 AMI.  
       Leave blank, if unsure.
     Type: String
     AllowedPattern: '(ami-[0-9a-z]{17})?'
@@ -206,27 +205,6 @@ Parameters:
     Default: ""
 
 Mappings:
-  UbuntuPro2204LTS:
-    us-east-1:
-      AMI: ami-0a7d80731ae1b2435
-    us-east-2:
-      AMI: ami-0b05d988257befbbe
-    us-west-2:
-      AMI: ami-0ec1bf4a8f92e7bd1
-    eu-west-1:
-      AMI: ami-021d9f8e43481e7da
-    eu-central-1:
-      AMI: ami-0a87a69d69fa289be
-    ap-southeast-1:
-      AMI: ami-0b8607d2721c94a77
-    ap-southeast-2:
-      AMI: ami-09a50a142626e358e
-    ap-south-1:
-      AMI: ami-021a584b49225376d
-    ap-northeast-1:
-      AMI: ami-07b3f199a3bed006a
-    ap-northeast-2:
-      AMI: ami-08943a151bd468f4e
   UbuntuPro2404LTS:
     us-east-1:
       AMI: ami-0b6c6ebed2801a5cb
@@ -779,10 +757,6 @@ Resources:
                 dpkg -i cuda-keyring_1.1-1_all.deb && \
                 apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
                 apt-get -y install linux-headers-$(uname -r) build-essential && \
-                ( ( [[ "$VERSION_ID" == 22.04* ]] && apt-get -y install gcc g++ cpp-11 gcc-11 g++-11 gcc-11-base libgcc-11-dev libstdc++-11-dev \
-                        cpp-12 gcc-12 g++-12 libgcc-12-dev libstdc++-12-dev && \
-                  update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 50 --slave /usr/bin/g++ g++ /usr/bin/g++-11 && \
-                  update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 --slave /usr/bin/g++ g++ /usr/bin/g++-12) || : ) && \
                 DRIVER_VERSION=$(apt-cache policy nvidia-fabricmanager-580 | awk '/Candidate:/ {print $2}') && \
                 DRIVER_MAJOR_VERSION=$(echo "$DRIVER_VERSION" | cut -d'.' -f1) && \
                 apt-get install -y libnvidia-cfg1-${DRIVER_MAJOR_VERSION}-server=$DRIVER_VERSION \
@@ -829,11 +803,7 @@ Resources:
               rm ./fsx-ubuntu-public-key.asc
 
               ( [[ "$VERSION_ID" == 24.04* ]] && \
-                add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu noble main" ) || \
-              ( [[ "$VERSION_ID" == 22.04* ]] && \
-                apt-get -y install lsb-core && \
-                add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu jammy main"
-              )
+                add-apt-repository -y  "deb https://fsx-lustre-client-repo.s3.amazonaws.com/ubuntu noble main" ) 
 
               # add key for NICE-DCV
               wget -qO - https://d1uj6qtbmh3dt5.cloudfront.net/NICE-GPG-KEY > ./NICE-GPG-KEY
@@ -927,11 +897,7 @@ Resources:
                 tar -xvzf nice-dcv-2024.0-19030-ubuntu2404-x86_64.tgz && \
                 cd nice-dcv-2024.0-19030-ubuntu2404-x86_64 && \
                 apt-get -y install ./nice-dcv-server_2024.0.19030-1_amd64.ubuntu2404.deb) || \
-              ( [[ "$VERSION_ID" == 22.04* ]] && \
-                wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz && \
-                tar -xvzf nice-dcv-2024.0-18131-ubuntu2204-x86_64.tgz && \
-                cd nice-dcv-2024.0-18131-ubuntu2204-x86_64 && \
-                apt-get -y install ./nice-dcv-server_2024.0.18131-1_amd64.ubuntu2204.deb) || echo "Retrying DCV install..."
+               echo "Retrying DCV install..."
                 
               systemctl daemon-reload && sync && reboot
               fi
