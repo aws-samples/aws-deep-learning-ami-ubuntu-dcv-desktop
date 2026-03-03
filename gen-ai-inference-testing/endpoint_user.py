@@ -3,6 +3,7 @@ from importlib import import_module
 import re
 import time
 import os
+import random
 import json
 import sys
 
@@ -60,6 +61,18 @@ class EndpointClient:
         if "model" in template_keys:
             inputs.insert(0, os.getenv("MODEL", ""))
         data = self._fill_template(template=template, template_keys=template_keys, inputs=inputs)
+
+        # Add model_id directly for multi-model case
+        model_id_str = os.getenv('MODEL', '')
+        if ',' in model_id_str:  # Multi-model mode
+            model_ids = [m.strip() for m in model_id_str.split(',')]
+            selected_model_id = random.choice(model_ids)
+            data['inputs'].append({
+                "name": "model_id",
+                "shape": [1, 1],
+                "datatype": "BYTES",
+                "data": [selected_model_id]
+            })
 
         body = json.dumps(data).encode("utf-8")
         headers = {"Content-Type":  self.content_type}

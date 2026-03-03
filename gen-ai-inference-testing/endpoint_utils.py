@@ -4,6 +4,8 @@ import requests
 import json
 import re
 import os
+import random
+import copy
 from pprint import pprint
 import sys
 from requests.exceptions import RequestException
@@ -107,7 +109,7 @@ def inference_request(config: dict):
     inputs = next(prompt_generator)
     inputs = [inputs] if isinstance(inputs, str) else inputs
 
-    template = config['template']
+    template = copy.deepcopy(config['template'])  # Deep copy to avoid modifying original
     assert template is not None
 
     template_keys = config['template_keys']
@@ -116,6 +118,18 @@ def inference_request(config: dict):
     if "model" in template_keys:
         inputs.insert(0, os.environ['MODEL_ID'])
     data = fill_template(template=template, template_keys=template_keys, inputs=inputs)
+
+    # Add model_id directly for multi-model case
+    model_id_str = os.environ.get('MODEL_ID', '')
+    if ',' in model_id_str:  # Multi-model mode
+        model_ids = [m.strip() for m in model_id_str.split(',')]
+        selected_model_id = random.choice(model_ids)
+        data['inputs'].append({
+            "name": "model_id",
+            "shape": [1, 1],
+            "datatype": "BYTES",
+            "data": [selected_model_id]
+        })
 
     body = json.dumps(data).encode("utf-8")
     pprint(body)

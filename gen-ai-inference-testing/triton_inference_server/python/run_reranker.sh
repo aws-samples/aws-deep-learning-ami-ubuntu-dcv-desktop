@@ -43,6 +43,12 @@ input [
     name: "texts"
     data_type: TYPE_STRING
     dims: [-1]
+  },
+  {
+    name: "model_id"
+    data_type: TYPE_STRING
+    dims: [1]
+    optional: true
   }
 ] 
 output [

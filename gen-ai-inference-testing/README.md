@@ -249,11 +249,6 @@ bash launch.sh down
 bash launch.sh up
 ```
 
-**Models that commonly require this flag**:
-- `microsoft/Phi-3-vision-128k-instruct`
-- `Qwen/Qwen2-VL-2B-Instruct`
-- Other multimodal or specialized architecture models
-
 **Note**: This flag is safe for standard models (Llama, Mistral text-only, etc.) and will be ignored if the model doesn't contain custom code. However, it should only be enabled when needed and with trusted model sources due to the security implications of executing remote code.
 
 ## Contributing

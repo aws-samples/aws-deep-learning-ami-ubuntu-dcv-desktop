@@ -78,9 +78,22 @@ class EncoderBaseModel(ABC):
                 xm.mark_step()
             return outputs
 
-    def _run_inference(self, texts: list) -> list:
+    def _run_inference(self, texts: list, model_id: str = None) -> list:
         start = time.time()
-        pad_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else 0
+        
+        # Select model and tokenizer
+        if self.multi_model:
+            if model_id is None:
+                raise ValueError("model_id is required in multi-model mode")
+            if model_id not in self.models:
+                raise ValueError(f"Unknown model_id: {model_id}. Available models: {list(self.models.keys())}")
+            tokenizer = self.tokenizers[model_id]
+            model = self.models[model_id]
+        else:
+            tokenizer = self.tokenizer
+            model = self.model
+        
+        pad_token_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
         input_batch_size = len(texts)
         
         # 1. Handle Batch Bucketing
@@ -92,7 +105,7 @@ class EncoderBaseModel(ABC):
             padded_texts = texts
 
         # 2. Tokenization
-        inputs = self.tokenizer(
+        inputs = tokenizer(
             padded_texts,
             padding="longest",
             truncation=True,
@@ -114,12 +127,19 @@ class EncoderBaseModel(ABC):
                     inputs[key] = F.pad(inputs[key], (0, delta), value=pad_val)
         
         # 4. Inference
-        outputs = self._bucket_batch_inference(inputs)
+        with torch.no_grad():
+            inputs = {k: v.to(self._current_device) for k, v in inputs.items()}
+            outputs = model(**inputs, return_dict=True)
+            if self._is_xla:
+                xm.mark_step()
         
         results = self._process_outputs(outputs, inputs['attention_mask'])
         results = results[:input_batch_size]
         
-        self.logger.log_info(f"Batch: {input_batch_size}, Time: {time.time() - start:.4f}s")
+        log_msg = f"Batch: {input_batch_size}, Time: {time.time() - start:.4f}s"
+        if self.multi_model:
+            log_msg += f", Model: {model_id}"
+        self.logger.log_info(log_msg)
         return results
 
     def _init_service(self):
@@ -133,10 +153,28 @@ class EncoderBaseModel(ABC):
         self.max_batch_size = max(self.bucket_batch_size)
         self.max_seq_len = max(self.bucket_seq_len)
         
-        model_location = properties.get("model_id_or_path")
-        self.tokenizer = AutoTokenizer.from_pretrained(model_location)
-        self.model = self._load_model(model_location)
-        self.model.to(self._current_device).eval()
+        # Parse model_id_or_path - support comma-separated list for multi-model
+        model_id_or_path = properties.get("model_id_or_path")
+        model_ids = [m.strip() for m in model_id_or_path.split(",")]
+        
+        if len(model_ids) == 1:
+            # Single model mode (backward compatible)
+            self.multi_model = False
+            model_location = model_ids[0]
+            self.tokenizer = AutoTokenizer.from_pretrained(model_location)
+            self.model = self._load_model(model_location)
+            self.model.to(self._current_device).eval()
+        else:
+            # Multi-model mode
+            self.multi_model = True
+            self.model_ids = model_ids
+            self.tokenizers = {}
+            self.models = {}
+            for model_id in model_ids:
+                self.logger.log_info(f"Loading model: {model_id}")
+                self.tokenizers[model_id] = AutoTokenizer.from_pretrained(model_id)
+                self.models[model_id] = self._load_model(model_id)
+                self.models[model_id].to(self._current_device).eval()
         
         self._compile_model()
 
@@ -144,48 +182,107 @@ class EncoderBaseModel(ABC):
         """Pre-compiles the model for every bucket permutation to avoid JIT at request time"""
         if self._is_xla:
             perms = list(itertools.product(self.bucket_batch_size, self.bucket_seq_len))
-            self.logger.log_info(f"Starting XLA Compilation for {len(perms)} shapes...")
-            for bs, sl in perms:
-                texts = [self.example_text] * bs
-                inputs = self.tokenizer(
-                    texts, 
-                    padding="max_length", # Static padding for compilation
-                    truncation=True, 
-                    return_tensors='pt', 
-                    max_length=sl
-                )
-                self._bucket_batch_inference(inputs)
-            self.logger.log_info("XLA Compilation complete.")
+            
+            if self.multi_model:
+                # Compile all models
+                for model_id in self.model_ids:
+                    self.logger.log_info(f"Starting XLA Compilation for model {model_id} with {len(perms)} shapes...")
+                    tokenizer = self.tokenizers[model_id]
+                    model = self.models[model_id]
+                    for bs, sl in perms:
+                        texts = [self.example_text] * bs
+                        inputs = tokenizer(
+                            texts, 
+                            padding="max_length",
+                            truncation=True, 
+                            return_tensors='pt', 
+                            max_length=sl
+                        )
+                        # Compile this specific model
+                        with torch.no_grad():
+                            inputs = {k: v.to(self._current_device) for k, v in inputs.items()}
+                            model(**inputs, return_dict=True)
+                            if self._is_xla:
+                                xm.mark_step()
+                    self.logger.log_info(f"XLA Compilation complete for model {model_id}.")
+            else:
+                # Single model compilation (original behavior)
+                self.logger.log_info(f"Starting XLA Compilation for {len(perms)} shapes...")
+                for bs, sl in perms:
+                    texts = [self.example_text] * bs
+                    inputs = self.tokenizer(
+                        texts, 
+                        padding="max_length",
+                        truncation=True, 
+                        return_tensors='pt', 
+                        max_length=sl
+                    )
+                    self._bucket_batch_inference(inputs)
+                self.logger.log_info("XLA Compilation complete.")
         else:
-            self.model = torch.compile(self.model)
+            # CUDA compilation
+            if self.multi_model:
+                for model_id in self.model_ids:
+                    self.models[model_id] = torch.compile(self.models[model_id])
+            else:
+                self.model = torch.compile(self.model)
 
     def execute(self, requests):
         responses = []
-        all_texts = []
-        request_item_counts = []
         
-        for request in requests:
-            input_tensor = pb_utils.get_input_tensor_by_name(request, "text_input")
-            input_data = input_tensor.as_numpy()
+        if self.multi_model:
+            # Multi-model mode: process each request individually
+            for request in requests:
+                # Extract text input
+                text_tensor = pb_utils.get_input_tensor_by_name(request, "text_input")
+                text_data = text_tensor.as_numpy()
+                
+                # Extract model_id input
+                model_id_tensor = pb_utils.get_input_tensor_by_name(request, "model_id")
+                model_id_data = model_id_tensor.as_numpy()
+                model_id = model_id_data[0][0]
+                if isinstance(model_id, bytes):
+                    model_id = model_id.decode("utf-8")
+                model_id = str(model_id).strip()
+                
+                # Collect texts from this request
+                texts = []
+                for i in range(text_data.shape[0]):
+                    text_item = text_data[i][0]
+                    if isinstance(text_item, bytes):
+                        text_item = text_item.decode("utf-8")
+                    texts.append(str(text_item))
+                
+                # Run inference for this request
+                results = self._run_inference(texts, model_id=model_id)
+                responses.append(self._create_response(results))
+        else:
+            # Single model mode: batch all requests together (original behavior)
+            all_texts = []
+            request_item_counts = []
             
-            count = input_data.shape[0]
-            request_item_counts.append(count)
+            for request in requests:
+                input_tensor = pb_utils.get_input_tensor_by_name(request, "text_input")
+                input_data = input_tensor.as_numpy()
+                
+                count = input_data.shape[0]
+                request_item_counts.append(count)
+                
+                for i in range(count):
+                    text_item = input_data[i][0]
+                    if isinstance(text_item, bytes):
+                        text_item = text_item.decode("utf-8")
+                    all_texts.append(str(text_item))
             
-            for i in range(count):
-                text_item = input_data[i][0]
-                if isinstance(text_item, bytes):
-                    text_item = text_item.decode("utf-8")
-                all_texts.append(str(text_item))
-        
-        # Batch execution
-        all_results = self._run_inference(all_texts)
-        
-        # Split results back into individual requests
-        curr = 0
-        for count in request_item_counts:
-            request_slice = all_results[curr : curr + count]
-            curr += count
-            responses.append(self._create_response(request_slice))
+            # Batch execution
+            all_results = self._run_inference(all_texts)
+            
+            # Split results back into individual requests
+            curr = 0
+            for count in request_item_counts:
+                request_slice = all_results[curr : curr + count]
+                curr += count
+                responses.append(self._create_response(request_slice))
             
         return responses
 

@@ -36,7 +36,8 @@ cat > /tmp/config.pbtxt <<EOF
     max_queue_delay_microseconds: 1000
   }
   input [ 
-    { name: "text_input", data_type: TYPE_STRING, dims: [1] }
+    { name: "text_input", data_type: TYPE_STRING, dims: [1] },
+    { name: "model_id", data_type: TYPE_STRING, dims: [1], optional: true }
   ] 
   output [
     { name: "logits", data_type: TYPE_FP32, dims: [-1] }
