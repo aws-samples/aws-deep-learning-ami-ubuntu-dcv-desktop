@@ -1094,7 +1094,7 @@ Resources:
             
               echo "conda activate" >> /home/ubuntu/.bashrc
               # install visual code 
-              apt-get -y install code
+              snap install code --classic
 
               # install Kiro
               URL=$(curl -s https://prod.download.desktop.kiro.dev/stable/metadata-linux-x64-stable.json | jq -r '.releases[] | select(.updateTo.url | endswith(".tar.gz")) | .updateTo.url')
@@ -1113,21 +1113,18 @@ Resources:
               EOF
 
               # install Claude Code CLI
-              if [ ! -x "$(command -v claude-code)" ]; then
+              if [ ! -x "$(command -v claude)" ]; then
                 echo "Installing Claude Code CLI..."
-                # Install Node.js LTS if not present
-                if [ ! -x "$(command -v node)" ]; then
-                  curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-                  apt-get install -y nodejs
-                fi
-                
-                # Install Claude Code CLI globally
-                npm install -g @anthropic-ai/claude-code
-                
+                sudo -u ubuntu bash -c "curl -fsSL https://claude.ai/install.sh | bash"
+                ln -s /home/ubuntu/.local/bin/claude /usr/local/bin/claude
+
                 # Verify installation
                 if [ -x "$(command -v claude)" ]; then
                   echo "Claude Code CLI installed successfully"
                   claude --version
+
+                  echo "export CLAUDE_CODE_USE_BEDROCK=1" >> /home/ubuntu/.bashrc
+                  echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/ubuntu/.bashrc
                 else
                   echo "Warning: Claude Code CLI installation may have failed"
                 fi
