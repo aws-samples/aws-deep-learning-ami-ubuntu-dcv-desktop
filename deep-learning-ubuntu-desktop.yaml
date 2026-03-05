@@ -1112,6 +1112,29 @@ Resources:
               Categories=Development;IDE;
               EOF
 
+              # install Claude Code CLI
+              if [ ! -x "$(command -v claude-code)" ]; then
+                echo "Installing Claude Code CLI..."
+                # Install Node.js LTS if not present
+                if [ ! -x "$(command -v node)" ]; then
+                  curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
+                  apt-get install -y nodejs
+                fi
+                
+                # Install Claude Code CLI globally
+                npm install -g @anthropic-ai/claude-code
+                
+                # Verify installation
+                if [ -x "$(command -v claude)" ]; then
+                  echo "Claude Code CLI installed successfully"
+                  claude --version
+                else
+                  echo "Warning: Claude Code CLI installation may have failed"
+                fi
+              else
+                echo "Claude Code CLI already installed"
+              fi
+
               # install aws cli
               snap install aws-cli --classic
               

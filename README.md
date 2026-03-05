@@ -79,6 +79,20 @@ See [CloudFormation Parameters](#desktop-cloudformation-template-parameters) for
 3. **Do not upgrade the OS version** when prompted on first login
 4. Configure **Software Updater** to only apply security updates automatically (avoid non-security updates unless you're an advanced user)
 
+### Preinstalled Development Tools
+
+The desktop comes with several development tools pre-configured:
+
+* **Visual Studio Code** - Full-featured code editor with extensions
+* **Kiro** - AI-powered IDE for assisted development
+* **Claude Code CLI** - Command-line interface for Claude AI (requires ANTHROPIC_API_KEY configuration)
+* **Miniconda3** - Python environment manager at `/home/ubuntu/miniconda3`
+* **Docker** - Container runtime for inference and training workloads
+* **AWS CLI** - Pre-configured with IAM role credentials
+* **JupyterLab** - Interactive notebook environment
+
+All tools are ready to use after first login. For Claude Code CLI, you'll need to configure your API key post-installation.
+
 ## Using the Desktop
 
 ### Generative AI Inference Testing
@@ -91,7 +105,7 @@ Once you have successfully connected to the Deep Learning Desktop with the DCV c
 ```bash
    cd ~ && git clone <repository-url>
 ```
-2. Open the cloned repository in Kiro (recommended) or Visual Studio Code (both are pre-installed).
+2. Open the cloned repository in your preferred IDE: Kiro (recommended), Visual Studio Code, or Claude Code CLI (all are pre-installed).
 
 **Supported Inference Servers:**
 * [Triton Inference Server](https://github.com/triton-inference-server) - NVIDIA's production inference server
