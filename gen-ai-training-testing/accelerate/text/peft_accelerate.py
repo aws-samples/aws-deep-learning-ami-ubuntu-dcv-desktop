@@ -7,6 +7,10 @@ import time
 from dataclasses import dataclass, field, fields, MISSING
 from pathlib import Path
 from typing import List
+import sys
+
+# Add parent directory to path to import shared modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import torch
 from accelerate.utils import set_seed
@@ -24,27 +28,7 @@ from transformers import (
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
 from dataset_module import HFDatasetConfig, SFTDataset, prepare_datasets
-
-
-class SaveOnBestMetricCallback(TrainerCallback):
-    """Save checkpoint only when metric improves."""
-    
-    def on_evaluate(self, args, state: TrainerState, control: TrainerControl, metrics, **kwargs):
-        metric_value = metrics.get(args.metric_for_best_model)
-        if metric_value is None:
-            return control
-        
-        if state.best_metric is None:
-            control.should_save = True
-        else:
-            if args.greater_is_better:
-                if metric_value > state.best_metric:
-                    control.should_save = True
-            else:
-                if metric_value < state.best_metric:
-                    control.should_save = True
-        
-        return control
+from shared.callbacks import SaveOnBestMetricCallback
 
 
 @dataclass

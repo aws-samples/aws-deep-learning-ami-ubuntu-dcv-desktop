@@ -1,54 +1,18 @@
 # Hugging Face Trainer with Accelerate
 
-This project provides a flexible framework for fine-tuning Large Language Models, training Reward Models, and performing alignment using PPO-based RLHF or Direct Preference Optimization (DPO) with Hugging Face Trainer, Accelerate, and FSDP (Fully Sharded Data Parallel). The framework provides a generalized data pipeline for HuggingFace datasets and streamlined configuration for distributed training with LoRA or full fine-tuning.
-
-## Features
-
-- **Complete RLHF Pipeline**: SFT → Reward Model → PPO policy optimization
-- **DPO Pipeline**: SFT → DPO preference optimization (simpler, no reward model needed)
-- **Generalized HuggingFace Dataset Support**: Easy integration with any HuggingFace dataset through flexible templates and field mapping
-- **Distributed Training**: Multi-node, multi-GPU training with FSDP for efficient memory usage
-- **LoRA and Full Fine-Tuning**: Support for LoRA parameter-efficient fine-tuning or full fine-tuning
-- **Automatic Data Conversion**: Converts HuggingFace datasets to JSONL format for efficient loading
-- **Customizable Training**: Extensive configuration options for hyperparameters and training strategies
-- **Flash Attention 2**: Optimized attention implementation for faster training
-- **Gradient Checkpointing**: Reduce memory usage for large models
-- **Early Stopping**: Automatic training termination based on validation loss
-
-## Table of Contents
-
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Alignment Methods](#alignment-methods)
-  - [DPO Pipeline](#dpo-pipeline-recommended)
-  - [PPO-RLHF Pipeline](#ppo-rlhf-pipeline)
-- [Reward Model Training](#reward-model-training)
-- [Training Different Models](#training-different-models)
-- [Using Different Datasets](#using-different-datasets)
-- [Configuration](#configuration)
-- [Project Structure](#project-structure)
-- [Troubleshooting](#troubleshooting)
-
-## Prerequisites
-
-Follow [Step by Step Tutorial](../../README.md) to launch a Deep Learning Desktop. On the desktop:
-
-```bash
-cd ~
-git clone https://github.com/aws-samples/aws-deep-learning-ami-ubuntu-dcv-desktop.git
-cd ~/aws-deep-learning-ami-ubuntu-dcv-desktop/gen-ai-training-testing/accelerate
-```
+This directory provides flexible frameworks for fine-tuning models using Hugging Face Trainer, Accelerate, and FSDP (Fully Sharded Data Parallel).
 
 ## Installation
 
-### Using Docker (Recommended)
+### Using Docker
 
-1. Build the Docker image:
+Build the Docker image:
 ```bash
+cd ~/aws-deep-learning-ami-ubuntu-dcv-desktop/gen-ai-training-testing/accelerate
 docker buildx build -t accelerate:latest -f ../containers/Dockerfile.accelerate .
 ```
 
-2. Run the container with GPU support:
+Run the container with GPU support:
 ```bash
 docker run --gpus all -it --rm \
   -v $(pwd):/app \
@@ -56,563 +20,159 @@ docker run --gpus all -it --rm \
   accelerate:latest
 ```
 
+Inside the container, navigate to the appropriate directory:
+```bash
+# For text-only training
+cd /app/text
+
+# For vision-language training
+cd /app/multimodal/vision_language
+```
+
+## Directory Structure
+
+```
+accelerate/
+├── text/                          # Text-only LLM training
+│   ├── peft_accelerate.py         # SFT training
+│   ├── dpo_accelerate.py          # DPO alignment
+│   ├── ppo_accelerate.py          # PPO-RLHF alignment
+│   ├── reward_model_accelerate.py # Reward model training
+│   ├── dataset_module.py          # Text dataset processing
+│   ├── rm_dataset_module.py       # Reward model dataset processing
+│   ├── run_dpo_pipeline.sh        # DPO pipeline script
+│   ├── run_ppo_pipeline.sh        # PPO-RLHF pipeline script
+│   └── README.md                  # Detailed text training documentation
+│
+├── multimodal/                    # Multi-modal model training
+│   ├── vision_language/           # Text + Image (VLMs)
+│   ├── shared/                    # Multi-modal utilities
+│   └── README.md                  # Multi-modal overview
+│
+├── shared/                        # Common utilities
+│   ├── callbacks.py               # Training callbacks
+│   ├── convert_checkpoint_to_hf.py # Checkpoint conversion
+│   └── test_checkpoint.py         # Checkpoint testing
+│
+└── accelerate_config.yaml         # FSDP configuration
+```
+
 ## Quick Start
 
-### DPO Pipeline (Recommended)
+After building and running the Docker container (see Installation above):
 
-Run the DPO pipeline (SFT → DPO) with a single command:
-
-```bash
-bash run_dpo_pipeline.sh
-```
-
-This will:
-1. Train SFT model on Dolphin dataset
-2. Convert SFT checkpoint to HuggingFace format
-3. Train DPO policy using preference data (Anthropic/hh-rlhf)
-
-### PPO-RLHF Pipeline
-
-Run the complete RLHF pipeline (SFT → Reward Model → PPO):
+### Text-Only Training
 
 ```bash
-bash run_ppo_pipeline.sh
-```
+cd /app/text
 
-This will:
-1. Train SFT model on Dolphin dataset
-2. Convert SFT checkpoint to HuggingFace format
-3. Train Reward Model on Anthropic/hh-rlhf dataset
-4. Convert Reward Model checkpoint to HuggingFace format
-5. Train PPO policy using the SFT and Reward models
-
-### Supervised Fine-Tuning (SFT) Only
-
-Train only the SFT model:
-
-```bash
-accelerate launch --config_file accelerate_config.yaml peft_accelerate.py
-```
-
-## Alignment Methods
-
-### DPO Pipeline (Recommended)
-
-Direct Preference Optimization (DPO) is a simpler and more memory-efficient alternative to PPO-RLHF. It directly optimizes the policy using preference data without requiring a separate reward model.
-
-**Advantages of DPO:**
-- Simpler: No reward model training required
-- More stable: Direct optimization without RL complexity
-- Memory efficient: Only needs policy and reference models
-- Faster: Fewer training steps and components
-
-#### Using run_dpo_pipeline.sh
-
-```bash
-# Run full DPO pipeline with default settings
+# Run DPO pipeline (recommended)
 bash run_dpo_pipeline.sh
 
-# Run with custom model
-bash run_dpo_pipeline.sh --base-model "meta-llama/Llama-3-8B"
-
-# Skip specific steps
-bash run_dpo_pipeline.sh --skip-sft  # Use existing SFT checkpoint
-
-# Pass additional arguments to training scripts
-bash run_dpo_pipeline.sh --max_steps 5000 --beta 0.2
+# Or run SFT only
+accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py
 ```
 
-#### Manual DPO Execution
+See [text/README.md](./text/README.md) for comprehensive documentation.
+
+### Vision-Language Training
 
 ```bash
-# Step 1: Supervised Fine-Tuning
-accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
-  --hf_model_id "Qwen/Qwen3-8B"
+cd /app/multimodal/vision_language
 
-# Step 2: Convert SFT checkpoint
-python convert_checkpoint_to_hf.py --base_model "Qwen/Qwen3-8B"
-
-# Step 3: DPO Training
-accelerate launch --config_file accelerate_config.yaml dpo_accelerate.py \
-  --hf_model_id "Qwen/Qwen3-8B" \
-  --beta 0.1 \
-  --learning_rate 5e-7
+# Train Qwen3-VL-8B with HuggingFace dataset (auto data_dir)
+accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py \
+  --model_id "Qwen/Qwen3-VL-8B-Instruct" \
+  --hf_dataset_name "MMInstruction/M3IT"
 ```
 
-#### DPO Configuration
+See [multimodal/vision_language/README.md](./multimodal/vision_language/README.md) for comprehensive documentation.
 
-Key DPO hyperparameters:
+## Features
 
-- `sft_model_path`: Path to SFT checkpoint (used as policy initialization)
-- `beta`: KL divergence penalty coefficient (default: 0.1, typical range: 0.1-0.5)
-- `learning_rate`: Learning rate (default: 5e-7, lower than SFT)
-- `max_steps`: Training steps (default: 10000)
-- `rmdc_dataset_name`: Preference dataset (default: "Anthropic/hh-rlhf")
+### Text Training
+- Complete RLHF Pipeline: SFT → Reward Model → PPO policy optimization
+- DPO Pipeline: SFT → DPO preference optimization (simpler, no reward model needed)
+- Generalized HuggingFace Dataset Support
+- Distributed Training with FSDP
+- LoRA and Full Fine-Tuning
+- Flash Attention 2
+- Early Stopping and Best Model Saving
 
-**Dataset Format**: DPO uses preference datasets with `chosen` and `rejected` responses (same format as reward model training).
+### Multi-Modal Training
+- Vision-language model fine-tuning (Qwen3-VL)
+- Image + text dataset processing
+- Multi-modal LoRA support
+- Vision encoder freezing and fine-tuning options
 
-### PPO-RLHF Pipeline
+## Common Utilities
 
-**⚠️ Note**: PPO is provided as a reference implementation but may encounter OOM (Out of Memory) errors on systems with limited GPU memory. PPO requires running multiple models simultaneously:
-- Policy model (trainable, on GPU)
-- Reference model (frozen, on CPU)
-- Reward model (frozen, on CPU)
-- vLLM inference engine (distributed across GPUs)
+### Checkpoint Conversion
 
-This multi-model setup requires significant memory. **For most use cases, DPO is recommended** as it's simpler and more memory-efficient.
-
-#### Using run_ppo_pipeline.sh
-
-The easiest way to run the complete pipeline:
+Convert FSDP checkpoints to HuggingFace format:
 
 ```bash
-# Run full pipeline with default settings
-bash run_pipeline.sh
-
-# Run with custom model
-bash run_pipeline.sh --base-model "meta-llama/Llama-3-8B"
-
-# Skip specific steps
-bash run_pipeline.sh --skip-sft  # Use existing SFT checkpoint
-bash run_pipeline.sh --skip-reward  # Use existing reward model
-
-# Pass additional arguments to training scripts
-bash run_pipeline.sh --max_steps 5000 --learning_rate 1e-4
+python shared/convert_checkpoint_to_hf.py --base_model "Qwen/Qwen3-8B"
 ```
 
-### Manual Step-by-Step Execution
+### Checkpoint Testing
 
-Alternatively, run each step manually:
+Test checkpoints with vLLM:
 
 ```bash
-# Step 1: Supervised Fine-Tuning
-accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
-  --hf_model_id "Qwen/Qwen3-8B"
-
-# Step 2: Convert SFT checkpoint
-python convert_checkpoint_to_hf.py --base_model "Qwen/Qwen3-8B"
-
-# Step 3: Train Reward Model
-accelerate launch --config_file accelerate_config.yaml reward_model_accelerate.py \
-  --hf_model_id "Qwen/Qwen3-8B"
-
-# Step 4: Convert Reward Model checkpoint
-python convert_checkpoint_to_hf.py \
-  --base_model "Qwen/Qwen3-8B" \
-  --checkpoints_dir "results/reward_Qwen/Qwen3-8B"
-
-# Step 5: PPO Policy Optimization
-accelerate launch --config_file accelerate_config.yaml ppo_accelerate.py \
-  --hf_model_id "Qwen/Qwen3-8B"
-```
-
-## Reward Model Training
-
-Train a reward model for RLHF. The reward model automatically uses the latest converted SFT checkpoint:
-
-```bash
-# Train from latest SFT checkpoint (automatic)
-accelerate launch --config_file accelerate_config.yaml reward_model_accelerate.py \
-  --hf_model_id "Qwen/Qwen3-8B"
-
-# Train from specific SFT checkpoint
-accelerate launch --config_file accelerate_config.yaml reward_model_accelerate.py \
-  --sft_model_path "results/Qwen/Qwen3-8B/checkpoint-1000.hf_model"
-
-# Use different reward dataset
-accelerate launch --config_file accelerate_config.yaml reward_model_accelerate.py \
-  --hf_model_id "Qwen/Qwen3-8B" \
-  --rmdc_dataset_name "OpenAssistant/oasst1"
-```
-
-### Reward Dataset Format
-
-Reward datasets support two formats:
-
-**Format 1: Separate input field**
-```json
-{"input": "prompt", "chosen": "good response", "rejected": "bad response"}
-```
-
-**Format 2: Combined format (no separate input)**
-```json
-{"chosen": "prompt + good response", "rejected": "prompt + bad response"}
-```
-
-Use custom converters for different dataset structures:
-
-```python
-# Example: Anthropic HH-RLHF converter
-def hh_rlhf_converter(sample):
-    return {
-        "chosen": sample["chosen"],
-        "rejected": sample["rejected"]
-    }
-
-# Pass to RMDatasetConfig
-config = RMDatasetConfig(
-    dataset_name="Anthropic/hh-rlhf",
-    custom_converter=hh_rlhf_converter
-)
-```
-
-See `rm_dataset_module.py` RewardModelDataset docstring for more converter examples.
-
-## DPO vs PPO: Which to Choose?
-
-| Aspect | DPO | PPO-RLHF |
-|--------|-----|----------|
-| **Complexity** | Simple (2 models) | Complex (4 models) |
-| **Memory** | Lower | Higher (may OOM) |
-| **Training Speed** | Faster | Slower |
-| **Stability** | More stable | Can be unstable |
-| **Dataset** | Preference pairs | Prompts + Reward model |
-| **Recommended For** | Most use cases | Research/experimentation |
-
-**Recommendation**: Use DPO unless you specifically need PPO for research purposes or have a well-tuned reward model.
-
-## Training Different Models
-
-### Supported Models
-
-The framework supports any HuggingFace causal language model. Common examples include:
-
-- **Qwen Family**: `Qwen/Qwen3-8B`, `Qwen/Qwen3-14B`, `Qwen/Qwen3-70B`
-- **Llama Family**: `meta-llama/Llama-3-8B`, `meta-llama/Llama-3-70B`, `meta-llama/Meta-Llama-3.1-8B`, `meta-llama/Meta-Llama-3.1-70B`
-- **Mistral**: `mistralai/Mistral-7B-v0.1`, `mistralai/Mixtral-8x7B-v0.1`
-- **Phi**: `microsoft/Phi-3-medium-4k-instruct`
-
-### Training a Different Model
-
-```bash
-accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
-  --hf_model_id "meta-llama/Llama-3-8B" \
-  --per_device_train_batch_size 2 \
-  --gradient_accumulation_steps 8
-```
-
-## Using Different Datasets
-
-### Dataset Configuration
-
-The framework uses `HFDatasetConfig` to define dataset loading and formatting. Key parameters:
-
-- `dataset_name`: HuggingFace dataset identifier
-- `dataset_config`: Specific subset/configuration
-- `input_template`: Format string for input prompts
-- `output_template`: Format string for output completions
-- `field_mapping`: Maps template variables to dataset columns
-- `num_proc`: Number of processes for dataset loading (default: 8)
-
-### Example: Custom Dataset
-
-Update the configuration in `peft_accelerate.py` or use CLI arguments:
-
-```bash
-accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
-  --hfdc_dataset_name "databricks/databricks-dolly-15k" \
-  --hfdc_split "train" \
-  --hfdc_train_split_ratio 0.95 \
-  --hfdc_val_test_split_ratio 0.5 \
-  --hfdc_input_template "### Instruction:\n{instruction}\n### Context:\n{context}\n" \
-  --hfdc_output_template "### Response:\n{response}" \
-  --hfdc_field_mapping '{"instruction": "instruction", "context": "context", "response": "response"}' \
-  --hfdc_num_proc 8
+python shared/test_checkpoint.py --base_model "Qwen/Qwen3-8B"
 ```
 
 ## Configuration
 
-### Core Training Parameters
-
-All configuration parameters are defined in the `TrainingConfig` class in `peft_accelerate.py`. Key parameters include:
-
-- **Model**: `hf_model_id` - HuggingFace model identifier
-- **Paths**: 
-  - `data_dir`: Directory for processed datasets (default: auto-generated)
-  - `output_dir`: Base directory for training outputs (default: `results/{hf_model_id}`)
-- **Training**: `max_steps`, `per_device_train_batch_size`, `gradient_accumulation_steps`, `learning_rate`
-- **LoRA**: `lora_rank`, `lora_alpha`, `lora_dropout`, `lora_target_modules`
-- **Sequence**: `max_seq_length` - Maximum sequence length
-- **Logging**: `logging_steps`, `eval_steps`
-- **Early Stopping**: `early_stopping_patience`, `early_stopping_threshold`
-
 ### Accelerate Configuration
 
-The `accelerate_config.yaml` file configures the distributed training setup:
+The `accelerate_config.yaml` file configures distributed training:
 
-- **FSDP Strategy**: FULL_SHARD for maximum memory efficiency
-- **Mixed Precision**: BFloat16 for training stability
-- **Backward Prefetch**: BACKWARD_PRE for improved performance
-- **Number of Processes**: Set to match your GPU count (default: 8)
+- FSDP Strategy: FULL_SHARD for maximum memory efficiency
+- Mixed Precision: BFloat16
+- Backward Prefetch: BACKWARD_PRE
+- Number of Processes: Set to match your GPU count
 
 ### Multi-Node Training
 
-For multi-node training, update the `accelerate_config.yaml`:
+Update `accelerate_config.yaml` for multi-node:
 
 ```yaml
 num_machines: 2
 num_processes: 16  # 8 GPUs per node × 2 nodes
-machine_rank: 0  # Set to 0 for main node, 1 for second node, etc.
+machine_rank: 0    # Set per node
 main_process_ip: <main_node_ip>
 main_process_port: 29500
 ```
 
-Then launch on each node:
+## Documentation
 
-```bash
-# On main node (machine_rank: 0)
-accelerate launch --config_file accelerate_config.yaml peft_accelerate.py
-
-# On worker nodes (machine_rank: 1, 2, ...)
-accelerate launch --config_file accelerate_config.yaml peft_accelerate.py
-```
-
-## CLI Usage Examples
-
-### Basic Usage
-
-```bash
-accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
-  --hf_model_id "Qwen/Qwen3-8B" \
-  --max_steps 5000
-```
-
-### Advanced Configuration
-
-```bash
-accelerate launch --config_file accelerate_config.yaml peft_accelerate.py \
-  --hf_model_id "meta-llama/Llama-3-8B" \
-  --max_steps 10000 \
-  --per_device_train_batch_size 1 \
-  --gradient_accumulation_steps 16 \
-  --learning_rate 2e-4 \
-  --max_seq_length 4096 \
-  --lora_rank 64 \
-  --lora_alpha 16 \
-  --lora_dropout 0.05 \
-  --lora_target_modules "q_proj,k_proj,v_proj,o_proj" \
-  --output_dir "results/llama3_custom"
-```
-
-### Available CLI Arguments
-
-| Argument | Type | Description | Default |
-|----------|------|-------------|---------|
-| `--hf_model_id` | str | HuggingFace model name | `Qwen/Qwen3-8B` |
-| `--full_ft` | flag | Disable LoRA (full fine-tuning) | `False` |
-| `--lora_rank` | int | LoRA rank | `32` |
-| `--lora_alpha` | int | LoRA alpha | `32` |
-| `--lora_dropout` | float | LoRA dropout | `0.1` |
-| `--lora_target_modules` | str | Comma-separated target modules | `q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj` |
-| `--max_steps` | int | Maximum training steps | `10000` |
-| `--per_device_train_batch_size` | int | Batch size per device | `2` |
-| `--per_device_eval_batch_size` | int | Eval batch size per device | `2` |
-| `--gradient_accumulation_steps` | int | Gradient accumulation steps | `4` |
-| `--learning_rate` | float | Learning rate | `5e-5` |
-| `--weight_decay` | float | Weight decay | `0.01` |
-| `--warmup_steps` | int | Warmup steps | `100` |
-| `--max_grad_norm` | float | Max gradient norm | `1.0` |
-| `--max_seq_length` | int | Maximum sequence length | `2048` |
-| `--data_dir` | str | Data directory | Auto-generated |
-| `--output_dir` | str | Output directory | `results/{hf_model_id}` |
-| `--logging_steps` | int | Logging frequency | `10` |
-| `--eval_steps` | int | Evaluation frequency | `100` |
-| `--max_eval_samples` | int | Max eval samples | `640` |
-| `--early_stopping_patience` | int | Early stopping patience | `3` |
-| `--early_stopping_threshold` | float | Early stopping threshold | `0.001` |
-| `--use_wandb` | flag | Enable Weights & Biases logging | `False` |
-| `--seed` | int | Random seed | `42` |
-| `--num_workers` | int | Dataloader workers | `8` |
-
-### SFT Dataset Configuration CLI Arguments
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `--hfdc_dataset_name` | str | HuggingFace dataset name |
-| `--hfdc_dataset_config` | str | Dataset configuration/subset |
-| `--hfdc_split` | str | Initial split to load |
-| `--hfdc_train_split_ratio` | float | Training data ratio |
-| `--hfdc_val_test_split_ratio` | float | Val/test split ratio |
-| `--hfdc_input_template` | str | Input formatting template |
-| `--hfdc_output_template` | str | Output formatting template |
-| `--hfdc_field_mapping` | str (JSON) | Field name mapping |
-| `--hfdc_num_proc` | int | Number of processes |
-
-### Reward Model Dataset Configuration CLI Arguments
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `--rmdc_dataset_name` | str | HuggingFace dataset name |
-| `--rmdc_dataset_config` | str | Dataset configuration/subset |
-| `--rmdc_split` | str | Initial split to load |
-| `--rmdc_train_split_ratio` | float | Training data ratio |
-| `--rmdc_val_test_split_ratio` | float | Val/test split ratio |
-| `--rmdc_num_proc` | int | Number of processes |
-
-## Testing Checkpoints
-
-Test FSDP checkpoints using vLLM for efficient inference:
-
-```bash
-python test_checkpoint.py \
-  --base_model "Qwen/Qwen3-8B" \
-  --max_samples 1024 \
-  --batch_size 128
-```
-
-The script automatically:
-- Finds the latest checkpoint in `results/{base_model}/`
-- Discovers the latest `test.jsonl` file under `datasets/`
-- Loads the checkpoint and merges LoRA weights (if applicable)
-- Uses vLLM for fast batched inference
-- Evaluates predictions using BERTScore
-
-## Converting Checkpoints to HuggingFace Format
-
-Convert FSDP checkpoints to standard HuggingFace format for deployment:
-
-```bash
-python convert_checkpoint_to_hf.py \
-  --base_model "Qwen/Qwen3-8B"
-```
-
-The script automatically finds the latest checkpoint in `results/{base_model}/`. By default, it merges LoRA weights into the base model for maximum compatibility. To save as a LoRA adapter:
-
-```bash
-python convert_checkpoint_to_hf.py \
-  --base_model "Qwen/Qwen3-8B" \
-  --no_merge
-```
-
-## Project Structure
-
-```
-.
-├── peft_accelerate.py           # SFT training script
-├── reward_model_accelerate.py   # Reward model training script
-├── dpo_accelerate.py            # DPO training script
-├── ppo_accelerate.py            # PPO policy training script
-├── test_checkpoint.py           # Checkpoint testing script
-├── convert_checkpoint_to_hf.py  # Checkpoint conversion script
-├── dataset_module.py            # SFT dataset processing module
-├── rm_dataset_module.py         # Reward Model dataset processing module
-├── run_dpo_pipeline.sh          # DPO pipeline script (recommended)
-├── run_ppo_pipeline.sh          # PPO-RLHF pipeline script
-├── accelerate_config.yaml       # Accelerate FSDP configuration
-├── README.md                    # This file
-├── datasets/                    # Downloaded and processed datasets
-│   └── {dataset_name}/
-│       └── {dataset_config}/
-│           └── train={train_%}-val={val%}-test={test%}/
-│               ├── training.jsonl
-│               ├── validation.jsonl
-│               ├── test.jsonl
-│               └── .data_ready
-└── results/                     # Training outputs and logs
-    └── {hf_model_id}/
-        ├── checkpoint-*/         # Training checkpoints
-        │   └── pytorch_model_fsdp_0/  # FSDP checkpoint files
-        ├── final/                # Final model
-        └── logs/                 # TensorBoard logs
-```
-
-## Troubleshooting
-
-### Out of Memory (OOM) Errors
-
-**Solution 1: Reduce batch size**
-```bash
---per_device_train_batch_size 1
-```
-
-**Solution 2: Increase gradient accumulation**
-```bash
---gradient_accumulation_steps 16
-```
-
-**Solution 3: Reduce sequence length**
-```bash
---max_seq_length 1024
-```
-
-**Solution 4: Enable CPU offload in accelerate_config.yaml**
-```yaml
-fsdp_config:
-  fsdp_offload_params: true
-```
-
-### Data Loading Issues
-
-**Field mapping errors**
-
-Check that template placeholders match dataset columns:
-```python
-from datasets import load_dataset
-
-ds = load_dataset("your-dataset")
-print("Available columns:", ds['train'].column_names)
-print("Sample data:", ds['train'][0])
-```
-
-### Training Instability
-
-The framework automatically handles:
-- Gradient clipping with `max_norm=1.0`
-- Cosine learning rate schedule with warmup
-- Mixed precision training with BFloat16
+- [Text Training Documentation](./text/README.md) - Comprehensive guide for text-only LLM training
+- [Multi-Modal Training Documentation](./multimodal/README.md) - Guide for vision-language model training
+- [Shared Utilities](./shared/) - Common tools for checkpoint management and testing
 
 ## GPU Requirements
 
 ### Small Models (1B - 13B parameters)
-
-**Examples**: Qwen3-8B, Llama3-8B, Mistral-7B
-
-**Configuration**:
-- **GPUs**: 8x A100 (40GB or 80GB)
-- **Batch size**: 2-4 per device
-- **Gradient accumulation**: 4-8
+- GPUs: 8x A100 (40GB or 80GB)
+- Batch size: 2-4 per device
+- Gradient accumulation: 4-8
 
 ### Medium Models (13B - 34B parameters)
-
-**Examples**: Llama2-13B, Yi-34B
-
-**Configuration**:
-- **GPUs**: 16x A100 (80GB) total (2 nodes)
-- **Batch size**: 1-2 per device
-- **Gradient accumulation**: 8-16
+- GPUs: 16x A100 (80GB) total (2 nodes)
+- Batch size: 1-2 per device
+- Gradient accumulation: 8-16
 
 ### Large Models (34B - 100B parameters)
+- GPUs: 32-64x A100 (80GB) or H100 (80GB)
+- Batch size: 1 per device
+- Gradient accumulation: 16-32
 
-**Examples**: Llama3.1-70B, Mixtral-8x22B
+## Support
 
-**Configuration**:
-- **GPUs**: 32-64x A100 (80GB) or H100 (80GB)
-- **Batch size**: 1 per device
-- **Gradient accumulation**: 16-32
-- **CPU Offload**: Consider enabling
+For detailed information on specific training types:
+- Text-only training: See [text/README.md](./text/README.md)
+- Multi-modal training: See [multimodal/README.md](./multimodal/README.md)
 
-## Additional Notes
-
-### Flash Attention
-
-The training script uses `attn_implementation="flash_attention_2"` for improved stability and performance. Ensure flash-attn is installed.
-
-### Checkpoint Format
-
-- Checkpoints are saved in FSDP format under `pytorch_model_fsdp_0/` directory
-- Use `convert_checkpoint_to_hf.py` to convert to standard HuggingFace format
-- LoRA adapters can be merged or saved separately
-- Final model includes both model weights and tokenizer
-
-### Memory Optimization
-
-- `PYTORCH_ALLOC_CONF=expandable_segments:True` is set for better memory management
-- FSDP uses FULL_SHARD strategy for maximum memory efficiency
-- Gradient checkpointing is enabled by default
-- CPU offload available via accelerate_config.yaml configuration
-
-### Training Features
-
-- **Early Stopping**: Automatically stops training when validation loss stops improving
-- **Best Model Saving**: Only saves checkpoints when validation loss improves
-- **Data Collator**: Uses DataCollatorForSeq2Seq for robust padding with label masking
+For general questions about the framework, refer to the parent [README.md](../README.md).
