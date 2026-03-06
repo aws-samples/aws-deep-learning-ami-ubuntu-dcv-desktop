@@ -85,13 +85,11 @@ The desktop comes with several development tools pre-configured:
 
 * **Visual Studio Code** - Full-featured code editor with extensions
 * **Kiro** - AI-powered IDE for assisted development
-* **Claude Code CLI** - Command-line interface for Claude AI (requires ANTHROPIC_API_KEY configuration)
+* **Claude Code CLI** - Command-line interface for Claude AI
 * **Miniconda3** - Python environment manager at `/home/ubuntu/miniconda3`
 * **Docker** - Container runtime for inference and training workloads
 * **AWS CLI** - Pre-configured with IAM role credentials
 * **JupyterLab** - Interactive notebook environment
-
-All tools are ready to use after first login. For Claude Code CLI, you'll need to configure your API key post-installation.
 
 ## Using the Desktop
 
