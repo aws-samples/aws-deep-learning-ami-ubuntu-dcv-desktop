@@ -1,0 +1,755 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Expected stack create COMPLETE time is 30 minutes. 
+  EC2 instance Ready expected time is 5 minutes. 
+  EC2 instance runs user-data script to configure desktop, 
+  which typically takes about 25 minutes. EC2 instance reboots multiple times
+  while running user-data script.
+  
+Parameters:
+  AWSUbuntuAMIType:
+    Description: >- 
+      Ubuntu Pro 24.04 now supports Nvidia GPU and AWS Trainium/Inferentia2.
+    Type: String
+    Default: "UbuntuPro2404LTS"
+    AllowedValues:
+      - "UbuntuPro2404LTS"
+  DesktopInstanceType:
+    Description: EC2 instance type for desktop
+    Type: String
+    Default: g6.xlarge
+    AllowedValues:
+      - m5d.2xlarge
+      - m5d.4xlarge
+      - m5d.8xlarge
+      - m5d.12xlarge
+      - m5d.16xlarge
+      - m5d.24xlarge
+      - m5n.24xlarge
+      - m5dn.24xlarge
+      - r5d.2xlarge
+      - r5d.4xlarge
+      - r5d.8xlarge
+      - r5d.12xlarge
+      - r5d.16xlarge
+      - r5d.24xlarge
+      - r5n.24xlarge
+      - r5dn.24xlarge
+      - c5d.2xlarge
+      - c5d.4xlarge
+      - c5d.9xlarge
+      - c5n.9xlarge
+      - c5d.12xlarge
+      - c5d.18xlarge
+      - c5n.18xlarge
+      - c5d.24xlarge
+      - g4dn.xlarge
+      - g4dn.2xlarge
+      - g4dn.4xlarge
+      - g4dn.8xlarge
+      - g4dn.12xlarge
+      - g4dn.16xlarge
+      - g5.xlarge
+      - g5.2xlarge
+      - g5.4xlarge
+      - g5.8xlarge
+      - g5.12xlarge
+      - g5.16xlarge
+      - g5.24xlarge
+      - g5.48xlarge
+      - g6.xlarge
+      - g6.2xlarge
+      - g6.4xlarge
+      - g6.8xlarge
+      - g6.12xlarge
+      - g6.16xlarge
+      - g6.24xlarge
+      - g6.48xlarge
+      - g6e.xlarge
+      - g6e.2xlarge
+      - g6e.4xlarge
+      - g6e.8xlarge
+      - g6e.12xlarge
+      - g6e.16xlarge
+      - g6e.24xlarge
+      - g6e.48xlarge
+      - p4d.24xlarge
+      - p4de.24xlarge
+      - p5.48xlarge
+      - p5e.48xlarge
+      - p5en.48xlarge
+      - trn1.2xlarge
+      - trn1.32xlarge
+      - trn1n.32xlarge
+      - trn2.48xlarge
+      - inf2.xlarge
+      - inf2.8xlarge
+      - inf2.24xlarge
+      - inf2.48xlarge
+    ConstraintDescription: Must be a valid CPU, or GPU instance type.
+  DesktopAccessCIDR:
+    Description: >-
+      Restrict desktop access for DCV client from a valid CIDR range. 
+      Use http://checkip.amazonaws.com/ to find your public IP, and append '/32', 
+      for example, if your public IP is 2.3.4.5 then specify 2.3.4.5/32. 
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: Must be a valid CIDR range of the form x.x.x.x/x
+  EbsVolumeSize:
+    Default: 1000
+    Description: Ebs volume size (GB)
+    Type: Number
+    MinValue: 1000
+  EbsVolumeType:
+    Default: 'gp3'
+    Description: Ebs volume type
+    Type: String
+    AllowedValues:
+      - 'gp3'
+  EBSOptimized:
+    Description: >-
+      Is the instance EBS optimized?
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'false'
+      - 'true'
+
+Mappings:
+  UbuntuPro2404LTS:
+    us-east-1:
+      AMI: ami-0b6c6ebed2801a5cb
+    us-east-2:
+      AMI: ami-06e3c045d79fd65d9
+    us-west-2:
+      AMI: ami-0786adace1541ca80
+    eu-west-1:
+      AMI: ami-03446a3af42c5e74e
+    eu-central-1:
+      AMI: ami-01f79b1e4a5c64257
+    ap-southeast-1:
+      AMI: ami-08d59269edddde222
+    ap-southeast-2:
+      AMI: ami-0ba8d27d35e9915fb
+    ap-south-1:
+      AMI: ami-019715e0d74f695be
+    ap-northeast-1:
+      AMI: ami-0f65fc8c24ec8d2a1
+    ap-northeast-2:
+      AMI: ami-0130d8d35bcd2d433
+
+Resources:
+
+  # Lambda execution role for VPC/Subnet lookup
+  VpcLookupLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: vpc-subnet-lookup
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ec2:DescribeVpcs'
+                  - 'ec2:DescribeSubnets'
+                  - 'ec2:DescribeRouteTables'
+                Resource: '*'
+
+  VpcLookupFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Runtime: python3.12
+      Handler: index.handler
+      Timeout: 60
+      Role: !GetAtt VpcLookupLambdaRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+
+          def handler(event, context):
+            if event['RequestType'] in ('Delete',):
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              return
+
+            try:
+              ec2 = boto3.client('ec2')
+
+              # Find default VPC
+              vpcs = ec2.describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['true']}])
+              if not vpcs['Vpcs']:
+                raise Exception('No default VPC found in this region')
+              vpc_id = vpcs['Vpcs'][0]['VpcId']
+
+              # Find public subnets in the default VPC
+              subnets = ec2.describe_subnets(Filters=[
+                {'Name': 'vpc-id', 'Values': [vpc_id]},
+                {'Name': 'default-for-az', 'Values': ['true']}
+              ])
+              if not subnets['Subnets']:
+                raise Exception('No public subnets found in default VPC')
+
+              # Verify subnets have a route to an IGW (i.e. are truly public)
+              route_tables = ec2.describe_route_tables(Filters=[
+                {'Name': 'vpc-id', 'Values': [vpc_id]}
+              ])
+
+              public_subnet_ids = []
+              for subnet in subnets['Subnets']:
+                subnet_id = subnet['SubnetId']
+                for rt in route_tables['RouteTables']:
+                  # Check if this route table is associated with the subnet or is the main route table
+                  associated = False
+                  is_main = False
+                  for assoc in rt.get('Associations', []):
+                    if assoc.get('SubnetId') == subnet_id:
+                      associated = True
+                    if assoc.get('Main', False):
+                      is_main = True
+                  if associated or is_main:
+                    for route in rt.get('Routes', []):
+                      if route.get('GatewayId', '').startswith('igw-'):
+                        public_subnet_ids.append(subnet_id)
+                        break
+                  if subnet_id in public_subnet_ids:
+                    break
+
+              if not public_subnet_ids:
+                raise Exception('No subnets with internet gateway route found in default VPC')
+
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                'VpcId': vpc_id,
+                'SubnetIds': ','.join(public_subnet_ids)
+              })
+            except Exception as e:
+              cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
+
+  VpcLookup:
+    Type: 'Custom::VpcLookup'
+    Properties:
+      ServiceToken: !GetAtt VpcLookupFunction.Arn
+
+  DesktopSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Desktop security group
+      VpcId: !GetAtt VpcLookup.VpcId
+      Tags:
+        - Key: Name
+          Value: !Ref 'AWS::StackName'
+
+  DesktopSecurityGroupCIDRIngressDCV: 
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: Ingress from CIDR for NICE-DCV access to graphics desktop
+      GroupId: !GetAtt DesktopSecurityGroup.GroupId
+      CidrIp: !Ref DesktopAccessCIDR
+      IpProtocol: tcp
+      FromPort: 8443
+      ToPort: 8443
+
+  DesktopSecurityGroupIngressSelf: 
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: Ingress from self security group
+      GroupId: !GetAtt DesktopSecurityGroup.GroupId
+      IpProtocol: "-1"
+      FromPort: 0
+      ToPort: 65535
+      SourceSecurityGroupId: !GetAtt DesktopSecurityGroup.GroupId
+
+  DesktopSecurityGroupEgressSelf: 
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      Description: Egress to self security group
+      GroupId: !GetAtt DesktopSecurityGroup.GroupId
+      IpProtocol: "-1"
+      FromPort: 0
+      ToPort: 65535
+      DestinationSecurityGroupId: !GetAtt DesktopSecurityGroup.GroupId
+  
+  DesktopSecurityGroupCIDREgress: 
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      Description: Egress rule for out bound traffic
+      GroupId: !GetAtt DesktopSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 0
+      ToPort: 65535
+      CidrIp: '0.0.0.0/0'
+
+  InstanceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
+      Policies:
+        - PolicyName: dcv-license-s3
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                Resource: 
+                  - !Sub 'arn:aws:s3:::dcv-license.${AWS::Region}/*'
+        - PolicyName: ec2-autoscaling
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'autoscaling:DescribeAutoScalingInstances'
+                  - 'ec2:DescribeInstances'
+                Resource: '*'
+        - PolicyName: ecr-policy
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ecr:SetRepositoryPolicy"
+                  - "ecr:CompleteLayerUpload"
+                  - "ecr:BatchDeleteImage"
+                  - "ecr:UploadLayerPart"
+                  - "ecr:DeleteRepositoryPolicy"
+                  - "ecr:InitiateLayerUpload"
+                  - "ecr:DeleteRepository"
+                  - "ecr:PutImage"
+                Resource: '*'
+
+  InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref InstanceRole
+
+  DesktopLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties: 
+      LaunchTemplateData: 
+        MetadataOptions:
+          HttpTokens: "required"
+          HttpEndpoint: "enabled"
+        SecurityGroupIds:
+          - !GetAtt DesktopSecurityGroup.GroupId
+        BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: !Ref EbsVolumeSize
+            VolumeType: !Ref EbsVolumeType
+            Encrypted: true
+            DeleteOnTermination: true
+        ImageId: !FindInMap 
+          - !Ref 'AWSUbuntuAMIType'
+          - !Ref 'AWS::Region'
+          - AMI
+        EbsOptimized: !Ref EBSOptimized
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
+        InstanceType: !Ref DesktopInstanceType
+        UserData: !Base64 
+          'Fn::Join':
+            - ''
+            - - |
+                Content-Type: multipart/mixed; boundary="//"
+                MIME-Version: 1.0
+
+                --//
+                Content-Type: text/cloud-config; charset="us-ascii"
+                MIME-Version: 1.0
+                Content-Transfer-Encoding: 7bit
+                Content-Disposition: attachment; filename="cloud-config.txt"
+
+                #cloud-config
+                cloud_final_modules:
+                - [scripts-user, always]
+
+                --//
+                Content-Type: text/x-shellscript; charset="us-ascii"
+                MIME-Version: 1.0
+                Content-Transfer-Encoding: 7bit
+                Content-Disposition: attachment; filename="userdata.txt"
+                #!/bin/bash -xe
+                echo "Cloud init in progress! Logs: /var/log/cloud-init-output.log" > /etc/motd
+                . /etc/os-release
+
+                distro=ubuntu${VERSION_ID//[.]/""}
+                arch="x86_64"
+                echo "Ubuntu  $distro/$arch"
+
+                # setup graphics desktop
+                export DEBIAN_FRONTEND=noninteractive
+                export DEBCONF_NONINTERACTIVE_SEEN=true
+
+                dpkg -l | grep linux | awk -F' ' '{print $2}' > /tmp/dpkg.out
+                for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
+
+                [[ ! -z $(lspci -v | grep NVIDIA) ]] && \
+                [[ ! -x "$(command -v nvidia-smi)" ]] && \
+                wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.1-1_all.deb && \
+                dpkg -i cuda-keyring_1.1-1_all.deb && \
+                apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
+                apt-get -y install linux-headers-$(uname -r) build-essential && \
+                DRIVER_VERSION=$(apt-cache policy nvidia-fabricmanager-580 | awk '/Candidate:/ {print $2}') && \
+                DRIVER_MAJOR_VERSION=$(echo "$DRIVER_VERSION" | cut -d'.' -f1) && \
+                apt-get install -y libnvidia-cfg1-${DRIVER_MAJOR_VERSION}-server=$DRIVER_VERSION \
+                  libnvidia-compute-${DRIVER_MAJOR_VERSION}-server=$DRIVER_VERSION \
+                  nvidia-driver-${DRIVER_MAJOR_VERSION}-server=$DRIVER_VERSION  && \
+                ( (apt-get install -y nvidia-fabricmanager-${DRIVER_MAJOR_VERSION}=$DRIVER_VERSION && systemctl enable nvidia-fabricmanager) || : ) && \
+                sync && reboot
+
+                dpkg -l | grep nvidia | awk -F' ' '{print $2}' > /tmp/dpkg.out
+                for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
+                
+                [[ -z $(lspci -v | grep NVIDIA) ]] && update-pciids
+                if  ( [[ ! -z $(lspci -v | grep Trainium) ]] || [[ ! -z $(lspci -v | grep Inferentia2) ]] ) \
+                  && [[ ! -x "$(command -v /opt/aws/neuron/neuron-ls)" ]]
+                then
+                  wget -qO - https://apt.repos.neuron.amazonaws.com/GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB > ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
+                  gpg --no-default-keyring --keyring ./aws_neuron_keyring.gpg --import  ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
+                  gpg --no-default-keyring --keyring ./aws_neuron_keyring.gpg  --export >  ./aws_neuron.gpg
+                  mv ./aws_neuron.gpg /etc/apt/trusted.gpg.d/
+                  rm ./GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB
+
+                  add-apt-repository -y  "deb https://apt.repos.neuron.amazonaws.com ${VERSION_CODENAME} main"
+                  apt-get -y update
+                  apt-get -y install linux-headers-$(uname -r) git
+                  apt-get -y install aws-neuronx-dkms aws-neuronx-oci-hook aws-neuronx-collectives aws-neuronx-runtime-lib aws-neuronx-tools
+                  echo "export PATH=/opt/aws/neuron/bin:$PATH" >> /home/ubuntu/.bashrc
+                fi
+
+                # setup software repo for docker
+                wget -qO - https://download.docker.com/linux/ubuntu/gpg > ./GPG_DOCKER.PUB
+                gpg --no-default-keyring --keyring ./docker_keyring.gpg --import  ./GPG_DOCKER.PUB
+                gpg --no-default-keyring --keyring ./docker_keyring.gpg  --export > ./docker.gpg
+                mv ./docker.gpg /etc/apt/trusted.gpg.d/
+                rm ./GPG_DOCKER.PUB
+                
+                add-apt-repository -y  "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+     
+                # add key for NICE-DCV
+                wget -qO - https://d1uj6qtbmh3dt5.cloudfront.net/NICE-GPG-KEY > ./NICE-GPG-KEY
+                gpg --no-default-keyring --keyring ./nice_dcv_keyring.gpg --import  ./NICE-GPG-KEY
+                gpg --no-default-keyring --keyring ./nice_dcv_keyring.gpg  --export > ./nice_dcv.gpg
+                mv ./nice_dcv.gpg /etc/apt/trusted.gpg.d/
+                rm ./NICE-GPG-KEY
+
+                # add visual code repository
+                wget -qO - https://packages.microsoft.com/keys/microsoft.asc > ./microsoft.asc
+                gpg --no-default-keyring --keyring ./microsoft_keyring.gpg --import  ./microsoft.asc
+                gpg --no-default-keyring --keyring ./microsoft_keyring.gpg --export >  ./microsoft.gpg
+                mv ./microsoft.gpg /etc/apt/trusted.gpg.d/
+                rm ./microsoft.asc
+
+                add-apt-repository -y  "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main"
+
+                # update and install required packages
+                apt-get update
+
+                apt-get -y install git tar curl jq
+                apt-get -y install software-properties-common
+                
+                # install docker if it is not installed
+                if [ ! -x "$(command -v docker)" ]; then
+                  apt-get -y install docker-ce docker-ce-cli containerd.io      
+                  usermod -aG docker ubuntu
+
+                  # install nvidia container toolkit if we have a nvidia GPU
+                  if [[ ! -z $(lspci -v | grep NVIDIA) ]]
+                  then
+                    wget -qO - https://nvidia.github.io/nvidia-container-runtime/gpgkey > ./gpg_nvidia_container_runtime.pub
+                    gpg --no-default-keyring --keyring ./nvidia_container_runtime_keyring.gpg --import  ./gpg_nvidia_container_runtime.pub
+                    gpg --no-default-keyring --keyring ./nvidia_container_runtime_keyring.gpg --export >  ./nvidia_container_runtime.gpg
+                    mv ./nvidia_container_runtime.gpg /etc/apt/trusted.gpg.d/
+                    rm ./gpg_nvidia_container_runtime.pub
+
+                    distribution=$ID$VERSION_ID
+                    curl -s -L https://nvidia.github.io/nvidia-container-runtime/$distribution/nvidia-container-runtime.list | \
+                      tee /etc/apt/sources.list.d/nvidia-container-runtime.list
+                    apt-get update
+                    apt-get -y install nvidia-container-toolkit
+                    nvidia-ctk runtime configure --runtime=docker
+                    systemctl restart docker
+                  fi
+                fi
+                
+                apt-get -y install tzdata
+                apt-get -y install keyboard-configuration
+                apt-get -y install gnupg2
+                apt-get -y install openmpi-bin libopenmpi-dev 
+                apt-get -y install protobuf-compiler
+
+                apt-get -y install ubuntu-desktop
+
+                if [[ ! -x "$(command -v dcv)" ]]
+                then
+                apt-get -y install gdm3
+                echo "/usr/sbin/gdm3" > /etc/X11/default-display-manager
+                dpkg-reconfigure gdm3
+                sed -i -e "s/#WaylandEnable=false/WaylandEnable=false/g" /etc/gdm3/custom.conf
+                (systemctl stop gdm3 && systemctl start gdm3 && apt-get -y install mesa-utils) || (sync &&  reboot)
+                
+                apt-get -y install xserver-xorg-video-dummy
+                cat >/etc/X11/xorg.conf <<EOL
+                Section "Device"
+                  Identifier "DummyDevice"
+                  Driver "dummy"
+                  Option "UseEDID" "false"
+                  VideoRam 512000
+                EndSection
+                Section "Monitor"
+                  Identifier "DummyMonitor"
+                  HorizSync 5.0 - 1000.0
+                  VertRefresh 5.0 - 200.0
+                  Option "ReducedBlanking"
+                EndSection
+                Section "Screen"
+                  Identifier "DummyScreen"
+                  Device "DummyDevice"
+                  Monitor "DummyMonitor"
+                  DefaultDepth 24
+                  SubSection "Display"
+                    Viewport 0 0
+                    Depth 24
+                    Virtual 4096 2160
+                  EndSubSection
+                EndSection
+                EOL
+
+                ( [[ "$VERSION_ID" == 24.04* ]] && \
+                  wget https://d1uj6qtbmh3dt5.cloudfront.net/2024.0/Servers/nice-dcv-2024.0-19030-ubuntu2404-x86_64.tgz && \
+                  tar -xvzf nice-dcv-2024.0-19030-ubuntu2404-x86_64.tgz && \
+                  cd nice-dcv-2024.0-19030-ubuntu2404-x86_64 && \
+                  apt-get -y install ./nice-dcv-server_2024.0.19030-1_amd64.ubuntu2404.deb) || \
+                 echo "Retrying DCV install..."
+                  
+                systemctl daemon-reload && sync && reboot
+                fi
+
+                #restart X server
+                systemctl set-default graphical.target
+                systemctl isolate graphical.target
+    
+                # Create DCV server configuration file
+                [[ -d /opt/dcv-session-store ]] || mkdir /opt/dcv-session-store
+                cat >/etc/dcv/dcv.conf <<EOL
+                [license]
+                [log]
+                [session-management]
+                create-session=true
+                [session-management/defaults]
+                [session-management/automatic-console-session]
+                owner=ubuntu
+                storage-root="/opt/dcv-session-store/"
+                [display]
+                [connectivity]
+                [security]
+                authentication="system"
+                [clipboard]
+                primary-selection-copy=true
+                primary-selection-paste=true
+                EOL
+
+                # Create DCV session permissions files
+                rm -f /home/ubuntu/dcv.perms
+                cat >/home/ubuntu/dcv.perms <<EOL
+                [permissions]
+                %owner% allow builtin
+                EOL
+
+                # Enable DCV server
+                systemctl daemon-reload
+                systemctl enable dcvserver
+                systemctl restart dcvserver
+                
+                echo "install DCV server complete"
+
+                # install nfs-common
+                apt-get -y install nfs-common
+              
+              - AWS_REGION=
+              - !Ref AWS::Region
+              - |+
+
+              - DESKTOP_ROLE_ARN=
+              - !GetAtt InstanceRole.Arn
+              - |+
+
+              - DESKTOP_SG_ID=
+              - !GetAtt DesktopSecurityGroup.GroupId
+              - |+
+
+              - STACK_NAME=
+              - !Ref 'AWS::StackName'
+              - |+
+
+              - ASG_NAME=
+              - !Sub '${AWS::StackName}-asg'
+              - |+
+
+              - |
+
+                # Create config file
+                mkdir -p /home/ubuntu/.aws
+                cat >/home/ubuntu/.aws/config <<EOL
+                [default]
+                region = ${AWS_REGION}
+
+                EOL
+                chown -R ubuntu:ubuntu /home/ubuntu/.aws
+
+                # update .bashrc
+                echo "export desktop_role_arn=${DESKTOP_ROLE_ARN}" >> /home/ubuntu/.bashrc
+                echo "export desktop_sg_id=${DESKTOP_SG_ID}" >> /home/ubuntu/.bashrc
+
+                # install miniconda3 if anaconda3, or miniconda3 are not installed
+                if [[ ! -d "/home/ubuntu/anaconda3" ]] && [[ ! -d "/home/ubuntu/miniconda3" ]]
+                then
+                  wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /home/ubuntu/miniconda3.sh
+                  HOME=/home/ubuntu bash /home/ubuntu/miniconda3.sh -b -p /home/ubuntu/miniconda3
+                  echo "source /home/ubuntu/miniconda3/etc/profile.d/conda.sh" >> /home/ubuntu/.bashrc
+                  rm /home/ubuntu/miniconda3.sh
+
+                  source /home/ubuntu/miniconda3/etc/profile.d/conda.sh
+                  conda tos accept --override-channels --channel  https://repo.anaconda.com/pkgs/main
+                  conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+                  conda update -y --name base -c defaults conda
+
+                  # install jupyterlab and boto3 in base env
+                  conda activate && \
+                  conda install -y -c conda-forge jupyterlab && \
+                  conda install -y ipykernel && \
+                  conda install -y boto3 && \
+                  conda install -y nb_conda_kernels && \
+                  conda deactivate
+
+                  chown -R ubuntu:ubuntu /home/ubuntu/miniconda3
+                  chown -R ubuntu:ubuntu /home/ubuntu/.conda
+                fi
+              
+                echo "conda activate" >> /home/ubuntu/.bashrc
+                # install visual code 
+                snap install code --classic
+
+                # install Kiro
+                URL=$(curl -s https://prod.download.desktop.kiro.dev/stable/metadata-linux-x64-stable.json | jq -r '.releases[] | select(.updateTo.url | endswith(".tar.gz")) | .updateTo.url')
+                mkdir -p /opt/kiro
+                curl -L "$URL" | tar -xz -C /opt/kiro --strip-components=1
+                chown -R root:root /opt/kiro
+                chmod 4755 /opt/kiro/chrome-sandbox
+                ln -sf /opt/kiro/bin/kiro /usr/local/bin/kiro
+                cat <<EOF > /usr/share/applications/kiro.desktop
+                [Desktop Entry]
+                Name=Kiro
+                Exec=/opt/kiro/bin/kiro %F
+                Icon=/opt/kiro/resources/app/resources/linux/code.png
+                Type=Application
+                Categories=Development;IDE;
+                EOF
+
+                # install Claude Code CLI
+                if [ ! -x "$(command -v claude)" ]; then
+                  echo "Installing Claude Code CLI..."
+                  sudo -u ubuntu bash -c "curl -fsSL https://claude.ai/install.sh | bash"
+                  ln -s /home/ubuntu/.local/bin/claude /usr/local/bin/claude
+
+                  # Verify installation
+                  if [ -x "$(command -v claude)" ]; then
+                    echo "Claude Code CLI installed successfully"
+                    claude --version
+
+                    echo "export CLAUDE_CODE_USE_BEDROCK=1" >> /home/ubuntu/.bashrc
+                    echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/ubuntu/.bashrc
+                  else
+                    echo "Warning: Claude Code CLI installation may have failed"
+                  fi
+                else
+                  echo "Claude Code CLI already installed"
+                fi
+
+                # install aws cli
+                snap install aws-cli --classic
+                
+                if [ ! -d "/home/ubuntu/aws-deep-learning-ami-ubuntu-dcv-desktop" ]; then
+                  sudo -u ubuntu bash -c "git clone https://github.com/aws-samples/aws-deep-learning-ami-ubuntu-dcv-desktop.git /home/ubuntu/aws-deep-learning-ami-ubuntu-dcv-desktop"
+                fi
+
+                echo "Deep Learning Desktop is Ready!" > /etc/motd
+
+                # Signal CloudFormation that UserData is complete
+                apt-get -y install python3-pip
+                pip3 install --break-system-packages https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+                cfn-signal -e $? --stack ${STACK_NAME} --resource DesktopAutoScalingGroup --region ${AWS_REGION}
+
+  DesktopAutoScalingGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    CreationPolicy:
+      ResourceSignal:
+        Count: '1'
+        Timeout: PT60M
+    Properties:
+      AutoScalingGroupName: !Sub '${AWS::StackName}-asg'
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 3600
+      LaunchTemplate:
+        LaunchTemplateId: !Ref DesktopLaunchTemplate
+        Version: !GetAtt DesktopLaunchTemplate.LatestVersionNumber
+      MinSize: '1'
+      MaxSize: '1'
+      DesiredCapacity: '1'
+      VPCZoneIdentifier: !Split
+        - ','
+        - !GetAtt VpcLookup.SubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-deep-learning-ubuntu-desktop'
+          PropagateAtLaunch: true
+
+Outputs:
+  Ami:
+    Description: AMI
+    Value: !FindInMap 
+      - !Ref 'AWSUbuntuAMIType'
+      - !Ref 'AWS::Region'
+      - AMI
+    Export:
+      Name: !Sub '${AWS::StackName}-Ami'
+  VpcId:
+    Description: Default Vpc Id
+    Value: !GetAtt VpcLookup.VpcId
+    Export:
+      Name: !Sub '${AWS::StackName}-VpcId'
+  SubnetIds:
+    Description: Public subnet IDs used by the ASG
+    Value: !GetAtt VpcLookup.SubnetIds
+    Export:
+      Name: !Sub '${AWS::StackName}-SubnetIds'
+  InstanceProfileArn:
+    Description: IAM instance profile
+    Value: !GetAtt InstanceProfile.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-InstanceProfileArn'
+  SecurityGroupId:
+    Description: Desktop security group
+    Value: !GetAtt DesktopSecurityGroup.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupId'

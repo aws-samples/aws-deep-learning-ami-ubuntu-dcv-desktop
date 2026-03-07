@@ -16,6 +16,10 @@ Launch an AWS deep learning desktop with [Amazon DCV](https://aws.amazon.com/hpc
 * Generative AI [Inference](#generative-ai-inference-testing) and [Training](#generative-ai-training-testing)
 * [Amazon SageMaker AI](#amazon-sagemaker-ai) integration
 
+**Deployment Options:**
+* [Quick Start (Basic)](#quick-start-basic) — Minimal configuration. Automatically uses the default VPC and public subnets. No EC2 key pair or S3 bucket required. Recommended for most users.
+* [Advanced Setup](#advanced-setup) — Full control over VPC, subnets, security groups, EFS, FSx for Lustre, S3, and SSH key pair.  Recommended for advanced users.
+
 ## Getting Started
 
 ### Prerequisites
@@ -26,60 +30,76 @@ Launch an AWS deep learning desktop with [Amazon DCV](https://aws.amazon.com/hpc
 **Supported AWS Regions:**
 us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, ap-northeast-2, ap-south-1
 
-**Note:** Not all EC2 instance types are available in all [Availability Zones](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html).
+## Quick Start (Basic)
 
-**Setup Steps:**
+The basic template automatically discovers the default VPC and its public subnets, uses an Auto Scaling Group for capacity resilience across Availability Zones, and uses AWS Systems Manager (SSM) Session Manager instead of SSH key pairs.
+
+### Setup Steps
 
 1. **Select your [AWS Region](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)** from the supported regions above
 
-2. **VPC and Subnets:** [Create a VPC](https://docs.aws.amazon.com/vpc/latest/userguide/create-vpc.html#create-vpc-only) or use an existing one. If needed, [create three public subnets](https://docs.aws.amazon.com/vpc/latest/userguide/create-subnets.html) in three different Availability Zones
+2. **Get Your Public IP:** Use [AWS check ip](http://checkip.amazonaws.com/) to find your public IP address (needed for `DesktopAccessCIDR` parameter, append `/32` to your IP)
 
-3. **EC2 Key Pair:** [Create an EC2 key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair) if you don't have one (needed for `KeyName` parameter)
-
-4. **S3 Bucket:** [Create an S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in your selected region (can be empty initially)
-
-5. **Get Your Public IP:** Use [AWS check ip](http://checkip.amazonaws.com/) to find your public IP address (needed for `DesktopAccessCIDR` parameter)
-
-6. **Clone Repository:** Clone this repository to your laptop:
+3. **Clone Repository:** Clone this repository to your laptop:
    ```bash
    git clone <repository-url>
    ```
 
 ### Launch the Desktop
 
-Create a CloudFormation stack using the [deep-learning-ubuntu-desktop.yaml](deep-learning-ubuntu-desktop.yaml) template via:
+Create a CloudFormation stack using the [deep-learning-ubuntu-desktop-basic.yaml](deep-learning-ubuntu-desktop-basic.yaml) template via:
 * [AWS Management Console](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-stack.html), or
 * [AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html)
 
-See [CloudFormation Parameters](#desktop-cloudformation-template-parameters) for template inputs and [Stack Outputs](#desktop-cloudformation-stack-outputs) for outputs.
+See [Basic Template Parameters](#basic-template-parameters) for template inputs.
 
 **Important:** The template creates [IAM](https://aws.amazon.com/iam/) resources:
 * **Console:** Check "I acknowledge that AWS CloudFormation might create IAM resources" during review
-* **CLI:** Use `--capabilities CAPABILITY_NAMED_IAM` flag 
+* **CLI:** Use `--capabilities CAPABILITY_NAMED_IAM` flag
 
-### Connect via SSH
+**Note:** The stack waits for UserData to complete before marking as `CREATE_COMPLETE`. This can take 30-60 minutes depending on the instance type and software installations. Do not proceed until the stack status shows `CREATE_COMPLETE`.
+
+### Connect via SSM Session Manager
 
 1. Wait for stack status to show `CREATE_COMPLETE` in CloudFormation console
-2. Find your desktop instance in EC2 console
-3. [Connect via SSH](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstancesLinux.html) as user `ubuntu` using your key pair
-
-**First-time Setup:**
-* If you see `"Cloud init in progress! Logs: /var/log/cloud-init-output.log"`, disconnect and wait ~15 minutes. The desktop installs Amazon DCV server and reboots automatically.
-* When you see `Deep Learning Desktop is Ready!`, set a password:
-  ```bash
-  sudo passwd ubuntu
-  ```
-
-**Troubleshooting:** The desktop uses EC2 [user-data](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html) for automatic software installation. Check logs at `/var/log/cloud-init-output.log`. Most transient failures can be fixed by rebooting the instance.
+2. Find your desktop instance in EC2 console (tagged with your stack name)
+3. Select the instance and click **Connect** → **Session Manager** → **Start session**
+4. Set a password for the `ubuntu` user:
+   ```bash
+   sudo passwd ubuntu
+   ```
 
 ### Connect via Amazon DCV Client
 
 1. Download and install the [Amazon DCV client](https://docs.aws.amazon.com/dcv/latest/userguide/client.html) on your laptop
-2. Login to the desktop as user `ubuntu`
-3. **Do not upgrade the OS version** when prompted on first login
-4. Configure **Software Updater** to only apply security updates automatically (avoid non-security updates unless you're an advanced user)
+2. Find the public IP of your instance in the EC2 console
+3. Connect to `https://<public-ip>:8443` using the DCV client
+4. Login as user `ubuntu` with the password you set via SSM
+5. **Do not upgrade the OS version** when prompted on first login
+6. Configure **Software Updater** to only apply security updates automatically (avoid non-security updates unless you're an advanced user)
 
-### Preinstalled Development Tools
+### Basic Template Parameters
+
+| Parameter Name | Description |
+| --- | ----------- |
+| AWSUbuntuAMIType | **Required**. Selects the AMI type. |
+| DesktopAccessCIDR | **Required**. Public IP CIDR range for DCV desktop access. Use [AWS check ip](http://checkip.amazonaws.com/) to find your public IP address, append `/32`. |
+| DesktopInstanceType | **Required**. Amazon EC2 instance type. |
+| EBSOptimized | **Required**. Enable [network optimization for EBS](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-optimized.html) (default is **true**). |
+| EbsVolumeSize | **Required**. Size of EBS volume in GB (default is 1000 GB). |
+| EbsVolumeType | **Required**. [EBS volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html) (default is gp3). |
+
+### Basic Template Stack Outputs
+
+| Output | Description |
+| --- | ----------- |
+| Ami | AMI used for the desktop instance |
+| VpcId | Default VPC ID discovered by the template |
+| SubnetIds | Public subnet IDs used by the Auto Scaling Group |
+| InstanceProfileArn | IAM instance profile ARN |
+| SecurityGroupId | Desktop security group ID |
+
+## Preinstalled Development Tools
 
 The desktop comes with several development tools pre-configured:
 
@@ -147,7 +167,7 @@ The desktop provides four frameworks for fine-tuning LLMs with PEFT (LoRA) or fu
 
 The desktop is pre-configured for [Amazon SageMaker AI](https://aws.amazon.com/sagemaker-ai/).
 
-**Clone SageMaker AI Examples GitHUb Repository:**
+**Clone SageMaker AI Examples GitHub Repository:**
 ```bash
 mkdir ~/sagemaker-ai
 cd ~/sagemaker-ai
@@ -160,12 +180,86 @@ Install Python extension in Visual Code, and open the cloned `amazon-sagemaker-e
 2. Use conda `base` environment as kernel
 3. Skip to  **Initialize Notebook**
 
-**Training Examples (FSx for Lustre must be enabled on the Deep Learning desktop):**
+**Training Examples (requires FSx for Lustre, see [Advanced Setup](#advanced-setup)):**
 1. Navigate to: `amazon-sagemaker-examples/advanced_functionality/distributed-training-pipeline/dist_training_pipeline.ipynb`
 2. Use conda `base` environment as kernel
 3. Skip to **Initialize Notebook**
 
-### Data Storage and File Systems
+## Managing the Desktop
+
+### Stopping and Restarting
+
+You can safely reboot, stop, and restart the desktop instance anytime. For the basic template, the instance is managed by an Auto Scaling Group. To stop the instance without it being replaced, set the ASG desired capacity to 0 in the EC2 Auto Scaling console. For the advanced template, EFS (and FSx for Lustre, if enabled) automatically remount on restart.
+
+### Distributed Training
+
+For distributed training workloads, launch a deep-learning cluster with EFA and Open MPI. See the [EFA Cluster Guide](EFA-CLUSTER.md).
+
+### Deleting Resources
+
+Delete CloudFormation stacks from the AWS console when no longer needed.
+
+**What Gets Deleted:**
+* EC2 instances
+* EBS root volumes
+* FSx for Lustre file-systems (if enabled, advanced template only)
+
+**What Persists:**
+* **EFS file-systems are NOT automatically deleted** (advanced template only)
+
+## Advanced Setup
+
+The advanced template provides full control over networking, storage, and security configuration. Use this if you need a custom VPC, EFS, FSx for Lustre, S3 bucket integration, or SSH access.
+
+### Prerequisites (Advanced)
+
+In addition to the [common prerequisites](#prerequisites):
+
+1. **VPC and Subnets:** [Create a VPC](https://docs.aws.amazon.com/vpc/latest/userguide/create-vpc.html#create-vpc-only) or use an existing one. If needed, [create three public subnets](https://docs.aws.amazon.com/vpc/latest/userguide/create-subnets.html) in three different Availability Zones
+
+2. **EC2 Key Pair:** [Create an EC2 key pair](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair) if you don't have one (needed for `KeyName` parameter)
+
+3. **S3 Bucket:** [Create an S3 bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) in your selected region (can be empty initially)
+
+4. **Get Your Public IP:** Use [AWS check ip](http://checkip.amazonaws.com/) to find your public IP address (needed for `DesktopAccessCIDR` parameter)
+
+5. **Clone Repository:** Clone this repository to your laptop:
+   ```bash
+   git clone <repository-url>
+   ```
+
+### Launch the Desktop (Advanced)
+
+Create a CloudFormation stack using the [deep-learning-ubuntu-desktop.yaml](deep-learning-ubuntu-desktop.yaml) template via:
+* [AWS Management Console](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-stack.html), or
+* [AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html)
+
+See [Advanced Template Parameters](#advanced-template-parameters) for template inputs and [Advanced Template Stack Outputs](#advanced-template-stack-outputs) for outputs.
+
+**Important:** The template creates [IAM](https://aws.amazon.com/iam/) resources:
+* **Console:** Check "I acknowledge that AWS CloudFormation might create IAM resources" during review
+* **CLI:** Use `--capabilities CAPABILITY_NAMED_IAM` flag
+
+### Connect via SSH (Advanced)
+
+1. Wait for stack status to show `CREATE_COMPLETE` in CloudFormation console
+2. Find your desktop instance in EC2 console
+3. [Connect via SSH](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstancesLinux.html) as user `ubuntu` using your key pair
+
+**First-time Setup:**
+* If you see `"Cloud init in progress! Logs: /var/log/cloud-init-output.log"`, disconnect and wait ~15 minutes. The desktop installs Amazon DCV server and reboots automatically.
+* When you see `Deep Learning Desktop is Ready!`, set a password:
+  ```bash
+  sudo passwd ubuntu
+  ```
+
+**Troubleshooting:** The desktop uses EC2 [user-data](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html) for automatic software installation. Check logs at `/var/log/cloud-init-output.log`. Most transient failures can be fixed by rebooting the instance.
+
+### Connect via Amazon DCV Client (Advanced)
+
+Follow the same [DCV client connection steps](#connect-via-amazon-dcv-client) as the basic template.
+
+### Data Storage (Advanced)
 
 **S3 Access:**
 The desktop has access to your specified S3 bucket. Verify access:
@@ -179,39 +273,16 @@ No output means the bucket is empty (normal). An error indicates access issues.
 * **[Amazon EFS](https://aws.amazon.com/efs/):** Mounted at `/home/ubuntu/efs` by default (persists after termination)
 * **[Amazon FSx for Lustre](https://aws.amazon.com/fsx/):** Optional, mounted at `/home/ubuntu/fsx` by default (enable via `FSxForLustre` parameter)
 
-**Important:** EBS volumes are deleted on termination. EFS file-systems persist. 
+**Important:** EBS volumes are deleted on termination. EFS file-systems persist.
 
-## Managing the Desktop
+### Advanced Template Parameters
 
-### Stopping and Restarting
-
-You can safely reboot, stop, and restart the desktop instance anytime. EFS (and FSx for Lustre, if enabled) automatically remount on restart.
-
-### Distributed Training
-
-For distributed training workloads, launch a deep-learning cluster with EFA and Open MPI. See the [EFA Cluster Guide](EFA-CLUSTER.md).
-
-### Deleting Resources
-
-Delete CloudFormation stacks from the AWS console when no longer needed.
-
-**What Gets Deleted:**
-* EC2 instances
-* EBS root volumes
-* FSx for Lustre file-systems (if enabled)
-
-**What Persists:**
-* **EFS file-systems are NOT automatically deleted**
-
-## Reference
-
-### Desktop CloudFormation Template Parameters
-
-| Parameter Name | Parameter Description |
+| Parameter Name | Description |
 | --- | ----------- |
 | AWSUbuntuAMIType | **Required**. Selects the AMI type. |
+| CapacityReservationId | *Optional*. EC2 capacity reservation ID. |
 | DesktopAccessCIDR | Public IP CIDR range for desktop access. Use [AWS check ip](http://checkip.amazonaws.com/) to find your public IP address. Ignored if DesktopSecurityGroupId is specified. |
-| DesktopHasPublicIpAddress | **Required**. Specify if desktop has a public IP address. Set to "true" unless you have AWS [VPN](https://aws.amazon.com/vpn/) or [DirectConnect](https://aws.amazon.com/directconnect) enabled.
+| DesktopHasPublicIpAddress | **Required**. Specify if desktop has a public IP address. Set to "true" unless you have AWS [VPN](https://aws.amazon.com/vpn/) or [DirectConnect](https://aws.amazon.com/directconnect) enabled. |
 | DesktopInstanceType | **Required**. Amazon EC2 instance type. |
 | DesktopSecurityGroupId | *Optional* advanced parameter. EC2 security group for desktop. Must allow ports 22 (SSH) and 8443 (DCV) from DesktopAccessCIDR, access to EFS and FSx for Lustre, and all traffic within the security group. Leave blank to auto-create. |
 | DesktopVpcId | **Required**. Amazon VPC id. |
@@ -221,13 +292,28 @@ Delete CloudFormation stacks from the AWS console when no longer needed.
 | EFSMountPath | Absolute path where EFS file-system is mounted (default is `/home/ubuntu/efs`). |
 | EbsVolumeSize | **Required**. Size of EBS volume (default is 500 GB). |
 | EbsVolumeType | **Required**. [EBS volume type](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volume-types.html) (default is gp3). |
-| FSxCapacity | *Optional*. Capacity of FSx for Lustre file-system in multiples of 1200 GB (default is 1200 GB). See FSxForLustre parameter. | 
+| FSxCapacity | *Optional*. Capacity of FSx for Lustre file-system in multiples of 1200 GB (default is 1200 GB). See FSxForLustre parameter. |
 | FSxForLustre | *Optional*. Enable FSx for Lustre file-system (disabled by default). When enabled, automatically imports data from `s3://S3bucket/S3Import`. See S3Bucket and S3Import parameters. |
 | FSxMountPath | FSx file-system mount path (default is `/home/ubuntu/fsx`). |
 | KeyName | **Required**. EC2 key pair name for SSH access. You must have the private key. |
 | S3Bucket | **Required**. S3 bucket name for data storage. May be empty at stack creation. |
 | S3Import | *Optional*. S3 import prefix for FSx file-system. See FSxForLustre parameter. |
 | UbuntuAMIOverride | *Optional* advanced parameter to override the AMI. Leave blank to use default AMIs. See AWSUbuntuAMIType. |
+
+### Advanced Template Stack Outputs
+
+| Output | Description |
+| --- | ----------- |
+| Ami | AMI used for the desktop instance |
+| VpcId | VPC ID |
+| KeyPairName | EC2 key pair name |
+| InstanceProfileArn | IAM instance profile ARN |
+| SecurityGroupId | Desktop security group ID |
+| EfsId | EFS file system ID |
+| EfsMountPath | EFS mount path |
+| FsxId | FSx file system ID (or "disabled") |
+| FsxMountName | FSx mount name (or "disabled") |
+| FsxMountPath | FSx mount path (or "disabled") |
 
 ## Security
 
@@ -236,4 +322,3 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 ## License
 
 This project is licensed under the MIT-0 [License](./LICENSE).
-
