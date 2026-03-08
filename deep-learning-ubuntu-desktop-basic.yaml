@@ -192,38 +192,45 @@ Resources:
                 raise Exception('No default VPC found in this region')
               vpc_id = vpcs['Vpcs'][0]['VpcId']
 
-              # Find public subnets in the default VPC
+              # Find default subnets in the default VPC
               subnets = ec2.describe_subnets(Filters=[
                 {'Name': 'vpc-id', 'Values': [vpc_id]},
                 {'Name': 'default-for-az', 'Values': ['true']}
               ])
               if not subnets['Subnets']:
-                raise Exception('No public subnets found in default VPC')
+                raise Exception('No default subnets found in default VPC')
 
-              # Verify subnets have a route to an IGW (i.e. are truly public)
+              # Get all route tables for the VPC
               route_tables = ec2.describe_route_tables(Filters=[
                 {'Name': 'vpc-id', 'Values': [vpc_id]}
               ])
 
+              # Build a map of subnet -> route table
+              subnet_to_rt = {}
+              main_rt_id = None
+              
+              for rt in route_tables['RouteTables']:
+                for assoc in rt.get('Associations', []):
+                  if assoc.get('Main', False):
+                    main_rt_id = rt['RouteTableId']
+                  if 'SubnetId' in assoc:
+                    subnet_to_rt[assoc['SubnetId']] = rt['RouteTableId']
+
+              # Check which route tables have IGW routes
+              rt_has_igw = {}
+              for rt in route_tables['RouteTables']:
+                rt_id = rt['RouteTableId']
+                has_igw = any(route.get('GatewayId', '').startswith('igw-') for route in rt.get('Routes', []))
+                rt_has_igw[rt_id] = has_igw
+
+              # Determine public subnets
               public_subnet_ids = []
               for subnet in subnets['Subnets']:
                 subnet_id = subnet['SubnetId']
-                for rt in route_tables['RouteTables']:
-                  # Check if this route table is associated with the subnet or is the main route table
-                  associated = False
-                  is_main = False
-                  for assoc in rt.get('Associations', []):
-                    if assoc.get('SubnetId') == subnet_id:
-                      associated = True
-                    if assoc.get('Main', False):
-                      is_main = True
-                  if associated or is_main:
-                    for route in rt.get('Routes', []):
-                      if route.get('GatewayId', '').startswith('igw-'):
-                        public_subnet_ids.append(subnet_id)
-                        break
-                  if subnet_id in public_subnet_ids:
-                    break
+                # Get the route table for this subnet (explicit or main)
+                rt_id = subnet_to_rt.get(subnet_id, main_rt_id)
+                if rt_id and rt_has_igw.get(rt_id, False):
+                  public_subnet_ids.append(subnet_id)
 
               if not public_subnet_ids:
                 raise Exception('No subnets with internet gateway route found in default VPC')
