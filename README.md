@@ -42,20 +42,22 @@ The basic template automatically discovers the default VPC and its public subnet
 
 3. **Clone Repository:** Clone this repository to your laptop:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/aws-samples/aws-deep-learning-ami-ubuntu-dcv-desktop.git
    ```
 
 ### Launch the Desktop
 
-Create a CloudFormation stack using the [deep-learning-ubuntu-desktop-basic.yaml](deep-learning-ubuntu-desktop-basic.yaml) template via:
-* [AWS Management Console](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-stack.html), or
-* [AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/cloudformation/create-stack.html)
+Create a CloudFormation stack using the [deep-learning-ubuntu-desktop-basic.yaml](deep-learning-ubuntu-desktop-basic.yaml) template (see [Basic Template Parameters](#basic-template-parameters)) using
+[AWS Management Console](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-stack.html), or if you prefer CLI, run following commands in a terminal window:
 
-See [Basic Template Parameters](#basic-template-parameters) for template inputs.
+   ```bash
+   cd ~/aws-deep-learning-ami-ubuntu-dcv-desktop
+   bash quick-start.sh
+   ```
 
 **Important:** The template creates [IAM](https://aws.amazon.com/iam/) resources:
 * **Console:** Check "I acknowledge that AWS CloudFormation might create IAM resources" during review
-* **CLI:** Use `--capabilities CAPABILITY_NAMED_IAM` flag
+* **CLI:** Uses `--capabilities CAPABILITY_NAMED_IAM` flag
 
 **Note:** The stack waits for UserData to complete before marking as `CREATE_COMPLETE`. This can take 30-60 minutes depending on the instance type and software installations. Do not proceed until the stack status shows `CREATE_COMPLETE`.
 
