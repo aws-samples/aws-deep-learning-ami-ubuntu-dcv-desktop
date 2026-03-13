@@ -751,19 +751,62 @@ Resources:
             - |+
 
               if [[ -z "${OVERRIDE_AMI}" ]]; then
-                [[ ! -z $(lspci -v | grep NVIDIA) ]] && \
-                [[ ! -x "$(command -v nvidia-smi)" ]] && \
-                wget https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.1-1_all.deb && \
-                dpkg -i cuda-keyring_1.1-1_all.deb && \
-                apt-get update && apt-get -y purge cuda && apt-get -y purge nvidia-* && apt-get -y purge libnvidia-* && apt-get -y autoremove && \
-                apt-get -y install linux-headers-$(uname -r) build-essential && \
-                DRIVER_VERSION=$(apt-cache policy nvidia-fabricmanager-580 | awk '/Candidate:/ {print $2}') && \
-                DRIVER_MAJOR_VERSION=$(echo "$DRIVER_VERSION" | cut -d'.' -f1) && \
-                apt-get install -y libnvidia-cfg1-${DRIVER_MAJOR_VERSION}-server=$DRIVER_VERSION \
-                  libnvidia-compute-${DRIVER_MAJOR_VERSION}-server=$DRIVER_VERSION \
-                  nvidia-driver-${DRIVER_MAJOR_VERSION}-server=$DRIVER_VERSION  && \
-                ( (apt-get install -y nvidia-fabricmanager-${DRIVER_MAJOR_VERSION}=$DRIVER_VERSION && systemctl enable nvidia-fabricmanager) || : ) && \
-                sync && reboot
+
+                # NVIDIA Driver Installation Logic
+                if [[ ! -z $(lspci -v | grep -i NVIDIA) ]] && [[ ! -x "$(command -v nvidia-smi)" ]]; then
+                    
+                    echo "Starting NVIDIA installation. Instance will reboot upon completion or failure."
+                    
+                    # TRAP: The moment this block exits (either via success at the end, or a set -e crash), trigger a reboot.
+                    trap 'echo "Executing guaranteed reboot..."; rm -f /etc/apt/preferences.d/nvidia-pin; sync; reboot' EXIT
+
+                    # Now write normal, safe bash. If any of these fail, set -e safely aborts 
+                    # the process before variables get corrupted, and the trap reboots the machine.
+                    
+                    wget -q https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-keyring_1.1-1_all.deb
+                    dpkg -i cuda-keyring_1.1-1_all.deb
+                    apt-get update
+
+                    # Clean existing
+                    apt-get -y purge cuda nvidia-* libnvidia-*
+                    apt-get -y autoremove
+                    apt-get -y install linux-headers-$(uname -r) build-essential
+
+                    # Identify Version & Flavor
+                    FM_PKG="nvidia-fabricmanager-580"
+                    FULL_VERSION=$(apt-cache policy $FM_PKG | awk '/Candidate:/ {print $2}')
+                    
+                    # Safety check: If FULL_VERSION is empty, explicitly fail before writing broken configs
+                    if [[ -z "$FULL_VERSION" ]]; then
+                        echo "Failed to retrieve candidate version for $FM_PKG"
+                        exit 1 # This triggers the trap and reboots
+                    fi
+
+                    BASE_VERSION=$(echo "$FULL_VERSION" | cut -d'-' -f1)
+                    DRIVER_MAJOR=$(echo "$BASE_VERSION" | cut -d'.' -f1)
+                    FLAVOR="-server"
+
+                    echo "Pinning entire NVIDIA dependency tree to ${BASE_VERSION}..."
+                    cat <<EOF > /etc/apt/preferences.d/nvidia-pin
+              Package: *nvidia*${DRIVER_MAJOR}*
+              Pin: version ${BASE_VERSION}*
+              Pin-Priority: 1001
+
+              Package: *fabricmanager*${DRIVER_MAJOR}*
+              Pin: version ${BASE_VERSION}*
+              Pin-Priority: 1001
+              EOF
+
+                  apt-get install -y \
+                      "libnvidia-cfg1-${DRIVER_MAJOR}${FLAVOR}" \
+                      "libnvidia-compute-${DRIVER_MAJOR}${FLAVOR}" \
+                      "nvidia-driver-${DRIVER_MAJOR}${FLAVOR}" \
+                      "nvidia-fabricmanager-${DRIVER_MAJOR}"
+
+                  systemctl enable nvidia-fabricmanager
+                  
+                  # If it reaches here successfully, it exits the block, triggers the trap, and reboots.
+                fi
 
                 dpkg -l | grep nvidia | awk -F' ' '{print $2}' > /tmp/dpkg.out
                 for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
