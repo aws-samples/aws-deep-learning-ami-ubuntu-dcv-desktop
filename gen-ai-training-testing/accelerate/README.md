@@ -35,6 +35,7 @@ cd /app/multimodal/vision_language
 accelerate/
 ├── text/                          # Text-only LLM training
 │   ├── peft_accelerate.py         # SFT training
+│   ├── cpt_accelerate.py          # Continual pre-training
 │   ├── dpo_accelerate.py          # DPO alignment
 │   ├── ppo_accelerate.py          # PPO-RLHF alignment
 │   ├── reward_model_accelerate.py # Reward model training
@@ -91,6 +92,7 @@ See [multimodal/vision_language/README.md](./multimodal/vision_language/README.m
 ## Features
 
 ### Text Training
+- Continual Pre-Training: Extend model knowledge with domain-specific corpora
 - Complete RLHF Pipeline: SFT → Reward Model → PPO policy optimization
 - DPO Pipeline: SFT → DPO preference optimization (simpler, no reward model needed)
 - Generalized HuggingFace Dataset Support

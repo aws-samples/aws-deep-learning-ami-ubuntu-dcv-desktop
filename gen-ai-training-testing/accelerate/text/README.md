@@ -6,6 +6,7 @@ This directory provides a flexible framework for fine-tuning Large Language Mode
 
 ## Features
 
+- **Continual Pre-Training**: Extend model knowledge with domain-specific corpora (full causal LM objective)
 - **Complete RLHF Pipeline**: SFT → Reward Model → PPO policy optimization
 - **DPO Pipeline**: SFT → DPO preference optimization (simpler, no reward model needed)
 - **Generalized HuggingFace Dataset Support**: Easy integration with any HuggingFace dataset through flexible templates and field mapping
@@ -20,6 +21,7 @@ This directory provides a flexible framework for fine-tuning Large Language Mode
 ## Table of Contents
 
 - [Quick Start](#quick-start)
+- [Continual Pre-Training (CPT)](#continual-pre-training-cpt)
 - [Alignment Methods](#alignment-methods)
 - [Reward Model Training](#reward-model-training)
 - [Training Configuration](#training-configuration)
@@ -70,6 +72,74 @@ Train only the SFT model:
 ```bash
 accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py
 ```
+
+## Continual Pre-Training (CPT)
+
+Continual pre-training extends a pre-trained model's knowledge by training on domain-specific corpora using the standard causal language modeling objective. Unlike SFT, all tokens are training targets (no label masking), and training is epoch-based with regular checkpoint saving for resumability.
+
+### Quick Start
+
+```bash
+accelerate launch --config_file ../accelerate_config.yaml cpt_accelerate.py
+```
+
+This will train `Qwen/Qwen3.5-2B` on `wikimedia/wikipedia` (English, 20231101 snapshot) for 3 epochs with checkpoints saved every 1000 steps.
+
+### CPT with Custom Domain Data
+
+```bash
+accelerate launch --config_file ../accelerate_config.yaml cpt_accelerate.py \
+  --hf_model_id "Qwen/Qwen3.5-2B" \
+  --hfdc_dataset_name "your-org/domain-corpus" \
+  --hfdc_output_template "{text}" \
+  --num_train_epochs 3 \
+  --learning_rate 2e-5 \
+  --max_seq_length 4096 \
+  --save_steps 500
+```
+
+### Resuming from Checkpoint
+
+CPT supports resuming from a previously saved checkpoint:
+
+```bash
+accelerate launch --config_file ../accelerate_config.yaml cpt_accelerate.py \
+  --resume_from_checkpoint "results/Qwen_Qwen3.5-2B-cpt/checkpoint-2000"
+```
+
+### CPT vs SFT
+
+| Aspect | CPT (`cpt_accelerate.py`) | SFT (`peft_accelerate.py`) |
+|--------|---------------------------|----------------------------|
+| Objective | Causal LM on all tokens | Causal LM on output tokens only |
+| Label masking | None (all tokens are targets) | Input/instruction tokens masked |
+| Fine-tuning | Full model weights | LoRA or full |
+| Training schedule | Epoch-based | Step-based |
+| Checkpointing | Regular interval (`save_steps`) | Best metric only |
+| Typical data | Raw domain text | Instruction/response pairs |
+| Learning rate | Lower (2e-5) | Higher (5e-5) |
+| Warmup | Longer (1000 steps) | Shorter (100 steps) |
+
+### CPT CLI Arguments
+
+| Argument | Type | Description | Default |
+|----------|------|-------------|---------|
+| `--hf_model_id` | str | HuggingFace model name | `Qwen/Qwen3.5-2B` |
+| `--num_train_epochs` | int | Number of training epochs | `3` |
+| `--per_device_train_batch_size` | int | Batch size per device | `2` |
+| `--gradient_accumulation_steps` | int | Gradient accumulation steps | `4` |
+| `--learning_rate` | float | Learning rate | `2e-5` |
+| `--warmup_steps` | int | Warmup steps | `1000` |
+| `--max_seq_length` | int | Maximum sequence length | `4096` |
+| `--save_steps` | int | Checkpoint save frequency | `1000` |
+| `--save_total_limit` | int | Max checkpoints to keep | `2` |
+| `--eval_steps` | int | Evaluation frequency | `1000` |
+| `--data_dir` | str | Data directory | Auto-generated |
+| `--output_dir` | str | Output directory | `results/{model}-cpt` |
+| `--resume_from_checkpoint` | str | Path to checkpoint to resume from | `None` |
+| `--use_wandb` | flag | Enable Weights & Biases logging | `False` |
+
+CPT also accepts `--hfdc_*` dataset arguments (see [Using Different Datasets](#using-different-datasets)).
 
 ## Alignment Methods
 
@@ -463,10 +533,11 @@ python ../shared/convert_checkpoint_to_hf.py \
 ```
 text/
 ├── peft_accelerate.py           # SFT training script
+├── cpt_accelerate.py            # Continual pre-training script
 ├── reward_model_accelerate.py   # Reward model training script
 ├── dpo_accelerate.py            # DPO training script
 ├── ppo_accelerate.py            # PPO policy training script
-├── dataset_module.py            # SFT dataset processing module
+├── dataset_module.py            # SFT/CPT dataset processing module
 ├── rm_dataset_module.py         # Reward Model dataset processing module
 ├── run_dpo_pipeline.sh          # DPO pipeline script (recommended)
 ├── run_ppo_pipeline.sh          # PPO-RLHF pipeline script

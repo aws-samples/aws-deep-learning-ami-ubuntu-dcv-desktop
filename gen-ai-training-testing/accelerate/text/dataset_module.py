@@ -86,6 +86,53 @@ class SFTDataset(Dataset):
         }
 
 
+class CPTDataset(Dataset):
+    """Dataset for Continual Pre-Training. All tokens are training targets (no label masking)."""
+
+    def __init__(
+        self,
+        data_path: Path,
+        tokenizer: AutoTokenizer,
+        max_seq_length: int = 4096,
+        is_test: bool = False,
+    ):
+        self.tokenizer = tokenizer
+        self.max_seq_length = max_seq_length
+        self.is_test = is_test
+
+        self.samples = []
+        with open(data_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                self.samples.append(json.loads(line))
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+
+        # For CPT, concatenate input+output (input is typically empty)
+        full_text = sample.get('input', '') + sample.get('output', '')
+
+        tokenized = self.tokenizer(
+            full_text,
+            truncation=True,
+            max_length=self.max_seq_length,
+            padding=False,
+            return_tensors=None,
+            add_special_tokens=True,
+        )
+
+        input_ids = tokenized['input_ids']
+        # All tokens are training targets — no masking
+        labels = list(input_ids)
+
+        return {
+            'input_ids': input_ids,
+            'labels': labels,
+            'attention_mask': tokenized.get('attention_mask', [1] * len(input_ids))
+        }
+
 def prepare_datasets(config: HFDatasetConfig, dataset_root: str):
     """Prepare datasets by converting HuggingFace dataset to JSONL format."""
     dataset_root = Path(dataset_root)
