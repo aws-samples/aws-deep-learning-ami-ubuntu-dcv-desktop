@@ -169,6 +169,12 @@ Parameters:
       - g6e.16xlarge
       - g6e.24xlarge
       - g6e.48xlarge
+      - g7e.2xlarge
+      - g7e.4xlarge
+      - g7e.8xlarge
+      - g7e.12xlarge
+      - g7e.24xlarge
+      - g7e.48xlarge
       - p4d.24xlarge
       - p4de.24xlarge
       - p5.48xlarge
