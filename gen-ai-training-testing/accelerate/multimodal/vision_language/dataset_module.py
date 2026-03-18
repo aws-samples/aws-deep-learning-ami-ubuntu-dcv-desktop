@@ -100,15 +100,29 @@ def prepare_vlm_datasets(config: VLMDatasetConfig, dataset_root: str):
     )
     
     # Split (val+test) into val and test
-    test_val = train_testval['test'].train_test_split(
-        test_size=config.val_test_split_ratio
-    )
-    
-    split_dataset = DatasetDict({
-        'train': train_testval['train'],
-        'val': test_val['train'],
-        'test': test_val['test']
-    })
+    if config.val_test_split_ratio <= 0.0:
+        # All remaining data goes to validation, none to test
+        split_dataset = DatasetDict({
+            'train': train_testval['train'],
+            'val': train_testval['test'],
+            'test': train_testval['test'].select([])
+        })
+    elif config.val_test_split_ratio >= 1.0:
+        # All remaining data goes to test, none to validation
+        split_dataset = DatasetDict({
+            'train': train_testval['train'],
+            'val': train_testval['test'].select([]),
+            'test': train_testval['test']
+        })
+    else:
+        test_val = train_testval['test'].train_test_split(
+            test_size=config.val_test_split_ratio
+        )
+        split_dataset = DatasetDict({
+            'train': train_testval['train'],
+            'val': test_val['train'],
+            'test': test_val['test']
+        })
     
     print(f"Converting to JSONL format...")
     print(f"  Train samples: {len(split_dataset['train'])}")

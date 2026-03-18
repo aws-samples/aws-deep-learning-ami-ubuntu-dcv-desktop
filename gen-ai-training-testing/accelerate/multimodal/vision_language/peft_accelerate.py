@@ -61,7 +61,7 @@ class VLMTrainingConfig:
     early_stopping_threshold: float = 0.001
     
     # Sequence settings
-    max_seq_length: int = 2048
+    max_seq_length: int = 8192
     
     # Paths
     data_dir: Optional[str] = None
@@ -201,14 +201,11 @@ def train(config: VLMTrainingConfig):
     
     # Prepare dataset from HuggingFace if specified
     if config.hf_dataset_name is not None:
-        # Only rank 0 should prepare the dataset
-        from accelerate import PartialState
-        state = PartialState()
-        
-        # Check if dataset is already prepared
+        import time
         marker_file = Path(config.data_dir) / ".data_ready"
+        global_rank = int(os.environ.get("RANK", 0))
         
-        if state.is_main_process and not marker_file.exists():
+        if global_rank == 0 and not marker_file.exists():
             print(f"\nPreparing dataset from HuggingFace: {config.hf_dataset_name}")
             print(f"⚠️  This is a large dataset (700K+ samples) and will take 2-3 hours to prepare.")
             print(f"⚠️  Images are being saved to disk. This only needs to be done once.")
@@ -233,11 +230,11 @@ def train(config: VLMTrainingConfig):
             
             prepare_vlm_datasets(vlm_dataset_config, config.data_dir)
             print(f"Dataset prepared successfully!")
-        elif marker_file.exists():
-            print(f"\nDataset already prepared at {config.data_dir}")
-        
-        # Wait for rank 0 to finish preparing the dataset
-        state.wait_for_everyone()
+        else:
+            # Non-rank-0 processes poll for marker file (avoids NCCL timeout)
+            while not marker_file.exists():
+                print(f"Rank {global_rank}: waiting for dataset preparation on rank 0...")
+                time.sleep(30)
     
     train_dataset = VLMDataset(
         data_path=Path(config.data_dir) / "training.jsonl",
@@ -368,7 +365,7 @@ def main():
     parser.add_argument("--weight_decay", type=float, default=0.01)
     parser.add_argument("--warmup_steps", type=int, default=100)
     parser.add_argument("--max_grad_norm", type=float, default=1.0)
-    parser.add_argument("--max_seq_length", type=int, default=2048)
+    parser.add_argument("--max_seq_length", type=int, default=8192)
     
     # Early stopping
     parser.add_argument("--early_stopping_patience", type=int, default=3)

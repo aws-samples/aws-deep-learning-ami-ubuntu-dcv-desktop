@@ -2,7 +2,7 @@
 
 > **Note**: For installation instructions, see the [parent README](../../README.md).
 
-Train Qwen3-VL vision-language models using Hugging Face Trainer and Accelerate with the adapter pattern for extensibility.
+Train and continually pre-train Qwen3-VL vision-language models using Hugging Face Trainer and Accelerate with the adapter pattern for extensibility.
 
 ## Supported Models
 
@@ -45,6 +45,14 @@ If you have pre-prepared JSONL files:
 accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/my_custom_dataset"
+```
+
+### Continual Pre-Training (Image+Text)
+
+```bash
+accelerate launch --config_file ../../accelerate_config.yaml cpt_accelerate.py \
+  --model_id "Qwen/Qwen3-VL-8B-Instruct" \
+  --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```
 
 ### Test Adapters
@@ -244,7 +252,71 @@ accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py 
 }
 ```
 
-## Training Configuration
+## Continual Pre-Training (CPT)
+
+VLM CPT extends a vision-language model's knowledge by training on domain-specific image+text data using the full causal LM objective (all tokens are training targets, no label masking). This is useful for adapting a VLM to a new visual domain (e.g., medical imaging, satellite imagery, technical diagrams) before doing SFT.
+
+For text-only CPT on a VLM backbone (no images), use `text/cpt_accelerate.py` instead.
+
+### CPT Quick Start
+
+```bash
+accelerate launch --config_file ../../accelerate_config.yaml cpt_accelerate.py \
+  --model_id "Qwen/Qwen3-VL-8B-Instruct" \
+  --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
+  --num_train_epochs 3 \
+  --save_steps 1000
+```
+
+### CPT with Custom Domain Data
+
+```bash
+accelerate launch --config_file ../../accelerate_config.yaml cpt_accelerate.py \
+  --model_id "Qwen/Qwen3-VL-8B-Instruct" \
+  --data_dir "datasets/medical_images" \
+  --num_train_epochs 5 \
+  --learning_rate 2e-5 \
+  --save_steps 500
+```
+
+### Resuming from Checkpoint
+
+```bash
+accelerate launch --config_file ../../accelerate_config.yaml cpt_accelerate.py \
+  --model_id "Qwen/Qwen3-VL-8B-Instruct" \
+  --data_dir "datasets/medical_images" \
+  --resume_from_checkpoint "results/Qwen/Qwen3-VL-8B-Instruct-cpt/checkpoint-2000"
+```
+
+### CPT vs SFT for VLMs
+
+| Aspect | CPT (`cpt_accelerate.py`) | SFT (`peft_accelerate.py`) |
+|--------|---------------------------|----------------------------|
+| Objective | Causal LM on all tokens | Causal LM on assistant tokens only |
+| Label masking | None | Human/instruction tokens masked |
+| Fine-tuning | Full model weights | LoRA or full |
+| Vision encoder | Typically unfrozen | Typically frozen |
+| Training schedule | Epoch-based | Step-based |
+| Checkpointing | Regular interval (`save_steps`) | Best metric only |
+| Typical data | Domain image+text corpora | Instruction/response pairs |
+
+### CPT Key Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--model_id` | Qwen/Qwen3-VL-8B-Instruct | Model to train |
+| `--num_train_epochs` | 3 | Number of training epochs |
+| `--freeze_vision_encoder` | False | Freeze vision encoder |
+| `--learning_rate` | 2e-5 | Learning rate |
+| `--warmup_steps` | 1000 | Warmup steps (longer for CPT) |
+| `--save_steps` | 1000 | Checkpoint save frequency |
+| `--save_total_limit` | 2 | Max checkpoints to keep |
+| `--resume_from_checkpoint` | None | Path to resume from |
+| `--hf_dataset_name` | None | HuggingFace dataset name |
+| `--data_dir` | Auto-derived | Dataset directory |
+| `--output_dir` | Auto-derived | Output directory (appends `-cpt`) |
+
+## SFT Training Configuration
 
 ### Basic Training
 
@@ -254,7 +326,7 @@ accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py 
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```
 
-### Key Arguments
+### SFT Key Arguments
 
 | Argument | Default | Description |
 |----------|---------|-------------|
@@ -327,13 +399,16 @@ The adapter pattern allows supporting multiple VLM families with a single traini
 vision_language/
 ├── base/
 │   ├── base_adapter.py      # Abstract adapter interface
-│   └── base_dataset.py      # Dataset using adapters
+│   └── base_dataset.py      # VLMDataset (SFT) and VLMCPTDataset (CPT)
 │
 ├── adapters/
 │   ├── qwen_vl_adapter.py   # Qwen-VL implementation
 │   └── registry.py          # Adapter registry & auto-detection
 │
-└── peft_accelerate.py       # Model-agnostic training script
+├── dataset_module.py         # VLM dataset preparation & converters
+├── peft_accelerate.py        # SFT training script
+├── cpt_accelerate.py         # Continual pre-training script
+└── test_adapters.py          # Adapter tests
 ```
 
 ### Core Components
