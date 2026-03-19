@@ -604,6 +604,14 @@ Resources:
                   - "ecr:DeleteRepository"
                   - "ecr:PutImage"
                 Resource: '*'
+        - PolicyName: bedrock-invoke
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'bedrock:InvokeModel'
+                  - 'bedrock:InvokeModelWithResponseStream'
+                Resource: '*'
 
   InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
