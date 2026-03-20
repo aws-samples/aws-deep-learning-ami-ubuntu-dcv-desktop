@@ -1,39 +1,18 @@
-# Ray Train Parameter-Efficient Fine-Tuning (PEFT) Framework
+# Ray Train: Distributed Training Framework
 
-This project provides a framework for Parameter-Efficient Fine-Tuning (PEFT) of Large Language Models using Ray Train and FSDP (Fully Sharded Data Parallel). The framework provides a generalized data pipeline for HuggingFace datasets and streamlined configuration for distributed training with LoRA.
-
-## Features
-
-- **Ray Train Integration**: Distributed training with Ray's native orchestration and fault tolerance
-- **Generalized HuggingFace Dataset Support**: Easy integration with any HuggingFace dataset via HFDatasetConfig
-- **FSDP Support**: Multi-GPU training with native PyTorch FSDP (FULL_SHARD strategy)
-- **PEFT Methods**: Support for LoRA via HuggingFace PEFT library
-- **Automatic Data Conversion**: Converts HuggingFace datasets to JSONL format with train/val/test splits
-- **Flash Attention 2**: Optimized attention implementation for faster training
-- **Gradient Checkpointing**: Reduce memory usage for large models
-- **Custom Callbacks**: SaveOnBestMetricCallback and EarlyStoppingCallback for efficient training
-- **vLLM Testing**: Built-in testing script with vLLM for fast inference and BERTScore evaluation
-
-## Prerequisites
-
-Follow [Step by Step Tutorial](../../README.md) to launch a Deep Learning Desktop. On the desktop:
-
-```bash
-cd ~
-git clone https://github.com/aws-samples/aws-deep-learning-ami-ubuntu-dcv-desktop.git
-cd ~/aws-deep-learning-ami-ubuntu-dcv-desktop/gen-ai-training-testing/ray_train
-```
+This directory provides flexible frameworks for fine-tuning models using Ray Train's `TorchTrainer` with FSDP (Fully Sharded Data Parallel), automatic fault tolerance, and checkpoint management.
 
 ## Installation
 
-### Using Docker (Recommended)
+### Using Docker
 
-1. Build the Docker image:
+Build the Docker image:
 ```bash
+cd ~/aws-deep-learning-ami-ubuntu-dcv-desktop/gen-ai-training-testing/ray_train
 docker buildx build -t ray_train:latest -f ../containers/Dockerfile.ray_train .
 ```
 
-2. Run the container with GPU support:
+Run the container with GPU support:
 ```bash
 docker run --gpus all -it --rm \
   -v $(pwd):/app \
@@ -41,376 +20,142 @@ docker run --gpus all -it --rm \
   ray_train:latest
 ```
 
+Inside the container, navigate to the appropriate directory:
+```bash
+# For text-only training
+cd /app/text
+
+# For vision-language training
+cd /app/multimodal/vision_language
+```
+
+## Directory Structure
+
+```
+ray_train/
+├── text/                              # Text-only LLM training
+│   ├── ray_train_sft.py              # SFT with LoRA/full fine-tuning
+│   ├── dataset_module.py             # Text dataset processing
+│   └── README.md                     # Detailed text training documentation
+│
+├── multimodal/                        # Multi-modal model training
+│   ├── vision_language/              # Text + Image (VLMs)
+│   ├── shared/                       # Multi-modal utilities
+│   └── README.md                     # Multi-modal overview
+│
+├── shared/                            # Common utilities
+│   ├── convert_checkpoint_to_hf.py   # Ray Train → HuggingFace conversion
+│   └── test_checkpoint.py            # vLLM inference + BERTScore evaluation
+│
+└── README.md                          # This file
+```
+
 ## Quick Start
 
-Train the default Qwen3-8B model on the Dolphin dataset:
+After building and running the Docker container (see Installation above):
+
+### Text-Only Training
 
 ```bash
-python ray_train_sft.py
-```
+cd /app/text
 
-This will:
-1. Download the Qwen/Qwen3-8B model from HuggingFace
-2. Load and process the cognitivecomputations/dolphin dataset (flan1m-alpaca-uncensored config)
-3. Start LoRA fine-tuning with all available GPUs using FSDP
-
-## Training Different Models
-
-### Supported Models
-
-The framework supports any HuggingFace causal language model with Flash Attention 2:
-
-- **Qwen Family**: `Qwen/Qwen3-8B` (default), `Qwen/Qwen3-14B`, `Qwen/Qwen3-70B`
-- **Llama Family**: `meta-llama/Llama-3-8B`, `meta-llama/Meta-Llama-3.1-8B`, `meta-llama/Meta-Llama-3.1-70B`
-- **Mistral**: `mistralai/Mistral-7B-v0.1`, `mistralai/Mixtral-8x7B-v0.1`
-- **Phi**: `microsoft/Phi-3-medium-4k-instruct`
-
-### Training a Different Model
-
-```bash
 python ray_train_sft.py \
-  --hf_model_id "meta-llama/Llama-3-8B" \
-  --max_steps 5000 \
-  --per_device_train_batch_size 2 \
-  --gradient_accumulation_steps 4
+  --hf_model_id "Qwen/Qwen3-8B" \
+  --hfdc_dataset_name "cognitivecomputations/dolphin" \
+  --hfdc_dataset_config "flan1m-alpaca-uncensored" \
+  --max_steps 5000
 ```
 
-## Using Different Datasets
+See [text/README.md](./text/README.md) for comprehensive documentation.
 
-The framework uses `HFDatasetConfig` to define dataset loading and formatting. Use CLI arguments with `hfdc_` prefix:
+### Vision-Language Training
 
 ```bash
-python ray_train_sft.py \
-  --hfdc_dataset_name "your-org/your-dataset" \
-  --hfdc_dataset_config "subset-name" \
-  --hfdc_input_template "Your input: {field1}\n{field2}\n" \
-  --hfdc_output_template "Your output: {field3}" \
-  --hfdc_field_mapping '{"field1": "actual_column_1", "field2": "actual_column_2", "field3": "actual_column_3"}'
+cd /app/multimodal/vision_language
+
+python ray_train_vlm.py \
+  --model_id "Qwen/Qwen3-VL-8B-Instruct" \
+  --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
+  --freeze_vision_encoder \
+  --lora_rank 64
 ```
 
-Or modify the default configuration in `ray_train_sft.py`:
+See [multimodal/vision_language/README.md](./multimodal/vision_language/README.md) for comprehensive documentation.
 
-```python
-hf_dataset_config: HFDatasetConfig = field(default_factory=lambda: HFDatasetConfig(
-    dataset_name="cognitivecomputations/dolphin",
-    dataset_config='flan1m-alpaca-uncensored',
-    split="train",
-    train_split_ratio=0.9,
-    val_test_split_ratio=0.5,
-    input_template="### Instruction:\\n{instruction}\\n ### Input:\\n{input}\\n",
-    output_template="### Response:\\n{output}",
-    field_mapping={
-        "instruction": "instruction",
-        "input": "input",
-        "output": "output"
-    },
-    num_proc=8
-))
+## Features
+
+### Text Training
+- Supervised Fine-Tuning (SFT) with LoRA or full fine-tuning
+- Generalized HuggingFace Dataset Support
+- Distributed Training with FSDP via Ray Train
+- Flash Attention 2
+- Early Stopping and Best Model Saving
+- Automatic fault tolerance and restart
+
+### Multi-Modal Training
+- Vision-language model SFT (Qwen3-VL)
+- Vision-language model CPT (continual pre-training)
+- Image + text dataset processing
+- Multi-modal LoRA support
+- Vision encoder freezing and fine-tuning options
+- Adapter pattern for extensibility
+
+## Common Utilities
+
+### Checkpoint Conversion
+
+Convert Ray Train FSDP checkpoints to HuggingFace format:
+
+```bash
+python shared/convert_checkpoint_to_hf.py --base_model "Qwen/Qwen3-8B"
 ```
+
+### Checkpoint Testing
+
+Test checkpoints with vLLM:
+
+```bash
+python shared/test_checkpoint.py --base_model "Qwen/Qwen3-8B"
+```
+
+## Ray Train vs Accelerate
+
+| Aspect | Ray Train | Accelerate |
+|--------|-----------|------------|
+| Orchestration | Ray `TorchTrainer` | HF Accelerate launcher |
+| Fault tolerance | Built-in (auto-restart) | Manual |
+| Checkpoint management | Ray checkpoint system | HF Trainer checkpoints |
+| Scaling | Ray `ScalingConfig` | `accelerate_config.yaml` |
+| GPU discovery | Automatic via Ray | Manual process count |
+| Multi-node | Ray cluster | SSH + accelerate config |
 
 ## GPU Requirements
 
 ### Small Models (1B - 13B parameters)
-
-**Examples**: Qwen3-8B, Llama3-8B, Mistral-7B
-
-**Configuration**:
-- **GPUs**: 8x A100 (40GB or 80GB)
-- **Batch size**: 2-4
-- **Gradient accumulation**: 4-8
-
-```bash
-python ray_train_sft.py \
-  --hf_model_id "Qwen/Qwen3-8B" \
-  --max_steps 10000 \
-  --per_device_train_batch_size 2 \
-  --gradient_accumulation_steps 4
-```
+- GPUs: 8x A100 (40GB or 80GB)
+- Batch size: 2-4 per device
+- Gradient accumulation: 4-8
 
 ### Medium Models (13B - 34B parameters)
-
-**Examples**: Llama2-13B, Yi-34B
-
-**Configuration**:
-- **GPUs**: 16x A100 (80GB)
-- **Batch size**: 1-2
-- **Gradient accumulation**: 8-16
+- GPUs: 16x A100 (80GB) total (2 nodes)
+- Batch size: 1-2 per device
+- Gradient accumulation: 8-16
 
 ### Large Models (34B - 100B parameters)
+- GPUs: 32-64x A100 (80GB) or H100 (80GB)
+- Batch size: 1 per device
+- Gradient accumulation: 16-32
 
-**Examples**: Llama3.1-70B, Mixtral-8x22B
+## Documentation
 
-**Configuration**:
-- **GPUs**: 32-64x A100 (80GB) or H100 (80GB)
-- **Batch size**: 1
-- **Gradient accumulation**: 16-32
+- [Text Training Documentation](./text/README.md) - Comprehensive guide for text-only LLM training
+- [Multi-Modal Training Documentation](./multimodal/README.md) - Guide for vision-language model training
+- [Shared Utilities](./shared/README.md) - Common tools for checkpoint management and testing
 
-## Configuration
+## Support
 
-### Core Training Parameters
+For detailed information on specific training types:
+- Text-only training: See [text/README.md](./text/README.md)
+- Multi-modal training: See [multimodal/README.md](./multimodal/README.md)
 
-Key parameters in the Config class:
-
-- **Model**: `hf_model_id` - HuggingFace model identifier
-- **Paths**: 
-  - `data_dir`: Directory for processed datasets (auto-generated from dataset config)
-  - `results_dir`: Base directory for training outputs (default: "results")
-  - `logging_dir`: TensorBoard logging directory (auto-generated)
-- **Training**: `max_steps`, `per_device_train_batch_size`, `per_device_eval_batch_size`, `gradient_accumulation_steps`, `learning_rate`, `min_learning_rate`
-- **Optimizer**: `weight_decay`, `warmup_ratio`, `lr_scheduler_type`, `max_grad_norm`
-- **LoRA**: `lora_rank`, `lora_alpha`, `lora_dropout`, `lora_target_modules`, `full_ft`
-- **Sequence**: `max_seq_length` - Maximum sequence length (default: 2048)
-- **Logging**: `logging_steps`, `save_steps`, `eval_steps`, `save_total_limit`, `max_eval_samples`, `use_wandb`
-- **Early Stopping**: `early_stopping_patience`, `early_stopping_threshold`
-- **Other**: `seed`, `dataloader_num_workers`, `remove_unused_columns`
-
-### Full Fine-Tuning vs LoRA
-
-By default, the framework uses LoRA (`full_ft=False`). To perform full fine-tuning:
-
-```bash
-python ray_train_sft.py \
-  --hf_model_id "Qwen/Qwen3-8B" \
-  --full_ft
-```
-
-### Early Stopping and Best Model Saving
-
-The framework includes:
-- **SaveOnBestMetricCallback**: Custom callback that saves checkpoints only when `eval_loss` improves
-- **EarlyStoppingCallback**: Stops training if no improvement for `early_stopping_patience` evaluations
-- Default settings: patience=3, threshold=0.001
-- Evaluation frequency controlled by `eval_steps` (default: 100)
-- Metric for best model: `eval_loss` (lower is better)
-
-### Limiting Validation Samples
-
-To speed up evaluation, limit validation samples:
-
-```bash
-python ray_train_sft.py \
-  --max_eval_samples 1000
-```
-
-## Testing and Converting Checkpoints
-
-### Testing a Checkpoint
-
-After training, test your checkpoint using vLLM for efficient inference:
-
-```bash
-python test_checkpoint.py \
-  --base_model "Qwen/Qwen3-8B" \
-  --max_samples 1024 \
-  --batch_size 128
-```
-
-The script automatically:
-- Finds the latest `checkpoint_*` directory in `results/{base_model}/`
-- Discovers the latest `test.jsonl` file under `datasets/`
-- Loads the checkpoint from Ray Train format
-- Merges LoRA weights into base model (if using LoRA)
-- Saves merged model to temporary directory for vLLM
-- Uses vLLM for fast batched inference with configurable tensor parallelism
-- Evaluates predictions using BERTScore
-- Cleans up temporary files after completion
-
-### Converting to Hugging Face Format
-
-Convert your Ray Train checkpoint to standard Hugging Face format:
-
-```bash
-python convert_checkpoint_to_hf.py \
-  --base_model "Qwen/Qwen3-8B"
-```
-
-The script automatically:
-- Finds the latest `checkpoint_*` directory in `results/{base_model}/`
-- Loads the checkpoint from Ray Train FSDP format
-- Converts to standard Hugging Face format
-- Saves to `{checkpoint_path}.hf_model` (merged) or `{checkpoint_path}.hf_peft` (adapter only)
-
-**LoRA Merging:**
-- By default, LoRA weights are **merged** into the base model (recommended)
-- Merged models work with vLLM, TGI, and all Hugging Face tools
-- Use `--no_merge` to save as a separate LoRA adapter (requires PEFT library to load)
-- Full fine-tuned models are saved directly without merging
-
-## Project Structure
-
-```
-.
-├── ray_train_sft.py              # Main training script with Ray Train
-├── dataset_module.py             # HFDatasetConfig and dataset processing
-├── test_checkpoint.py            # Test checkpoint with vLLM
-├── convert_checkpoint_to_hf.py   # Convert Ray Train checkpoint to HF format
-├── README.md                     # This file
-├── datasets/                     # Downloaded and processed datasets
-│   └── {dataset_name}/
-│       └── {dataset_config}/
-│           └── train={train_%}-val={val%}-test={test%}/
-│               ├── training.jsonl
-│               ├── validation.jsonl
-│               ├── test.jsonl
-│               └── .data_ready
-└── results/                      # Training outputs
-    └── {hf_model_id}/
-        ├── checkpoint-*/          # Best model checkpoints
-        │   ├── adapter_config.json
-        │   ├── adapter_model.safetensors
-        │   └── ...
-        └── logs/                  # TensorBoard logs
-```
-
-## CLI Usage Examples
-
-### Basic Usage
-
-```bash
-python ray_train_sft.py \
-  --hf_model_id "Qwen/Qwen3-8B" \
-  --max_steps 5000
-```
-
-### Advanced Configuration
-
-```bash
-python ray_train_sft.py \
-  --hf_model_id "meta-llama/Llama-3-8B" \
-  --max_steps 10000 \
-  --per_device_train_batch_size 1 \
-  --gradient_accumulation_steps 16 \
-  --learning_rate 2e-4 \
-  --max_seq_length 4096 \
-  --lora_rank 64 \
-  --lora_alpha 16 \
-  --lora_dropout 0.05 \
-  --max_eval_samples 1000 \
-  --early_stopping_patience 5
-```
-
-### Available CLI Arguments
-
-| Argument | Type | Description | Default |
-|----------|------|-------------|---------|
-| `--hf_model_id` | str | HuggingFace model name | `Qwen/Qwen3-8B` |
-| `--full_ft` | bool | Enable full fine-tuning (disables LoRA) | `False` |
-| `--lora_rank` | int | LoRA rank | `32` |
-| `--lora_alpha` | int | LoRA alpha | `32` |
-| `--lora_dropout` | float | LoRA dropout | `0.1` |
-| `--lora_target_modules` | str | Comma-separated target modules | `q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj` |
-| `--max_steps` | int | Maximum training steps | `10000` |
-| `--per_device_train_batch_size` | int | Batch size per device | `2` |
-| `--per_device_eval_batch_size` | int | Eval batch size per device | `2` |
-| `--gradient_accumulation_steps` | int | Gradient accumulation steps | `4` |
-| `--learning_rate` | float | Learning rate | `5e-5` |
-| `--min_learning_rate` | float | Minimum learning rate | `1e-6` |
-| `--weight_decay` | float | Weight decay | `0.01` |
-| `--warmup_ratio` | float | Warmup ratio | `0.03` |
-| `--max_grad_norm` | float | Max gradient norm | `1.0` |
-| `--lr_scheduler_type` | str | LR scheduler type | `cosine` |
-| `--max_seq_length` | int | Maximum sequence length | `2048` |
-| `--data_dir` | str | Data directory | Auto-generated |
-| `--results_dir` | str | Results directory | `results` |
-| `--logging_dir` | str | Logging directory | Auto-generated |
-| `--logging_steps` | int | Logging frequency | `10` |
-| `--save_steps` | int | Save frequency | `100` |
-| `--eval_steps` | int | Evaluation frequency | `100` |
-| `--save_total_limit` | int | Max checkpoints to keep | `2` |
-| `--max_eval_samples` | int | Max eval samples | `640` |
-| `--early_stopping_patience` | int | Early stopping patience | `3` |
-| `--early_stopping_threshold` | float | Early stopping threshold | `0.001` |
-| `--seed` | int | Random seed | `16257` |
-| `--dataloader_num_workers` | int | Dataloader workers | `4` |
-| `--remove_unused_columns` | bool | Remove unused columns | `False` |
-
-### Dataset Configuration CLI Arguments
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `--hfdc_dataset_name` | str | HuggingFace dataset name |
-| `--hfdc_dataset_config` | str | Dataset configuration/subset |
-| `--hfdc_split` | str | Initial split to load |
-| `--hfdc_train_split_ratio` | float | Training data ratio |
-| `--hfdc_val_test_split_ratio` | float | Val/test split ratio |
-| `--hfdc_input_template` | str | Input formatting template |
-| `--hfdc_output_template` | str | Output formatting template |
-| `--hfdc_field_mapping` | str (JSON) | Field name mapping |
-| `--hfdc_num_proc` | int | Number of processes |
-
-## Troubleshooting
-
-### Out of Memory (OOM) Errors
-
-**Solution 1: Reduce batch size**
-```bash
---per_device_train_batch_size 1
-```
-
-**Solution 2: Increase gradient accumulation**
-```bash
---gradient_accumulation_steps 16
-```
-
-**Solution 3: Reduce sequence length**
-```bash
---max_seq_length 1024
-```
-
-**Solution 4: Limit validation samples**
-```bash
---max_eval_samples 500
-```
-
-### Data Loading Issues
-
-Check dataset structure:
-```python
-from datasets import load_dataset
-
-ds = load_dataset("your-dataset")
-print("Available columns:", ds['train'].column_names)
-print("Sample data:", ds['train'][0])
-```
-
-### Ray Initialization Issues
-
-Ray is automatically initialized in the script. If you encounter issues:
-```bash
-# Check Ray status
-ray status
-
-# Stop any existing Ray instance
-ray stop
-
-# Then run training (Ray will auto-initialize)
-python ray_train_sft.py
-```
-
-## Additional Notes
-
-### Flash Attention
-The training script uses `attn_implementation="flash_attention_2"` for improved performance. Ensure flash-attn is installed.
-
-### Memory Optimization
-- `PYTORCH_ALLOC_CONF=expandable_segments:True` is set for better memory management
-- FSDP uses FULL_SHARD strategy for maximum memory efficiency
-- Gradient checkpointing applied to reduce memory usage
-
-### Ray Train Benefits
-- Automatic fault tolerance with configurable max failures
-- Distributed checkpointing
-- Native integration with Ray ecosystem
-- Flexible resource management
-
-### Training Features
-- **Ray Train**: Distributed orchestration with fault tolerance (max_failures=2)
-- **FSDP**: Full sharding strategy for memory efficiency with native PyTorch FSDP
-- **Flash Attention 2**: Optimized attention implementation (attn_implementation="flash_attention_2")
-- **Gradient Checkpointing**: Reduces memory usage with use_reentrant=False
-- **Early Stopping**: Automatic stopping when validation loss plateaus
-- **Best Model Saving**: SaveOnBestMetricCallback only saves checkpoints that improve eval_loss
-- **Cosine LR Schedule**: With warmup for stable training
-- **Mixed Precision**: BFloat16 for faster training
-- **Optimized Optimizer**: adamw_torch_fused for better performance
-- **Data Collator**: DataCollatorForSeq2Seq with pad_to_multiple_of=8 for tensor cores
+For general questions about the framework, refer to the parent [README.md](../README.md).
