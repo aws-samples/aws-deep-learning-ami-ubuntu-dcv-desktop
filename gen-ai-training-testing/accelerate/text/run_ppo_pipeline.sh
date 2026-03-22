@@ -12,7 +12,7 @@ echo ""
 
 # Default configuration
 BASE_MODEL="Qwen/Qwen3-8B"
-ACCELERATE_CONFIG="../accelerate_config.yaml"
+ACCELERATE_CONFIG="accelerate_config.yaml"
 SKIP_SFT=false
 SKIP_CONVERT_SFT=false
 SKIP_REWARD=false
@@ -85,7 +85,7 @@ if [ "$SKIP_SFT" = false ]; then
     echo "================================================================================"
     echo "Step 1/5: Supervised Fine-Tuning (SFT)"
     echo "================================================================================"
-    accelerate launch --config_file "$ACCELERATE_CONFIG" peft_accelerate.py \
+    accelerate launch --config_file "$ACCELERATE_CONFIG" text/peft_accelerate.py \
         --hf_model_id "$BASE_MODEL" \
         "${EXTRA_ARGS[@]}"
     echo ""
@@ -101,7 +101,7 @@ if [ "$SKIP_CONVERT_SFT" = false ]; then
     echo "================================================================================"
     echo "Step 2/5: Convert SFT Checkpoint to HuggingFace Format"
     echo "================================================================================"
-    python ../shared/convert_checkpoint_to_hf.py \
+    python shared/convert_checkpoint_to_hf.py \
         --base_model "$BASE_MODEL"
     echo ""
     echo "✓ SFT checkpoint conversion completed"
@@ -116,7 +116,7 @@ if [ "$SKIP_REWARD" = false ]; then
     echo "================================================================================"
     echo "Step 3/5: Train Reward Model"
     echo "================================================================================"
-    accelerate launch --config_file "$ACCELERATE_CONFIG" reward_model_accelerate.py \
+    accelerate launch --config_file "$ACCELERATE_CONFIG" text/reward_model_accelerate.py \
         --hf_model_id "$BASE_MODEL" \
         "${EXTRA_ARGS[@]}"
     echo ""
@@ -132,7 +132,7 @@ if [ "$SKIP_CONVERT_REWARD" = false ]; then
     echo "================================================================================"
     echo "Step 4/5: Convert Reward Model Checkpoint to HuggingFace Format"
     echo "================================================================================"
-    python ../shared/convert_checkpoint_to_hf.py \
+    python shared/convert_checkpoint_to_hf.py \
         --base_model "$BASE_MODEL" \
         --checkpoints_dir "results/reward_$BASE_MODEL"
     echo ""
@@ -148,7 +148,7 @@ if [ "$SKIP_PPO" = false ]; then
     echo "================================================================================"
     echo "Step 5/5: PPO Policy Training"
     echo "================================================================================"
-    accelerate launch --config_file "$ACCELERATE_CONFIG" ppo_accelerate.py \
+    accelerate launch --config_file "$ACCELERATE_CONFIG" text/ppo_accelerate.py \
         --hf_model_id "$BASE_MODEL" \
         "${EXTRA_ARGS[@]}"
     echo ""

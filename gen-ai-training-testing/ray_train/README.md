@@ -20,13 +20,9 @@ docker run --gpus all -it --rm \
   ray_train:latest
 ```
 
-Inside the container, navigate to the appropriate directory:
+Inside the container, navigate to the ray_train directory:
 ```bash
-# For text-only training
-cd /app/text
-
-# For vision-language training
-cd /app/multimodal/vision_language
+cd /app
 ```
 
 ## Directory Structure
@@ -57,9 +53,9 @@ After building and running the Docker container (see Installation above):
 ### Text-Only Training
 
 ```bash
-cd /app/text
+cd /app
 
-python ray_train_sft.py \
+python text/ray_train_sft.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --hfdc_dataset_name "cognitivecomputations/dolphin" \
   --hfdc_dataset_config "flan1m-alpaca-uncensored" \
@@ -71,9 +67,9 @@ See [text/README.md](./text/README.md) for comprehensive documentation.
 ### Vision-Language Training
 
 ```bash
-cd /app/multimodal/vision_language
+cd /app
 
-python ray_train_vlm.py \
+python multimodal/vision_language/ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --freeze_vision_encoder \

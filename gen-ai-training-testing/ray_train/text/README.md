@@ -19,16 +19,16 @@ This directory provides a flexible framework for fine-tuning Large Language Mode
 
 ## Quick Start
 
-After building and running the Docker container (see [parent README](../README.md)), navigate to the text directory:
+After building and running the Docker container (see [parent README](../README.md)), navigate to the ray_train directory:
 
 ```bash
-cd /app/text
+cd /app
 ```
 
 ### Supervised Fine-Tuning (SFT)
 
 ```bash
-python ray_train_sft.py \
+python text/ray_train_sft.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --hfdc_dataset_name "cognitivecomputations/dolphin" \
   --hfdc_dataset_config "flan1m-alpaca-uncensored" \
@@ -38,7 +38,7 @@ python ray_train_sft.py \
 ### Advanced Configuration
 
 ```bash
-python ray_train_sft.py \
+python text/ray_train_sft.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --max_steps 10000 \
   --per_device_train_batch_size 1 \
@@ -57,7 +57,7 @@ Continual pre-training extends a pre-trained model's knowledge by training on do
 ### Quick Start
 
 ```bash
-python cpt_ray_train.py
+python text/cpt_ray_train.py
 ```
 
 This will train `Qwen/Qwen3-8B` on `wikimedia/wikipedia` (English, 20231101 snapshot) for 3 epochs with checkpoints saved every 1000 steps.
@@ -65,7 +65,7 @@ This will train `Qwen/Qwen3-8B` on `wikimedia/wikipedia` (English, 20231101 snap
 ### CPT with Custom Domain Data
 
 ```bash
-python cpt_ray_train.py \
+python text/cpt_ray_train.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --hfdc_dataset_name "your-org/domain-corpus" \
   --hfdc_output_template "{text}" \
@@ -80,7 +80,7 @@ python cpt_ray_train.py \
 CPT supports resuming from a previously saved checkpoint:
 
 ```bash
-python cpt_ray_train.py \
+python text/cpt_ray_train.py \
   --resume_from_checkpoint "results/checkpoint-2000"
 ```
 
@@ -140,7 +140,7 @@ The framework uses `HFDatasetConfig` to define dataset loading and formatting. K
 #### Example: Custom Dataset
 
 ```bash
-python ray_train_sft.py \
+python text/ray_train_sft.py \
   --hfdc_dataset_name "databricks/databricks-dolly-15k" \
   --hfdc_split "train" \
   --hfdc_train_split_ratio 0.95 \
@@ -201,7 +201,7 @@ python ray_train_sft.py \
 Test Ray Train checkpoints using vLLM for efficient inference:
 
 ```bash
-python ../shared/test_checkpoint.py \
+python shared/test_checkpoint.py \
   --base_model "Qwen/Qwen3-8B" \
   --max_samples 1024 \
   --batch_size 128
@@ -219,14 +219,14 @@ The script automatically:
 Convert Ray Train FSDP checkpoints to standard HuggingFace format for deployment:
 
 ```bash
-python ../shared/convert_checkpoint_to_hf.py \
+python shared/convert_checkpoint_to_hf.py \
   --base_model "Qwen/Qwen3-8B"
 ```
 
 The script automatically finds the latest checkpoint in `results/{base_model}/`. By default, it merges LoRA weights into the base model. To save as a LoRA adapter:
 
 ```bash
-python ../shared/convert_checkpoint_to_hf.py \
+python shared/convert_checkpoint_to_hf.py \
   --base_model "Qwen/Qwen3-8B" \
   --no_merge
 ```
@@ -240,24 +240,23 @@ text/
 ├── dataset_module.py            # Dataset processing module (SFT + CPT)
 └── README.md                    # This file
 
-../shared/
+shared/
 ├── convert_checkpoint_to_hf.py  # Checkpoint conversion script
 └── test_checkpoint.py           # Checkpoint testing script
 
-../
-├── datasets/                    # Downloaded and processed datasets
-│   └── {dataset_name}/
-│       └── {dataset_config}/
-│           └── train={train_%}-val={val%}-test={test%}/
-│               ├── training.jsonl
-│               ├── validation.jsonl
-│               ├── test.jsonl
-│               └── .data_ready
-└── results/                     # Training outputs and logs
-    └── {hf_model_id}/
-        ├── TorchTrainer_*/      # Ray Train run directory
-        │   └── checkpoint_*/    # Ray Train checkpoints
-        └── logs/                # TensorBoard logs
+datasets/                        # Downloaded and processed datasets
+└── {dataset_name}/
+    └── {dataset_config}/
+        └── train={train_%}-val={val%}-test={test%}/
+            ├── training.jsonl
+            ├── validation.jsonl
+            ├── test.jsonl
+            └── .data_ready
+results/                         # Training outputs and logs
+└── {hf_model_id}/
+    ├── TorchTrainer_*/      # Ray Train run directory
+    │   └── checkpoint_*/    # Ray Train checkpoints
+    └── logs/                # TensorBoard logs
 ```
 
 ## Troubleshooting
@@ -318,7 +317,7 @@ The training script uses `attn_implementation="flash_attention_2"` for improved 
 ### Checkpoint Format
 
 - Checkpoints are saved in Ray Train format under `TorchTrainer_*/checkpoint_*/checkpoint/`
-- Use `../shared/convert_checkpoint_to_hf.py` to convert to standard HuggingFace format
+- Use `shared/convert_checkpoint_to_hf.py` to convert to standard HuggingFace format
 - LoRA adapters can be merged or saved separately
 - Final model includes both model weights and tokenizer
 

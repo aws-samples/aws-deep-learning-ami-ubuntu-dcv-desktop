@@ -77,16 +77,16 @@ class Config:
     
     def __post_init__(self):
         if self.checkpoints_dir is None:
-            self.checkpoints_dir = f"results/{self.base_model}"
+            self.checkpoints_dir = str(Path.home() / f"results/{self.base_model}")
         
         if self.test_path is None:
-            datasets_path = Path("datasets")
+            datasets_path = Path.home() / "datasets"
             test_files = list(datasets_path.rglob("test.jsonl"))
             if test_files:
                 self.test_path = str(test_files[0])
                 print(f"Found test file: {self.test_path}")
             else:
-                raise ValueError("No test.jsonl file found under datasets folder")
+                raise ValueError("No test.jsonl file found under ~/datasets folder")
 
 def create_parser_from_dataclass(dataclass_type) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()

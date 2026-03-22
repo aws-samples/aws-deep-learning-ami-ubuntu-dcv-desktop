@@ -42,10 +42,10 @@ Planned support for:
 ### Vision-Language Training
 
 ```bash
-cd vision_language/
+cd /app
 
 # Train Qwen3-VL with HuggingFace dataset
-accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```

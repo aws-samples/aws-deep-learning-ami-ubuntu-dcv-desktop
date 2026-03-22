@@ -20,13 +20,9 @@ docker run --gpus all -it --rm \
   accelerate:latest
 ```
 
-Inside the container, navigate to the appropriate directory:
+Inside the container, navigate to the accelerate directory:
 ```bash
-# For text-only training
-cd /app/text
-
-# For vision-language training
-cd /app/multimodal/vision_language
+cd /app
 ```
 
 ## Directory Structure
@@ -65,13 +61,13 @@ After building and running the Docker container (see Installation above):
 ### Text-Only Training
 
 ```bash
-cd /app/text
+cd /app
 
 # Run DPO pipeline (recommended)
-bash run_dpo_pipeline.sh
+bash text/run_dpo_pipeline.sh
 
 # Or run SFT only
-accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py
+accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py
 ```
 
 See [text/README.md](./text/README.md) for comprehensive documentation.
@@ -79,10 +75,10 @@ See [text/README.md](./text/README.md) for comprehensive documentation.
 ### Vision-Language Training
 
 ```bash
-cd /app/multimodal/vision_language
+cd /app
 
 # Train Qwen3-VL-8B with HuggingFace dataset (auto data_dir)
-accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "MMInstruction/M3IT"
 ```

@@ -91,12 +91,12 @@ class VLMCPTConfig:
             remaining_pct = 100 - train_pct
             val_pct = remaining_pct * (1 - self.hf_val_test_split_ratio)
             test_pct = remaining_pct - val_pct
-            self.data_dir = f"datasets/{dataset_name}/{dataset_config}/train={train_pct:.2f}%-val={val_pct:.2f}%-test={test_pct:.2f}%"
+            self.data_dir = str(Path.home() / f"datasets/{dataset_name}/{dataset_config}/train={train_pct:.2f}%-val={val_pct:.2f}%-test={test_pct:.2f}%")
         elif self.data_dir is None:
-            self.data_dir = "datasets/visual_cpt"
+            self.data_dir = str(Path.home() / "datasets/visual_cpt")
 
         if self.output_dir is None:
-            self.output_dir = f"results/{self.model_id}-cpt"
+            self.output_dir = str(Path.home() / f"results/{self.model_id}-cpt")
 
 
 def train(config: VLMCPTConfig):

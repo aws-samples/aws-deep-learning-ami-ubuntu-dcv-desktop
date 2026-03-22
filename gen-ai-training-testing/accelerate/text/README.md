@@ -31,10 +31,10 @@ This directory provides a flexible framework for fine-tuning Large Language Mode
 
 ## Quick Start
 
-After building and running the Docker container (see [parent README](../README.md)), navigate to the text directory:
+After building and running the Docker container (see [parent README](../README.md)), navigate to the accelerate directory:
 
 ```bash
-cd /app/text
+cd /app
 ```
 
 ### DPO Pipeline (Recommended)
@@ -42,7 +42,7 @@ cd /app/text
 Run the DPO pipeline (SFT → DPO) with a single command:
 
 ```bash
-bash run_dpo_pipeline.sh
+bash text/run_dpo_pipeline.sh
 ```
 
 This will:
@@ -55,7 +55,7 @@ This will:
 Run the complete RLHF pipeline (SFT → Reward Model → PPO):
 
 ```bash
-bash run_ppo_pipeline.sh
+bash text/run_ppo_pipeline.sh
 ```
 
 This will:
@@ -70,7 +70,7 @@ This will:
 Train only the SFT model:
 
 ```bash
-accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py
+accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py
 ```
 
 ## Continual Pre-Training (CPT)
@@ -80,16 +80,16 @@ Continual pre-training extends a pre-trained model's knowledge by training on do
 ### Quick Start
 
 ```bash
-accelerate launch --config_file ../accelerate_config.yaml cpt_accelerate.py
+accelerate launch --config_file accelerate_config.yaml text/cpt_accelerate.py
 ```
 
-This will train `Qwen/Qwen3.5-2B` on `wikimedia/wikipedia` (English, 20231101 snapshot) for 3 epochs with checkpoints saved every 1000 steps.
+This will train `Qwen/Qwen3-8B` on `wikimedia/wikipedia` (English, 20231101 snapshot) for 3 epochs with checkpoints saved every 1000 steps.
 
 ### CPT with Custom Domain Data
 
 ```bash
-accelerate launch --config_file ../accelerate_config.yaml cpt_accelerate.py \
-  --hf_model_id "Qwen/Qwen3.5-2B" \
+accelerate launch --config_file accelerate_config.yaml text/cpt_accelerate.py \
+  --hf_model_id "Qwen/Qwen3-8B" \
   --hfdc_dataset_name "your-org/domain-corpus" \
   --hfdc_output_template "{text}" \
   --num_train_epochs 3 \
@@ -103,7 +103,7 @@ accelerate launch --config_file ../accelerate_config.yaml cpt_accelerate.py \
 CPT supports resuming from a previously saved checkpoint:
 
 ```bash
-accelerate launch --config_file ../accelerate_config.yaml cpt_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/cpt_accelerate.py \
   --resume_from_checkpoint "results/Qwen_Qwen3.5-2B-cpt/checkpoint-2000"
 ```
 
@@ -124,7 +124,7 @@ accelerate launch --config_file ../accelerate_config.yaml cpt_accelerate.py \
 
 | Argument | Type | Description | Default |
 |----------|------|-------------|---------|
-| `--hf_model_id` | str | HuggingFace model name | `Qwen/Qwen3.5-2B` |
+| `--hf_model_id` | str | HuggingFace model name | `Qwen/Qwen3-8B` |
 | `--num_train_epochs` | int | Number of training epochs | `3` |
 | `--per_device_train_batch_size` | int | Batch size per device | `2` |
 | `--gradient_accumulation_steps` | int | Gradient accumulation steps | `4` |
@@ -157,30 +157,30 @@ Direct Preference Optimization (DPO) is a simpler and more memory-efficient alte
 
 ```bash
 # Run full DPO pipeline with default settings
-bash run_dpo_pipeline.sh
+bash text/run_dpo_pipeline.sh
 
 # Run with custom model
-bash run_dpo_pipeline.sh --base-model "meta-llama/Llama-3-8B"
+bash text/run_dpo_pipeline.sh --base-model "meta-llama/Llama-3-8B"
 
 # Skip specific steps
-bash run_dpo_pipeline.sh --skip-sft  # Use existing SFT checkpoint
+bash text/run_dpo_pipeline.sh --skip-sft  # Use existing SFT checkpoint
 
 # Pass additional arguments to training scripts
-bash run_dpo_pipeline.sh --max_steps 5000 --beta 0.2
+bash text/run_dpo_pipeline.sh --max_steps 5000 --beta 0.2
 ```
 
 #### Manual DPO Execution
 
 ```bash
 # Step 1: Supervised Fine-Tuning
-accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B"
 
 # Step 2: Convert SFT checkpoint
-python convert_checkpoint_to_hf.py --base_model "Qwen/Qwen3-8B"
+python shared/convert_checkpoint_to_hf.py --base_model "Qwen/Qwen3-8B"
 
 # Step 3: DPO Training
-accelerate launch --config_file ../accelerate_config.yaml dpo_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/dpo_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --beta 0.1 \
   --learning_rate 5e-7
@@ -214,17 +214,17 @@ The easiest way to run the complete pipeline:
 
 ```bash
 # Run full pipeline with default settings
-bash run_pipeline.sh
+bash text/run_ppo_pipeline.sh
 
 # Run with custom model
-bash run_pipeline.sh --base-model "meta-llama/Llama-3-8B"
+bash text/run_ppo_pipeline.sh --base-model "meta-llama/Llama-3-8B"
 
 # Skip specific steps
-bash run_pipeline.sh --skip-sft  # Use existing SFT checkpoint
-bash run_pipeline.sh --skip-reward  # Use existing reward model
+bash text/run_ppo_pipeline.sh --skip-sft  # Use existing SFT checkpoint
+bash text/run_ppo_pipeline.sh --skip-reward  # Use existing reward model
 
 # Pass additional arguments to training scripts
-bash run_pipeline.sh --max_steps 5000 --learning_rate 1e-4
+bash text/run_ppo_pipeline.sh --max_steps 5000 --learning_rate 1e-4
 ```
 
 ### Manual Step-by-Step Execution
@@ -233,23 +233,23 @@ Alternatively, run each step manually:
 
 ```bash
 # Step 1: Supervised Fine-Tuning
-accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B"
 
 # Step 2: Convert SFT checkpoint
-python convert_checkpoint_to_hf.py --base_model "Qwen/Qwen3-8B"
+python shared/convert_checkpoint_to_hf.py --base_model "Qwen/Qwen3-8B"
 
 # Step 3: Train Reward Model
-accelerate launch --config_file ../accelerate_config.yaml reward_model_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/reward_model_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B"
 
 # Step 4: Convert Reward Model checkpoint
-python ../shared/convert_checkpoint_to_hf.py \
+python shared/convert_checkpoint_to_hf.py \
   --base_model "Qwen/Qwen3-8B" \
   --checkpoints_dir "results/reward_Qwen/Qwen3-8B"
 
 # Step 5: PPO Policy Optimization
-accelerate launch --config_file ../accelerate_config.yaml ppo_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/ppo_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B"
 ```
 
@@ -259,15 +259,15 @@ Train a reward model for RLHF. The reward model automatically uses the latest co
 
 ```bash
 # Train from latest SFT checkpoint (automatic)
-accelerate launch --config_file ../accelerate_config.yaml reward_model_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/reward_model_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B"
 
 # Train from specific SFT checkpoint
-accelerate launch --config_file ../accelerate_config.yaml reward_model_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/reward_model_accelerate.py \
   --sft_model_path "results/Qwen/Qwen3-8B/checkpoint-1000.hf_model"
 
 # Use different reward dataset
-accelerate launch --config_file ../accelerate_config.yaml reward_model_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/reward_model_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --rmdc_dataset_name "OpenAssistant/oasst1"
 ```
@@ -329,7 +329,7 @@ The framework supports any HuggingFace causal language model. Recommended:
 ### Training Example
 
 ```bash
-accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --per_device_train_batch_size 2 \
   --gradient_accumulation_steps 8
@@ -353,7 +353,7 @@ The framework uses `HFDatasetConfig` to define dataset loading and formatting. K
 Update the configuration in `peft_accelerate.py` or use CLI arguments:
 
 ```bash
-accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
   --hfdc_dataset_name "databricks/databricks-dolly-15k" \
   --hfdc_split "train" \
   --hfdc_train_split_ratio 0.95 \
@@ -405,10 +405,10 @@ Then launch on each node:
 
 ```bash
 # On main node (machine_rank: 0)
-accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py
+accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py
 
 # On worker nodes (machine_rank: 1, 2, ...)
-accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py
+accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py
 ```
 
 ## CLI Usage Examples
@@ -416,7 +416,7 @@ accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py
 ### Basic Usage
 
 ```bash
-accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --max_steps 5000
 ```
@@ -424,7 +424,7 @@ accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py \
 ### Advanced Configuration
 
 ```bash
-accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
   --hf_model_id "meta-llama/Llama-3-8B" \
   --max_steps 10000 \
   --per_device_train_batch_size 1 \
@@ -498,7 +498,7 @@ accelerate launch --config_file ../accelerate_config.yaml peft_accelerate.py \
 Test FSDP checkpoints using vLLM for efficient inference:
 
 ```bash
-python ../shared/test_checkpoint.py \
+python shared/test_checkpoint.py \
   --base_model "Qwen/Qwen3-8B" \
   --max_samples 1024 \
   --batch_size 128
@@ -516,14 +516,14 @@ The script automatically:
 Convert FSDP checkpoints to standard HuggingFace format for deployment:
 
 ```bash
-python ../shared/convert_checkpoint_to_hf.py \
+python shared/convert_checkpoint_to_hf.py \
   --base_model "Qwen/Qwen3-8B"
 ```
 
 The script automatically finds the latest checkpoint in `results/{base_model}/`. By default, it merges LoRA weights into the base model for maximum compatibility. To save as a LoRA adapter:
 
 ```bash
-python ../shared/convert_checkpoint_to_hf.py \
+python shared/convert_checkpoint_to_hf.py \
   --base_model "Qwen/Qwen3-8B" \
   --no_merge
 ```
@@ -649,7 +649,7 @@ The training script uses `attn_implementation="flash_attention_2"` for improved 
 ### Checkpoint Format
 
 - Checkpoints are saved in FSDP format under `pytorch_model_fsdp_0/` directory
-- Use `../shared/convert_checkpoint_to_hf.py` to convert to standard HuggingFace format
+- Use `shared/convert_checkpoint_to_hf.py` to convert to standard HuggingFace format
 - LoRA adapters can be merged or saved separately
 - Final model includes both model weights and tokenizer
 

@@ -12,7 +12,7 @@ echo ""
 
 # Default configuration
 BASE_MODEL="Qwen/Qwen3-8B"
-ACCELERATE_CONFIG="../accelerate_config.yaml"
+ACCELERATE_CONFIG="accelerate_config.yaml"
 SKIP_SFT=false
 SKIP_CONVERT_SFT=false
 SKIP_DPO=false
@@ -73,7 +73,7 @@ if [ "$SKIP_SFT" = false ]; then
     echo "================================================================================"
     echo "Step 1/3: Supervised Fine-Tuning (SFT)"
     echo "================================================================================"
-    accelerate launch --config_file "$ACCELERATE_CONFIG" peft_accelerate.py \
+    accelerate launch --config_file "$ACCELERATE_CONFIG" text/peft_accelerate.py \
         --hf_model_id "$BASE_MODEL" \
         "${EXTRA_ARGS[@]}"
     echo ""
@@ -89,7 +89,7 @@ if [ "$SKIP_CONVERT_SFT" = false ]; then
     echo "================================================================================"
     echo "Step 2/3: Convert SFT Checkpoint to HuggingFace Format"
     echo "================================================================================"
-    python ../shared/convert_checkpoint_to_hf.py \
+    python shared/convert_checkpoint_to_hf.py \
         --base_model "$BASE_MODEL"
     echo ""
     echo "✓ SFT checkpoint conversion completed"
@@ -104,7 +104,7 @@ if [ "$SKIP_DPO" = false ]; then
     echo "================================================================================"
     echo "Step 3/3: DPO Policy Training"
     echo "================================================================================"
-    accelerate launch --config_file "$ACCELERATE_CONFIG" dpo_accelerate.py \
+    accelerate launch --config_file "$ACCELERATE_CONFIG" text/dpo_accelerate.py \
         --hf_model_id "$BASE_MODEL" \
         "${EXTRA_ARGS[@]}"
     echo ""

@@ -129,10 +129,10 @@ class CPTConfig:
             val_pct = remaining_pct * (1 - self.hf_dataset_config.val_test_split_ratio)
             test_pct = remaining_pct - val_pct
             self.data_dir = str(
-                Path.cwd() / f"datasets/{dataset_name}/{dataset_config}/train={train_pct:.2f}%-val={val_pct:.2f}%-test={test_pct:.2f}%"
+                Path.home() / f"datasets/{dataset_name}/{dataset_config}/train={train_pct:.2f}%-val={val_pct:.2f}%-test={test_pct:.2f}%"
             )
 
-        self.results_dir = str(Path.cwd() / self.results_dir)
+        self.results_dir = str(Path.home() / self.results_dir)
 
 
 def train_func(config_dict: Dict):

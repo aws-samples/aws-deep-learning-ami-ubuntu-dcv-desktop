@@ -99,14 +99,14 @@ class VLMTrainingConfig:
             remaining_pct = 100 - train_pct
             val_pct = int(remaining_pct * (1 - self.hf_val_test_split_ratio))
             test_pct = remaining_pct - val_pct
-            self.data_dir = f"datasets/{dataset_name}/{dataset_config}/train={train_pct}%-val={val_pct}%-test={test_pct}%"
+            self.data_dir = str(Path.home() / f"datasets/{dataset_name}/{dataset_config}/train={train_pct}%-val={val_pct}%-test={test_pct}%")
         elif self.data_dir is None:
             # Fallback if no HF dataset specified
-            self.data_dir = "datasets/visual_instruct"
+            self.data_dir = str(Path.home() / "datasets/visual_instruct")
         
         # Auto-derive output_dir from model_id
         if self.output_dir is None:
-            self.output_dir = f"results/{self.model_id}"
+            self.output_dir = str(Path.home() / f"results/{self.model_id}")
 
 
 def train(config: VLMTrainingConfig):

@@ -11,16 +11,16 @@ Train and continually pre-train Qwen3-VL vision-language models using Ray Train'
 
 ## Quick Start
 
-After building and running the Docker container (see [parent README](../../README.md)), navigate to the vision_language directory:
+After building and running the Docker container (see [parent README](../../README.md)), navigate to the ray_train directory:
 
 ```bash
-cd /app/ray_train/multimodal/vision_language
+cd /app
 ```
 
 ### List Supported Models
 
 ```bash
-python ray_train_vlm.py --list_models
+python multimodal/vision_language/ray_train_vlm.py --list_models
 ```
 
 ### Train with HuggingFace Dataset (Recommended)
@@ -28,7 +28,7 @@ python ray_train_vlm.py --list_models
 The simplest way to get started - automatically downloads and prepares the dataset:
 
 ```bash
-python ray_train_vlm.py \
+python multimodal/vision_language/ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```
@@ -42,7 +42,7 @@ The `data_dir` and `results_dir` are automatically derived:
 If you have pre-prepared JSONL files:
 
 ```bash
-python ray_train_vlm.py \
+python multimodal/vision_language/ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/my_custom_dataset"
 ```
@@ -50,7 +50,7 @@ python ray_train_vlm.py \
 ### Continual Pre-Training (Image+Text)
 
 ```bash
-python cpt_ray_train_vlm.py \
+python multimodal/vision_language/cpt_ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --num_train_epochs 3 \
@@ -60,7 +60,7 @@ python cpt_ray_train_vlm.py \
 ### Test Adapters
 
 ```bash
-python test_adapters.py
+python multimodal/vision_language/test_adapters.py
 ```
 
 ## Using HuggingFace Datasets
@@ -76,7 +76,7 @@ The training script can automatically download and prepare HuggingFace vision-la
 ### Basic Usage
 
 ```bash
-python ray_train_vlm.py \
+python multimodal/vision_language/ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```
@@ -86,7 +86,7 @@ Images are automatically saved to disk during dataset preparation.
 ### Advanced Options
 
 ```bash
-python ray_train_vlm.py \
+python multimodal/vision_language/ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --hf_train_split_ratio 0.95 \
@@ -98,7 +98,7 @@ python ray_train_vlm.py \
 Override the auto-generated data directory:
 
 ```bash
-python ray_train_vlm.py \
+python multimodal/vision_language/ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --data_dir "datasets/my_llava_data"
@@ -218,7 +218,7 @@ Create `validation.jsonl`:
 **Step 3: Train**
 
 ```bash
-python ray_train_vlm.py \
+python multimodal/vision_language/ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/my_dataset"
 ```
@@ -242,7 +242,7 @@ For text-only CPT on a VLM backbone (no images), use `text/cpt_accelerate.py` in
 ### CPT Quick Start
 
 ```bash
-python cpt_ray_train_vlm.py \
+python multimodal/vision_language/cpt_ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --num_train_epochs 3 \
@@ -252,7 +252,7 @@ python cpt_ray_train_vlm.py \
 ### CPT with Custom Domain Data
 
 ```bash
-python cpt_ray_train_vlm.py \
+python multimodal/vision_language/cpt_ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/medical_images" \
   --num_train_epochs 5 \
@@ -263,7 +263,7 @@ python cpt_ray_train_vlm.py \
 ### Resuming from Checkpoint
 
 ```bash
-python cpt_ray_train_vlm.py \
+python multimodal/vision_language/cpt_ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/medical_images" \
   --resume_from_checkpoint "results/checkpoint-2000"
@@ -303,7 +303,7 @@ python cpt_ray_train_vlm.py \
 ### Basic Training
 
 ```bash
-python ray_train_vlm.py \
+python multimodal/vision_language/ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```
@@ -436,6 +436,25 @@ ADAPTER_REGISTRY = {
     "qwen-vl": QwenVLAdapter,
     "new-model": NewModelAdapter,  # Add this line
 }
+```
+
+## Checkpoint Conversion and Testing
+
+After training, convert Ray Train FSDP checkpoints to HuggingFace format and test them using the shared utilities:
+
+### Convert Checkpoint
+
+```bash
+python shared/convert_checkpoint_to_hf.py \
+  --base_model "Qwen/Qwen3-VL-8B-Instruct"
+```
+
+### Test Checkpoint
+
+```bash
+python shared/test_checkpoint.py \
+  --base_model "Qwen/Qwen3-VL-8B-Instruct" \
+  --max_samples 1024
 ```
 
 ## Troubleshooting

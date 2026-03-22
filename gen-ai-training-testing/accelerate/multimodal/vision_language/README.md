@@ -11,16 +11,16 @@ Train and continually pre-train Qwen3-VL vision-language models using Hugging Fa
 
 ## Quick Start
 
-After building and running the Docker container (see [parent README](../../README.md)), navigate to the vision_language directory:
+After building and running the Docker container (see [parent README](../../README.md)), navigate to the accelerate directory:
 
 ```bash
-cd /app/accelerate/multimodal/vision_language
+cd /app
 ```
 
 ### List Supported Models
 
 ```bash
-python peft_accelerate.py --list_models
+python multimodal/vision_language/peft_accelerate.py --list_models
 ```
 
 ### Train with HuggingFace Dataset (Recommended)
@@ -28,7 +28,7 @@ python peft_accelerate.py --list_models
 The simplest way to get started - automatically downloads and prepares the dataset:
 
 ```bash
-accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```
@@ -42,7 +42,7 @@ The `data_dir` and `output_dir` are automatically derived:
 If you have pre-prepared JSONL files:
 
 ```bash
-accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/my_custom_dataset"
 ```
@@ -50,7 +50,7 @@ accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py 
 ### Continual Pre-Training (Image+Text)
 
 ```bash
-accelerate launch --config_file ../../accelerate_config.yaml cpt_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/cpt_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```
@@ -58,7 +58,7 @@ accelerate launch --config_file ../../accelerate_config.yaml cpt_accelerate.py \
 ### Test Adapters
 
 ```bash
-python test_adapters.py
+python multimodal/vision_language/test_adapters.py
 ```
 
 ## Using HuggingFace Datasets
@@ -74,7 +74,7 @@ The training script can automatically download and prepare HuggingFace vision-la
 ### Basic Usage
 
 ```bash
-accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```
@@ -84,7 +84,7 @@ Images are automatically saved to disk during dataset preparation.
 ### Advanced Options
 
 ```bash
-accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --hf_train_split_ratio 0.95 \
@@ -98,7 +98,7 @@ Note: Images are automatically saved to disk by default. The dataset contains PI
 Override the auto-generated data directory:
 
 ```bash
-accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --data_dir "datasets/my_llava_data"
@@ -218,7 +218,7 @@ Create `validation.jsonl`:
 **Step 3: Train**
 
 ```bash
-accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/my_dataset" \
   --output_dir "results/my_model"
@@ -261,7 +261,7 @@ For text-only CPT on a VLM backbone (no images), use `text/cpt_accelerate.py` in
 ### CPT Quick Start
 
 ```bash
-accelerate launch --config_file ../../accelerate_config.yaml cpt_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/cpt_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --num_train_epochs 3 \
@@ -271,7 +271,7 @@ accelerate launch --config_file ../../accelerate_config.yaml cpt_accelerate.py \
 ### CPT with Custom Domain Data
 
 ```bash
-accelerate launch --config_file ../../accelerate_config.yaml cpt_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/cpt_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/medical_images" \
   --num_train_epochs 5 \
@@ -282,7 +282,7 @@ accelerate launch --config_file ../../accelerate_config.yaml cpt_accelerate.py \
 ### Resuming from Checkpoint
 
 ```bash
-accelerate launch --config_file ../../accelerate_config.yaml cpt_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/cpt_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/medical_images" \
   --resume_from_checkpoint "results/Qwen/Qwen3-VL-8B-Instruct-cpt/checkpoint-2000"
@@ -321,7 +321,7 @@ accelerate launch --config_file ../../accelerate_config.yaml cpt_accelerate.py \
 ### Basic Training
 
 ```bash
-accelerate launch --config_file ../../accelerate_config.yaml peft_accelerate.py \
+accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```
@@ -559,6 +559,25 @@ ADAPTER_REGISTRY = {
     "qwen-vl": QwenVLAdapter,
     "new-model": NewModelAdapter,  # Add this line
 }
+```
+
+## Checkpoint Conversion and Testing
+
+After training, convert FSDP checkpoints to HuggingFace format and test them using the shared utilities:
+
+### Convert Checkpoint
+
+```bash
+python shared/convert_checkpoint_to_hf.py \
+  --base_model "Qwen/Qwen3-VL-8B-Instruct"
+```
+
+### Test Checkpoint
+
+```bash
+python shared/test_checkpoint.py \
+  --base_model "Qwen/Qwen3-VL-8B-Instruct" \
+  --max_samples 1024
 ```
 
 ## Troubleshooting

@@ -160,9 +160,9 @@ class Config:
             remaining_pct = 100 - train_pct
             val_pct = int(remaining_pct * (1 - self.hf_dataset_config.val_test_split_ratio))
             test_pct = remaining_pct - val_pct
-            self.data_dir = str(Path.cwd() / f"datasets/{dataset_name}/{dataset_config}/train={train_pct}%-val={val_pct}%-test={test_pct}%")
+            self.data_dir = str(Path.home() / f"datasets/{dataset_name}/{dataset_config}/train={train_pct}%-val={val_pct}%-test={test_pct}%")
         
-        self.results_dir = str(Path.cwd() / self.results_dir)
+        self.results_dir = str(Path.home() / self.results_dir)
         
         if self.logging_dir is None:
             self.logging_dir = f"{self.results_dir}/logs"

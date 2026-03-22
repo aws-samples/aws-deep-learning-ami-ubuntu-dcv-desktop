@@ -6,7 +6,7 @@ import torch
 from transformers import (
     AutoProcessor,
     PreTrainedTokenizer,
-    AutoModelForVision2Seq,
+    Qwen3VLForConditionalGeneration,
 )
 
 import sys
@@ -38,7 +38,7 @@ class QwenVLAdapter(BaseVLMAdapter):
         ]
     
     def load_model(self, model_id: str, **kwargs):
-        """Load Qwen-VL model using AutoModelForVision2Seq for compatibility."""
+        """Load Qwen-VL model using Qwen3VLForConditionalGeneration."""
         default_kwargs = {
             'torch_dtype': torch.bfloat16,
             'attn_implementation': 'flash_attention_2',
@@ -48,7 +48,7 @@ class QwenVLAdapter(BaseVLMAdapter):
         use_cache = default_kwargs.pop('use_cache', None)
         
         print(f"Loading Qwen-VL model: {model_id}")
-        model = AutoModelForVision2Seq.from_pretrained(
+        model = Qwen3VLForConditionalGeneration.from_pretrained(
             model_id,
             **default_kwargs
         )

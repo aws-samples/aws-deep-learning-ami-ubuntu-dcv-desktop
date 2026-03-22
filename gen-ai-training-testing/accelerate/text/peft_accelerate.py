@@ -131,10 +131,10 @@ class TrainingConfig:
             remaining_pct = 100 - train_pct
             val_pct = int(remaining_pct * (1 - self.hf_dataset_config.val_test_split_ratio))
             test_pct = remaining_pct - val_pct
-            self.data_dir = f"datasets/{dataset_name}/{dataset_config}/train={train_pct}%-val={val_pct}%-test={test_pct}%"
+            self.data_dir = str(Path.home() / f"datasets/{dataset_name}/{dataset_config}/train={train_pct}%-val={val_pct}%-test={test_pct}%")
         
         if self.output_dir is None:
-            self.output_dir = f"results/{self.hf_model_id}"
+            self.output_dir = str(Path.home() / f"results/{self.hf_model_id}")
 
 
 def train(config: TrainingConfig):

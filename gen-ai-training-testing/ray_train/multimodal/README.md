@@ -42,9 +42,9 @@ Planned support for:
 ### Vision-Language SFT
 
 ```bash
-cd vision_language/
+cd /app
 
-python ray_train_vlm.py \
+python multimodal/vision_language/ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --freeze_vision_encoder
@@ -53,9 +53,9 @@ python ray_train_vlm.py \
 ### Vision-Language CPT
 
 ```bash
-cd vision_language/
+cd /app
 
-python cpt_ray_train_vlm.py \
+python multimodal/vision_language/cpt_ray_train_vlm.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --num_train_epochs 3

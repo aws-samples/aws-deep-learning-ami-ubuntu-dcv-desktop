@@ -64,7 +64,7 @@ class Config:
     
     def __post_init__(self):
         if self.checkpoints_dir is None:
-            self.checkpoints_dir = f"results/{self.base_model.replace('/', '-')}"
+            self.checkpoints_dir = str(Path.home() / f"results/{self.base_model.replace('/', '-')}")
    
 
 def create_parser_from_dataclass(dataclass_type) -> argparse.ArgumentParser:
