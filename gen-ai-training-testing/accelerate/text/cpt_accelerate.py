@@ -77,7 +77,7 @@ class CPTConfig:
     # Other
     seed: int = 42
     num_workers: int = 4
-    gradient_checkpointing: bool = True
+    disable_gradient_checkpointing: bool = False
     
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> 'CPTConfig':
@@ -234,8 +234,8 @@ def train(config: CPTConfig):
         seed=config.seed,
         dataloader_drop_last=False,
         ddp_find_unused_parameters=False,
-        gradient_checkpointing=config.gradient_checkpointing,
-        gradient_checkpointing_kwargs={"use_reentrant": False} if config.gradient_checkpointing else None,
+        gradient_checkpointing=not config.disable_gradient_checkpointing,
+        gradient_checkpointing_kwargs={"use_reentrant": False} if not config.disable_gradient_checkpointing else None,
     )
     
     # Data collator
