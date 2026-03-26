@@ -70,7 +70,7 @@ This will:
 Train only the SFT model:
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py
+accelerate launch --config_file peft_accelerate_config.yaml text/peft_accelerate.py
 ```
 
 ## Continual Pre-Training (CPT)
@@ -80,7 +80,7 @@ Continual pre-training extends a pre-trained model's knowledge by training on do
 ### Quick Start
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml text/cpt_accelerate.py
+accelerate launch --config_file cpt_accelerate_config.yaml text/cpt_accelerate.py
 ```
 
 This will train `Qwen/Qwen3-8B` on `wikimedia/wikipedia` (English, 20231101 snapshot) for 3 epochs with checkpoints saved every 1000 steps.
@@ -88,7 +88,7 @@ This will train `Qwen/Qwen3-8B` on `wikimedia/wikipedia` (English, 20231101 snap
 ### CPT with Custom Domain Data
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml text/cpt_accelerate.py \
+accelerate launch --config_file cpt_accelerate_config.yaml text/cpt_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --hfdc_dataset_name "your-org/domain-corpus" \
   --hfdc_output_template "{text}" \
@@ -103,7 +103,7 @@ accelerate launch --config_file accelerate_config.yaml text/cpt_accelerate.py \
 CPT supports resuming from a previously saved checkpoint:
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml text/cpt_accelerate.py \
+accelerate launch --config_file cpt_accelerate_config.yaml text/cpt_accelerate.py \
   --resume_from_checkpoint "results/Qwen_Qwen3.5-2B-cpt/checkpoint-2000"
 ```
 
@@ -173,14 +173,14 @@ bash text/run_dpo_pipeline.sh --max_steps 5000 --beta 0.2
 
 ```bash
 # Step 1: Supervised Fine-Tuning
-accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml text/peft_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B"
 
 # Step 2: Convert SFT checkpoint
 python shared/convert_checkpoint_to_hf.py --base_model "Qwen/Qwen3-8B"
 
 # Step 3: DPO Training
-accelerate launch --config_file accelerate_config.yaml text/dpo_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml text/dpo_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --beta 0.1 \
   --learning_rate 5e-7
@@ -233,14 +233,14 @@ Alternatively, run each step manually:
 
 ```bash
 # Step 1: Supervised Fine-Tuning
-accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml text/peft_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B"
 
 # Step 2: Convert SFT checkpoint
 python shared/convert_checkpoint_to_hf.py --base_model "Qwen/Qwen3-8B"
 
 # Step 3: Train Reward Model
-accelerate launch --config_file accelerate_config.yaml text/reward_model_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml text/reward_model_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B"
 
 # Step 4: Convert Reward Model checkpoint
@@ -249,7 +249,7 @@ python shared/convert_checkpoint_to_hf.py \
   --checkpoints_dir "results/reward_Qwen/Qwen3-8B"
 
 # Step 5: PPO Policy Optimization
-accelerate launch --config_file accelerate_config.yaml text/ppo_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml text/ppo_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B"
 ```
 
@@ -259,15 +259,15 @@ Train a reward model for RLHF. The reward model automatically uses the latest co
 
 ```bash
 # Train from latest SFT checkpoint (automatic)
-accelerate launch --config_file accelerate_config.yaml text/reward_model_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml text/reward_model_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B"
 
 # Train from specific SFT checkpoint
-accelerate launch --config_file accelerate_config.yaml text/reward_model_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml text/reward_model_accelerate.py \
   --sft_model_path "results/Qwen/Qwen3-8B/checkpoint-1000.hf_model"
 
 # Use different reward dataset
-accelerate launch --config_file accelerate_config.yaml text/reward_model_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml text/reward_model_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --rmdc_dataset_name "OpenAssistant/oasst1"
 ```
@@ -329,7 +329,7 @@ The framework supports any HuggingFace causal language model. Recommended:
 ### Training Example
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml text/peft_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --per_device_train_batch_size 2 \
   --gradient_accumulation_steps 8
@@ -353,7 +353,7 @@ The framework uses `HFDatasetConfig` to define dataset loading and formatting. K
 Update the configuration in `peft_accelerate.py` or use CLI arguments:
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml text/peft_accelerate.py \
   --hfdc_dataset_name "databricks/databricks-dolly-15k" \
   --hfdc_split "train" \
   --hfdc_train_split_ratio 0.95 \
@@ -382,7 +382,7 @@ All configuration parameters are defined in the `TrainingConfig` class in `peft_
 
 ### Accelerate Configuration
 
-The `accelerate_config.yaml` file configures the distributed training setup:
+The `peft_accelerate_config.yaml` and `cpt_accelerate_config.yaml` files configure the distributed training setup:
 
 - **FSDP Strategy**: FULL_SHARD for maximum memory efficiency
 - **Mixed Precision**: BFloat16 for training stability
@@ -391,7 +391,7 @@ The `accelerate_config.yaml` file configures the distributed training setup:
 
 ### Multi-Node Training
 
-For multi-node training, update the `accelerate_config.yaml`:
+For multi-node training, update the `peft_accelerate_config.yaml` or `cpt_accelerate_config.yaml`:
 
 ```yaml
 num_machines: 2
@@ -405,10 +405,10 @@ Then launch on each node:
 
 ```bash
 # On main node (machine_rank: 0)
-accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py
+accelerate launch --config_file peft_accelerate_config.yaml text/peft_accelerate.py
 
 # On worker nodes (machine_rank: 1, 2, ...)
-accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py
+accelerate launch --config_file peft_accelerate_config.yaml text/peft_accelerate.py
 ```
 
 ## CLI Usage Examples
@@ -416,7 +416,7 @@ accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py
 ### Basic Usage
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml text/peft_accelerate.py \
   --hf_model_id "Qwen/Qwen3-8B" \
   --max_steps 5000
 ```
@@ -424,7 +424,7 @@ accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
 ### Advanced Configuration
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml text/peft_accelerate.py \
   --hf_model_id "meta-llama/Llama-3-8B" \
   --max_steps 10000 \
   --per_device_train_batch_size 1 \
@@ -549,7 +549,8 @@ text/
 └── test_checkpoint.py           # Checkpoint testing script
 
 ../
-├── accelerate_config.yaml       # Accelerate FSDP configuration
+├── peft_accelerate_config.yaml  # Accelerate FSDP configuration for PEFT/SFT
+├── cpt_accelerate_config.yaml   # Accelerate FSDP configuration for CPT
 ├── datasets/                    # Downloaded and processed datasets
 │   └── {dataset_name}/
 │       └── {dataset_config}/
@@ -585,7 +586,7 @@ text/
 --max_seq_length 1024
 ```
 
-**Solution 4: Enable CPU offload in accelerate_config.yaml**
+**Solution 4: Enable CPU offload in peft_accelerate_config.yaml or cpt_accelerate_config.yaml**
 ```yaml
 fsdp_config:
   fsdp_offload_params: true
@@ -658,7 +659,7 @@ The training script uses `attn_implementation="flash_attention_2"` for improved 
 - `PYTORCH_ALLOC_CONF=expandable_segments:True` is set for better memory management
 - FSDP uses FULL_SHARD strategy for maximum memory efficiency
 - Gradient checkpointing is enabled by default
-- CPU offload available via accelerate_config.yaml configuration
+- CPU offload available via peft_accelerate_config.yaml or cpt_accelerate_config.yaml configuration
 
 ### Training Features
 

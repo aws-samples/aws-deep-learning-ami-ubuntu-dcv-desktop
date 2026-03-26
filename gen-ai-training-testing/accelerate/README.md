@@ -51,7 +51,8 @@ accelerate/
 │   ├── convert_checkpoint_to_hf.py # Checkpoint conversion
 │   └── test_checkpoint.py         # Checkpoint testing
 │
-└── accelerate_config.yaml         # FSDP configuration
+└── peft_accelerate_config.yaml   # FSDP configuration for PEFT/SFT
+└── cpt_accelerate_config.yaml    # FSDP configuration for CPT
 ```
 
 ## Quick Start
@@ -67,7 +68,7 @@ cd /app
 bash text/run_dpo_pipeline.sh
 
 # Or run SFT only
-accelerate launch --config_file accelerate_config.yaml text/peft_accelerate.py
+accelerate launch --config_file peft_accelerate_config.yaml text/peft_accelerate.py
 ```
 
 See [text/README.md](./text/README.md) for comprehensive documentation.
@@ -78,7 +79,7 @@ See [text/README.md](./text/README.md) for comprehensive documentation.
 cd /app
 
 # Train Qwen3-VL-8B with HuggingFace dataset (auto data_dir)
-accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "MMInstruction/M3IT"
 ```
@@ -125,7 +126,7 @@ python shared/test_checkpoint.py --base_model "Qwen/Qwen3-8B"
 
 ### Accelerate Configuration
 
-The `accelerate_config.yaml` file configures distributed training:
+The `peft_accelerate_config.yaml` and `cpt_accelerate_config.yaml` files configure distributed training:
 
 - FSDP Strategy: FULL_SHARD for maximum memory efficiency
 - Mixed Precision: BFloat16
@@ -134,7 +135,7 @@ The `accelerate_config.yaml` file configures distributed training:
 
 ### Multi-Node Training
 
-Update `accelerate_config.yaml` for multi-node:
+Update `peft_accelerate_config.yaml` or `cpt_accelerate_config.yaml` for multi-node:
 
 ```yaml
 num_machines: 2

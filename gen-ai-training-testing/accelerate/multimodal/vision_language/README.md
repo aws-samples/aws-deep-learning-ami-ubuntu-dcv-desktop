@@ -28,7 +28,7 @@ python multimodal/vision_language/peft_accelerate.py --list_models
 The simplest way to get started - automatically downloads and prepares the dataset:
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```
@@ -42,7 +42,7 @@ The `data_dir` and `output_dir` are automatically derived:
 If you have pre-prepared JSONL files:
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/my_custom_dataset"
 ```
@@ -50,7 +50,7 @@ accelerate launch --config_file accelerate_config.yaml multimodal/vision_languag
 ### Continual Pre-Training (Image+Text)
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/cpt_accelerate.py \
+accelerate launch --config_file cpt_accelerate_config.yaml multimodal/vision_language/cpt_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```
@@ -74,7 +74,7 @@ The training script can automatically download and prepare HuggingFace vision-la
 ### Basic Usage
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```
@@ -84,7 +84,7 @@ Images are automatically saved to disk during dataset preparation.
 ### Advanced Options
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --hf_train_split_ratio 0.95 \
@@ -98,7 +98,7 @@ Note: Images are automatically saved to disk by default. The dataset contains PI
 Override the auto-generated data directory:
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --data_dir "datasets/my_llava_data"
@@ -218,7 +218,7 @@ Create `validation.jsonl`:
 **Step 3: Train**
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/my_dataset" \
   --output_dir "results/my_model"
@@ -261,7 +261,7 @@ For text-only CPT on a VLM backbone (no images), use `text/cpt_accelerate.py` in
 ### CPT Quick Start
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/cpt_accelerate.py \
+accelerate launch --config_file cpt_accelerate_config.yaml multimodal/vision_language/cpt_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data" \
   --num_train_epochs 3 \
@@ -271,7 +271,7 @@ accelerate launch --config_file accelerate_config.yaml multimodal/vision_languag
 ### CPT with Custom Domain Data
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/cpt_accelerate.py \
+accelerate launch --config_file cpt_accelerate_config.yaml multimodal/vision_language/cpt_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/medical_images" \
   --num_train_epochs 5 \
@@ -282,7 +282,7 @@ accelerate launch --config_file accelerate_config.yaml multimodal/vision_languag
 ### Resuming from Checkpoint
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/cpt_accelerate.py \
+accelerate launch --config_file cpt_accelerate_config.yaml multimodal/vision_language/cpt_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --data_dir "datasets/medical_images" \
   --resume_from_checkpoint "results/Qwen/Qwen3-VL-8B-Instruct-cpt/checkpoint-2000"
@@ -321,7 +321,7 @@ accelerate launch --config_file accelerate_config.yaml multimodal/vision_languag
 ### Basic Training
 
 ```bash
-accelerate launch --config_file accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
+accelerate launch --config_file peft_accelerate_config.yaml multimodal/vision_language/peft_accelerate.py \
   --model_id "Qwen/Qwen3-VL-8B-Instruct" \
   --hf_dataset_name "lmms-lab/LLaVA-NeXT-Data"
 ```

@@ -46,7 +46,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Pipeline Control:"
             echo "  --base-model MODEL          Base model ID (default: Qwen/Qwen3-8B)"
-            echo "  --accelerate-config FILE    Accelerate config (default: accelerate_config.yaml)"
+            echo "  --accelerate-config FILE    Accelerate config (default: peft_accelerate_config.yaml)"
             echo "  --skip-sft                  Skip SFT training"
             echo "  --skip-convert-sft          Skip SFT checkpoint conversion"
             echo "  --skip-dpo                  Skip DPO training"
