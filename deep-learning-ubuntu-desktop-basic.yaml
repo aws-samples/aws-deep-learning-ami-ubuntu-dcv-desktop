@@ -311,11 +311,13 @@ Resources:
             Principal:
               Service:
                 - ec2.amazonaws.com
+                - sagemaker.amazonaws.com
             Action:
               - 'sts:AssumeRole'
       Path: /
       ManagedPolicyArns:
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSageMakerFullAccess'
       Policies:
         - PolicyName: dcv-license-s3
           PolicyDocument:
@@ -355,6 +357,15 @@ Resources:
                   - 'bedrock:InvokeModel'
                   - 'bedrock:InvokeModelWithResponseStream'
                 Resource: '*'
+        - PolicyName: sagemaker-default-bucket-access
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:*'
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::sagemaker-${AWS::Region}-${AWS::AccountId}'
+                  - !Sub 'arn:${AWS::Partition}:s3:::sagemaker-${AWS::Region}-${AWS::AccountId}/*'
 
   InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
@@ -754,6 +765,10 @@ Resources:
                 
                 if [ ! -d "/home/ubuntu/aws-deep-learning-ami-ubuntu-dcv-desktop" ]; then
                   sudo -u ubuntu bash -c "git clone https://github.com/aws-samples/aws-deep-learning-ami-ubuntu-dcv-desktop.git /home/ubuntu/aws-deep-learning-ami-ubuntu-dcv-desktop"
+                fi
+
+                if [ ! -d "/home/ubuntu/amazon-sagemaker-examples" ]; then
+                  sudo -u ubuntu bash -c "git clone -b distributed-training-pipeline https://github.com/aws/amazon-sagemaker-examples.git /home/ubuntu/amazon-sagemaker-examples"
                 fi
 
                 echo "Deep Learning Desktop is Ready!" > /etc/motd
