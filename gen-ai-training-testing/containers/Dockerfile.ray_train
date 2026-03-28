@@ -28,6 +28,7 @@ RUN pip install ray[train]==2.52.1 \
 
 RUN pip install bert-score==0.3.13
 RUN pip install evaluate==0.4.6
+RUN pip install liger-kernel==0.7.0
 
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE=1
