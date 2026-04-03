@@ -251,6 +251,12 @@ bash launch.sh up
 
 **Note**: This flag is safe for standard models (Llama, Mistral text-only, etc.) and will be ignored if the model doesn't contain custom code. However, it should only be enabled when needed and with trusted model sources due to the security implications of executing remote code.
 
+## AI-Assisted Testing with Claude
+
+This framework supports AI-assisted testing using the Claude AI agent on the AWS Deep Learning Desktop. Instead of manually stepping through notebooks, you can provide Claude with a prompt describing the model you want to test, and the agent will autonomously execute the full testing workflow.
+
+See [CLAUDE-AI-PROMPT.md](./CLAUDE-AI-PROMPT.md) for ready-to-use prompt templates covering encoder models (embeddings, rerankers) and decoder models (text generation). The prompts are designed for use with the Claude AI agent running on the Deep Learning Desktop with the `gen-ai-inference-testing` folder open as its workspace. The agent analyzes the notebooks, configures infrastructure for your hardware, launches inference servers, runs Locust load tests, and reports results.
+
 ## Contributing
 
 When adding new inference servers, engines, or model types:
