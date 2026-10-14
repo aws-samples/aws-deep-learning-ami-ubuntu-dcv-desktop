@@ -3,11 +3,11 @@ Description: AWS Deep Learning Ubuntu EFA MPI cluster.
 Parameters:
 
   AWSUbuntuAMIType:
-    Description: Ubuntu Pro  24.04 LTS.
+    Description: Ubuntu 24.04 LTS.
     Type: String
-    Default: "UbuntuPro2404LTS"
+    Default: "Ubuntu2404LTS"
     AllowedValues:
-      - "UbuntuPro2404LTS"
+      - "Ubuntu2404LTS"
   
   UbuntuAMIOverride:
     Description: >-
@@ -104,27 +104,29 @@ Parameters:
     Default: ""
 
 Mappings:
-  UbuntuPro2404LTS:
+  Ubuntu2404LTS:
     us-east-1:
-      AMI: ami-0b6c6ebed2801a5cb
+      AMI: ami-0f8a61b66d1accaee
     us-east-2:
-      AMI: ami-06e3c045d79fd65d9
+      AMI: ami-0ea1cddefe0c4aed5
     us-west-2:
-      AMI: ami-0786adace1541ca80
+      AMI: ami-096f5760b00bcd95c
     eu-west-1:
-      AMI: ami-03446a3af42c5e74e
+      AMI: ami-04df7d76c1b804451
+    eu-west-3:
+      AMI: ami-0e207c18bb303cc68
     eu-central-1:
-      AMI: ami-01f79b1e4a5c64257
+      AMI: ami-042dc8681de073ac4
     ap-southeast-1:
-      AMI: ami-08d59269edddde222
+      AMI: ami-03acbba64aef9bf5c
     ap-southeast-2:
-      AMI: ami-0ba8d27d35e9915fb
+      AMI: ami-020728ad6199d7fa0
     ap-south-1:
-      AMI: ami-019715e0d74f695be
+      AMI: ami-006f82a1d5a27da54
     ap-northeast-1:
-      AMI: ami-0f65fc8c24ec8d2a1
+      AMI: ami-05f4eb3328c0dabc5
     ap-northeast-2:
-      AMI: ami-0130d8d35bcd2d433
+      AMI: ami-0e4ab31f1847c850c
 
 Conditions:
   OverrideAMI: !Not 
@@ -413,7 +415,7 @@ Resources:
                 export DEBIAN_FRONTEND=noninteractive
                 export DEBCONF_NONINTERACTIVE_SEEN=true
 
-                dpkg -l | grep linux | awk -F' ' '{print $2}' > /tmp/dpkg.out
+                dpkg -l | awk '/^ii/ {print $2}' | grep -E '^linux-(image|headers|modules|modules-extra|aws)' > /tmp/dpkg.out || true
                 for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
 
               - OVERRIDE_AMI=
@@ -477,7 +479,7 @@ Resources:
                     # If it reaches here successfully, it exits the block, triggers the trap, and reboots.
                   fi
 
-                  dpkg -l | grep nvidia | awk -F' ' '{print $2}' > /tmp/dpkg.out
+                  dpkg -l | grep nvidia | awk -F' ' '{print $2}' > /tmp/dpkg.out || true
                   for pkg in `cat /tmp/dpkg.out`; do apt-mark hold $pkg; done
                   
                   [[ -z $(lspci -v | grep NVIDIA) ]] && update-pciids
@@ -534,7 +536,11 @@ Resources:
                 fi
 
                 apt-get -y install tzdata
-                apt-get -y install keyboard-configuration
+                # keyboard-configuration and console-setup-linux move in lock-step (strict versioned
+                # dependency). Release any stale holds on them and upgrade both together so a point
+                # release in noble-updates cannot deadlock the transaction.
+                apt-mark unhold keyboard-configuration console-setup console-setup-linux 2>/dev/null || true
+                apt-get -y install --allow-change-held-packages keyboard-configuration console-setup console-setup-linux
                 apt-get -y install gnupg2
                 apt-get -y install openmpi-bin libopenmpi-dev 
                 apt-get -y install protobuf-compiler
@@ -587,13 +593,13 @@ Resources:
                 # disable ptrace
                 sysctl -w kernel.yama.ptrace_scope=0
 
-                curl -O https://efa-installer.amazonaws.com/aws-efa-installer-1.32.0.tar.gz
+                curl -O https://efa-installer.amazonaws.com/aws-efa-installer-1.50.0.tar.gz
                 wget https://efa-installer.amazonaws.com/aws-efa-installer.key && gpg --import aws-efa-installer.key
                 cat aws-efa-installer.key | gpg --fingerprint
-                wget https://efa-installer.amazonaws.com/aws-efa-installer-1.32.0.tar.gz.sig && gpg --verify ./aws-efa-installer-1.32.0.tar.gz.sig
-                tar -xf aws-efa-installer-1.32.0.tar.gz
+                wget https://efa-installer.amazonaws.com/aws-efa-installer-1.50.0.tar.gz.sig && gpg --verify ./aws-efa-installer-1.50.0.tar.gz.sig
+                tar -xf aws-efa-installer-1.50.0.tar.gz
                 cd aws-efa-installer &&  ( ./efa_installer.sh --yes || echo "Verify EFA" )
-                cd ../ && rm -rf aws-efa-installer-1.32.0.tar.gz aws-efa-installer
+                cd ../ && rm -rf aws-efa-installer-1.50.0.tar.gz aws-efa-installer
 
                 # Create EFS  mount script
                 cat >/usr/local/bin/mount-efs.sh <<EOL

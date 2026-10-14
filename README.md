@@ -28,7 +28,7 @@ Launch an AWS deep learning desktop with [Amazon DCV](https://aws.amazon.com/hpc
 * [AWS Account](https://aws.amazon.com/account/) with [Administrator job function](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_job-functions.html) access
 
 **Supported AWS Regions:**
-us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, ap-northeast-2, ap-south-1
+us-east-1, us-east-2, us-west-2, eu-west-1, eu-west-3, eu-central-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, ap-northeast-2, ap-south-1
 
 ## Quick Start (Basic)
 
