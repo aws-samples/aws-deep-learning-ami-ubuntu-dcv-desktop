@@ -3,12 +3,16 @@ import datasets
 class PromptGenerator:
 
     def __init__(self) -> None:
-        self.dataset = datasets.load_dataset("nicholasKluge/toxic-text",  split="english")
+        # nicholasKluge/toxic-text was removed from the Hub; harmful-text is the same
+        # author's successor. "english" is a config here rather than a split, and the
+        # unsafe-content column is named "harmful" instead of "toxic".
+        self.dataset = datasets.load_dataset("nicholasKluge/harmful-text", "english",
+                                             split="train")
 
     def __call__(self):
 
         for example in self.dataset:
-            toxic = example["toxic"]
+            toxic = example["harmful"]
             prompt = f"""<|begin_of_text|><|start_header_id|>user<|end_header_id|>
 
     Task: Check if there is unsafe content in 'Agent' messages in conversations according our safety policy with the below categories.

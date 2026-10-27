@@ -23,7 +23,7 @@ class TokenClassificationInputGenerator:
         
         # Load CoNLL-2003 dataset for Named Entity Recognition
         # This dataset contains sentences with token-level NER labels
-        self.dataset = datasets.load_dataset('conll2003', split='validation')
+        self.dataset = datasets.load_dataset('tomaarsen/conll2003', split='validation')
         
         # Prepare texts and labels for token classification
         self._prepare_texts()

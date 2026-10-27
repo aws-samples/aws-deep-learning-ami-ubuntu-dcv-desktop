@@ -21,7 +21,7 @@ class RerankerInputGenerator:
         
         # Load MS MARCO passage ranking dataset
         # This dataset contains queries with relevant and non-relevant passages
-        self.dataset = datasets.load_dataset('ms_marco', 'v1.1', split='validation')
+        self.dataset = datasets.load_dataset('microsoft/ms_marco', 'v1.1', split='validation')
         
         # Create a mapping of queries to their passages for efficient sampling
         self._build_query_passage_mapping()

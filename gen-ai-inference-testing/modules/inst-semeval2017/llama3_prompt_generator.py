@@ -3,7 +3,8 @@ import datasets
 class PromptGenerator:
 
     def __init__(self) -> None:
-        self.dataset = datasets.load_dataset("midas/semeval2017", "generation", split="test")
+        self.dataset = datasets.load_dataset("midas/semeval2017", data_dir="generation", split="test",
+                                            revision="refs/convert/parquet")
 
     def __call__(self) -> str:
 

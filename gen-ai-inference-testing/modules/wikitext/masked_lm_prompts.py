@@ -26,7 +26,7 @@ class MaskedLMInputGenerator:
         
         # Load WikiText-2 dataset (smaller version for faster loading)
         # This dataset contains Wikipedia articles suitable for language modeling
-        self.dataset = datasets.load_dataset('wikitext', 'wikitext-2-v1', split='validation')
+        self.dataset = datasets.load_dataset('Salesforce/wikitext', 'wikitext-2-v1', split='validation')
         
         # Filter and prepare texts
         self._prepare_texts()
