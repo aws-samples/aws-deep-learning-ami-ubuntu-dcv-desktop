@@ -12,10 +12,6 @@ if [[ "$DEVICE" != "cuda" && "$DEVICE" != "neuron" ]]; then
     exit 1
 fi
 
-build_script=scripts/"${INFERENCE_SERVER}-${INFERENCE_ENGINE}-${DEVICE}.sh"
-[ ! -f "$build_script" ] && echo "Build script $build_script not found!" && exit 1
-bash $build_script 1>/tmp/build.log 2>&1 
-
 # 3. SERVER and ENGINE logic Validation
 case "$INFERENCE_SERVER" in
     "triton_inference_server" | "openai_server")
@@ -26,7 +22,7 @@ case "$INFERENCE_SERVER" in
             "vllm")
                 case "$DEVICE" in
                     "cuda")
-                        export IMAGE="deepjavalibrary/djl-serving:0.36.0-lmi"
+                        export IMAGE="deepjavalibrary/djl-serving:0.38.0-lmi"
                         ;;
                     "neuron") 
                         export IMAGE="djl_serving-lmi:neuron"
@@ -74,7 +70,27 @@ if [ "$ACTION" == "up" ]; then
     fi
 
     echo "Starting $DEVICE environment ($INFERENCE_SERVER/$INFERENCE_ENGINE)..."
-    
+
+    # Build the image, but only on "up". djl_serving on cuda uses a public image and has
+    # nothing to build; on neuron its build script is named after the lmi engine.
+    build_script=""
+    if [ "$INFERENCE_SERVER" == "djl_serving" ]; then
+        [ "$DEVICE" == "neuron" ] && build_script="$SCRIPT_DIR/scripts/djl_serving-lmi-neuron.sh"
+    else
+        build_script="$SCRIPT_DIR/scripts/${INFERENCE_SERVER}-${INFERENCE_ENGINE}-${DEVICE}.sh"
+    fi
+
+    if [ -n "$build_script" ]; then
+        [ ! -f "$build_script" ] && echo "Build script $build_script not found!" && exit 1
+        build_log="/tmp/build-$(basename "$build_script" .sh).log"
+        echo "Building $(basename "$build_script"). See logs: $build_log"
+        if ! bash "$build_script" 1>"$build_log" 2>&1; then
+            echo "Error: build failed. Last 20 lines of $build_log:"
+            tail -20 "$build_log"
+            exit 1
+        fi
+    fi
+
     mkdir -p "$HOME/scripts"
     cp "$SCRIPT_SOURCE"/*.* "$HOME/scripts/"
     chmod u+x "$HOME/scripts"/*.sh

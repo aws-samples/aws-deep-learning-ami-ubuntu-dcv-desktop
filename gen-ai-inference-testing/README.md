@@ -200,7 +200,7 @@ Key environment variables for customization:
 
 ### Common Issues
 
-- **Container Build Failures**: Check `/tmp/build.log` for detailed error messages
+- **Container Build Failures**: Check `/tmp/build-<container>.log` (one log per container) for detailed error messages
 - **Model Download Issues**: Verify HF_TOKEN and model access permissions
 - **Memory Issues**: Adjust tensor parallel size or use smaller models
 - **Network Timeouts**: Increase timeout values in configuration files
