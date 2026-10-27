@@ -17,6 +17,10 @@ class EndpointClient:
         
         self.url = url
         self.content_type =os.getenv("CONTENT_TYPE", "application/json")
+        # A Session pools and reuses connections. Without it every request opens a new
+        # one, and the accumulating TIME_WAIT sockets exhaust the ephemeral port range
+        # part-way through a run, which shows up as a burst of connection resets.
+        self.session = requests.Session()
         self.__init_prompt_generator()
     
     def __init_prompt_generator(self):
@@ -81,7 +85,7 @@ class EndpointClient:
 
         body = json.dumps(data).encode("utf-8")
         headers = {"Content-Type":  self.content_type}
-        response = requests.post(self.url, data=body, headers=headers)
+        response = self.session.post(self.url, data=body, headers=headers)
         request_meta['response'] = { "status_code": response.status_code }
         # Bytes on the wire, not the key count of the parsed body
         request_meta['response_length'] = len(response.content)
