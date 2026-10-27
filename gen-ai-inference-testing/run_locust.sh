@@ -6,9 +6,13 @@ locust -f $SCRIPT -H $ENDPOINT_NAME --master \
 
 
 for (( c=1; c<=$WORKERS; c++ ))
-do 
+do
     echo "starting locust worker $c"
     locust -f $SCRIPT -H $ENDPOINT_NAME --worker --master-host=localhost &
+    # Each worker loads the prompt dataset on startup, which revalidates it against the
+    # Hugging Face Hub. Starting all of them at once trips the Hub's rate limit for
+    # unauthenticated requests, and a rate-limited worker generates no load at all.
+    sleep 0.3
 done
 
 
