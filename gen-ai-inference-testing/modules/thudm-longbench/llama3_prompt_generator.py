@@ -7,7 +7,14 @@ class PromptGenerator:
         self.datasets = ["narrativeqa", "qasper", "multifieldqa_en", "multifieldqa_zh", "hotpotqa", "2wikimqa", "musique", \
             "dureader", "gov_report", "qmsum", "multi_news", "vcsum", "trec", "triviaqa", "samsum", "lsht", \
             "passage_count", "passage_retrieval_en", "passage_retrieval_zh", "lcc", "repobench-p"]
-        self.dataset = datasets.load_dataset('THUDM/LongBench', random.choice(self.datasets), split='test')
+        # The repo moved to zai-org and still ships only a loading script plus data.zip,
+        # with no parquet branch, so the per-config jsonl is read out of the zip directly.
+        # One zip download serves every config name above.
+        config_name = random.choice(self.datasets)
+        self.dataset = datasets.load_dataset(
+            'json',
+            data_files=f"zip://data/{config_name}.jsonl::hf://datasets/zai-org/LongBench@main/data.zip",
+            split='train')
     
     def __call__(self) -> str:
         for example in self.dataset:

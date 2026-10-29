@@ -1,15 +1,15 @@
 import copy
-from importlib import import_module
 import re
 import time
 import os
 import random
 import json
-import sys
 
 from locust.contrib.fasthttp import FastHttpUser
 from locust import task, events
 import requests
+
+from endpoint_utils import load_prompt_module
 
 
 class EndpointClient:
@@ -17,20 +17,29 @@ class EndpointClient:
         
         self.url = url
         self.content_type =os.getenv("CONTENT_TYPE", "application/json")
+        # A Session pools and reuses connections. Without it every request opens a new
+        # one, and the accumulating TIME_WAIT sockets exhaust the ephemeral port range
+        # part-way through a run, which shows up as a burst of connection resets.
+        self.session = requests.Session()
         self.__init_prompt_generator()
     
     def __init_prompt_generator(self):
         prompt_module_dir = os.getenv("PROMPT_MODULE_DIR", "")
-        sys.path.append(prompt_module_dir)
-        
         prompt_module_name = os.getenv("PROMPT_MODULE_NAME", None)
-        prompt_module=import_module(prompt_module_name)
-        
+        # Loaded by path: module basenames are not unique across modules/ subdirectories
+        prompt_module = load_prompt_module(prompt_module_dir, prompt_module_name)
+
         prompt_generator_name = os.getenv('PROMPT_GENERATOR_NAME', None)
         prompt_generator_class = getattr(prompt_module, prompt_generator_name)
-        self.text_input_generator = prompt_generator_class()()
+        # Keep the instance: it holds the loaded dataset, so the generator can be restarted
+        # on exhaustion without re-importing the module and re-downloading the dataset.
+        self.prompt_generator = prompt_generator_class()
+        self.text_input_generator = self.prompt_generator()
 
         self.kwargs = json.loads(os.getenv('PROMPT_KWARGS', "{}"))
+
+    def __restart_prompt_generator(self):
+        self.text_input_generator = self.prompt_generator()
 
     def _fill_template(self, template: dict, template_keys:list, inputs:list) -> dict:
         
@@ -76,9 +85,10 @@ class EndpointClient:
 
         body = json.dumps(data).encode("utf-8")
         headers = {"Content-Type":  self.content_type}
-        response = requests.post(self.url, data=body, headers=headers)
+        response = self.session.post(self.url, data=body, headers=headers)
         request_meta['response'] = { "status_code": response.status_code }
-        request_meta['response_length'] = len(response.json())
+        # Bytes on the wire, not the key count of the parsed body
+        request_meta['response_length'] = len(response.content)
 
     def send(self):
 
@@ -93,11 +103,15 @@ class EndpointClient:
         }
         start_perf_counter = time.perf_counter()
 
-        try: 
-            self.__inference_request(request_meta)
-        except StopIteration as se:
-            self.__init_prompt_generator()
-            request_meta["exception"] = se
+        try:
+            try:
+                self.__inference_request(request_meta)
+            except StopIteration:
+                # Corpus exhausted: restart from the top and serve this request anyway.
+                # Reaching the end of the dataset is not a request failure, and restarting
+                # the generator is cheap because the dataset stays loaded.
+                self.__restart_prompt_generator()
+                self.__inference_request(request_meta)
         except Exception as e:
             request_meta["exception"] = e
 

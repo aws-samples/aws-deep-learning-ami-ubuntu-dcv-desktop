@@ -4,30 +4,32 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [ -x "$(command -v nvidia-smi)" ]
 then
-    for script in `ls $DIR/*cuda*.sh`
-        do
-            echo "Building $(basename $script). See logs: /tmp/buid.log"
-            bash $script 1>/tmp/build.log 2>&1 
-            status=$?
-            if [ $status -ne 0 ]
-            then 
-                echo "Building $(basename $script): failed"; 
-            else
-                echo "Building $(basename $script): success";
-            fi
-        done
+    pattern="*cuda*.sh"
 elif [ -x "$(command -v neuron-top)" ]
 then
-    for script in `ls $DIR/*neuron*.sh`
-        do
-            echo "Building $(basename $script). See logs: /tmp/build.log"
-            bash $script 1>/tmp/build.log 2>&1 
-            status=$?
-            if [ $status -ne 0 ]
-            then 
-                echo "Building $(basename $script): failed"; 
-            else
-                echo "Building $(basename $script): success";
-            fi
-        done
+    pattern="*neuron*.sh"
+else
+    echo "No supported accelerator detected (need nvidia-smi or neuron-top)."
+    exit 1
 fi
+
+failed=0
+for script in $(ls $DIR/$pattern)
+    do
+        name=$(basename $script .sh)
+        # One log per container, otherwise each build overwrites the previous one's log
+        log=/tmp/build-$name.log
+        echo "Building $name. See logs: $log"
+        bash $script 1>$log 2>&1
+        status=$?
+        if [ $status -ne 0 ]
+        then
+            echo "Building $name: failed. Last 20 lines of $log:"
+            tail -20 $log
+            failed=1
+        else
+            echo "Building $name: success"
+        fi
+    done
+
+exit $failed

@@ -23,7 +23,7 @@ class SequenceClassificationInputGenerator:
         
         # Load IMDB dataset for sentiment classification
         # This dataset contains movie reviews with binary sentiment labels
-        self.dataset = datasets.load_dataset('imdb', split='test')
+        self.dataset = datasets.load_dataset('stanfordnlp/imdb', split='test')
         
         # Prepare texts for classification
         self._prepare_texts()
