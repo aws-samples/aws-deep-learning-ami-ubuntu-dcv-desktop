@@ -12,7 +12,7 @@ echo ""
 
 # Default configuration
 BASE_MODEL="Qwen/Qwen3-8B"
-ACCELERATE_CONFIG="accelerate_config.yaml"
+ACCELERATE_CONFIG="peft_accelerate_config.yaml"
 SKIP_SFT=false
 SKIP_CONVERT_SFT=false
 SKIP_DPO=false
