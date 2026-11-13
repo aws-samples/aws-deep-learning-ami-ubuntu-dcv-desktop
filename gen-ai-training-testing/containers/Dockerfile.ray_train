@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:26.03-py3
+FROM nvcr.io/nvidia/pytorch:26.10-py3
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DEBCONF_NONINTERACTIVE_SEEN=true
@@ -14,20 +14,28 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --no-cache-dir --upgrade pip
 
 # Install Python dependencies
-RUN pip install ray[default,train]==2.54.1 \
-        datasets==4.8.4 \
-        peft==0.18.1 \
-        accelerate==1.13.0 \
-        tensorboard==2.20.0 \
-        sentencepiece==0.2.1 \
-        wandb==0.23.0 \
-        mpi4py==4.1.1 \
+RUN pip install ray[default,train]==2.60.0 \
+        datasets==4.8.5 \
+        peft==0.21.3 \
+        accelerate==1.15.0 \
+        tensorboard==2.21.0 \
+        sentencepiece==0.2.3 \
+        wandb==0.31.0 \
+        mpi4py==4.1.2 \
         bert-score==0.3.13 \
         evaluate==0.4.6 \
-        vllm==0.19.0
+        vllm==0.33.0
 
-# Install kernels that depend on specific CUDA/Torch versions
-RUN pip install --no-cache-dir transformers==5.5.0 liger-kernel==0.7.0 torchao==0.17.0
+# Install kernels that depend on specific CUDA/Torch versions.
+#
+# transformers is installed in this later layer, after vllm, on purpose. vllm 0.33.0
+# declares transformers<5.21.0, but the fix for silently wrong token ids on repos that
+# declare a tokenizer_class while shipping only a ByteLevel tokenizer.json (the Llama-3
+# family recommended throughout the READMEs) landed in transformers 5.21.0
+# (huggingface/transformers#44606). "pip check" therefore reports this pair as
+# conflicting. The override is deliberate and was verified: vllm imports, and
+# LLM("Qwen/Qwen3-8B").generate() loads and produces correct output.
+RUN pip install --no-cache-dir transformers==5.22.2 liger-kernel==0.8.5 torchao==0.18.0
 
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE=1
