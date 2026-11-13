@@ -21,8 +21,8 @@ class HFDatasetConfig:
     split: str = "train"
     train_split_ratio: float = 0.9
     val_test_split_ratio: float = 0.5
-    input_template: str = "### Instruction:\\n{instruction}\\n ### Input:\\n{input}\\n"
-    output_template: str = "### Response:\\n{output}"
+    input_template: str = "### Instruction:\n{instruction}\n ### Input:\n{input}\n"
+    output_template: str = "### Response:\n{output}"
     field_mapping: Optional[Dict[str, str]] = None
     num_proc: int = 8
     load_kwargs: Dict[str, Any] = field(default_factory=dict)
