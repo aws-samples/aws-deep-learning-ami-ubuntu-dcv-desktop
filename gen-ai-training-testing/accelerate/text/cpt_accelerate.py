@@ -5,6 +5,10 @@ import argparse
 import json
 import time
 from dataclasses import dataclass, field, fields, MISSING
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), 'shared'))
+from device_preflight import detected_gpu_count, check_capacity
 from pathlib import Path
 from typing import List
 import sys
@@ -201,7 +205,7 @@ def train(config: CPTConfig):
     model = AutoModelForCausalLM.from_pretrained(
         config.hf_model_id,
         trust_remote_code=config.trust_remote_code,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         attn_implementation="flash_attention_2",
         use_cache=False,
     )
@@ -228,7 +232,6 @@ def train(config: CPTConfig):
         dataloader_num_workers=config.num_workers,
         remove_unused_columns=False,
         report_to=["wandb", "tensorboard"] if config.use_wandb else ["tensorboard"],
-        logging_dir=f"{config.output_dir}/logs",
         seed=config.seed,
         dataloader_drop_last=False,
         ddp_find_unused_parameters=False,
@@ -377,6 +380,12 @@ def main():
     """Main entry point."""
     args = parse_args()
     config = CPTConfig.from_args(args)
+
+    gpu_count = detected_gpu_count()
+    print(f"Detected {gpu_count} GPU(s)")
+    # CPT here is a full fine-tune: no PEFT/LoRA is applied anywhere in this script
+    check_capacity(config.hf_model_id, gpu_count,
+                   full_finetune=True, label="accelerate CPT")
     train(config)
 
 

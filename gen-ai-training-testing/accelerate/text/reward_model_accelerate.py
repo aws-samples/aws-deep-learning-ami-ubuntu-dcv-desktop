@@ -336,7 +336,7 @@ def train(config: RewardModelConfig):
         model = AutoModelForSequenceClassification.from_pretrained(
             base_model_path,
             trust_remote_code=config.trust_remote_code,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
             use_cache=False,
             num_labels=1,
@@ -353,7 +353,7 @@ def train(config: RewardModelConfig):
         model = AutoModelForSequenceClassification.from_pretrained(
             config.sft_model_path,
             trust_remote_code=config.trust_remote_code,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
             use_cache=False,
             num_labels=1,
@@ -381,7 +381,6 @@ def train(config: RewardModelConfig):
         dataloader_num_workers=config.num_workers,
         remove_unused_columns=False,
         report_to=["wandb", "tensorboard"] if config.use_wandb else ["tensorboard"],
-        logging_dir=f"{config.output_dir}/logs",
         seed=config.seed,
         eval_strategy="steps",
         metric_for_best_model="eval_loss",
