@@ -24,6 +24,7 @@ from transformers.models.qwen3.modeling_qwen3 import Qwen3DecoderLayer
 from peft import get_peft_model, LoraConfig, TaskType
 
 from dataset_module import GeneralizedHFDataModule, HFDatasetConfig
+from device_preflight import detected_gpu_count, check_capacity
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -39,7 +40,8 @@ class Config:
     
     # Distributed Training Configuration
     num_nodes: int = 1
-    gpus_per_node: int = 8
+    # Detected from the machine rather than assumed; override explicitly if needed
+    gpus_per_node: int = field(default_factory=detected_gpu_count)
 
     # Training Hyperparameters
     max_steps: int = 10000
@@ -496,6 +498,10 @@ def main():
     parser = create_parser_from_dataclass(Config)
     args = parser.parse_args()
     config = Config.from_args(args)
+
+    print(f"Using {config.gpus_per_node} GPU(s) per node")
+    check_capacity(config.hf_model_id, config.gpus_per_node,
+                   full_finetune=config.full_ft, label="ptl fine-tune")
     
     # Create directories
     Path(config.results_dir).mkdir(parents=True, exist_ok=True)
