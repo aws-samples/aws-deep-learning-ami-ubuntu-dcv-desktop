@@ -12,7 +12,7 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
 # matches the pinned 580 driver. torchaudio/torchvision are not imported by any
 # of the encoder models and are left out.
 RUN pip3 install torch==2.14.1 jinja2
-RUN pip3 install transformers==4.57.6 datasets==4.8.5
+RUN pip3 install transformers==4.57.6 datasets==5.2.0
 
 COPY resources /opt/program
 RUN chmod u+x /opt/program/serve
