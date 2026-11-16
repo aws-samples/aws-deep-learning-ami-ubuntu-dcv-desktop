@@ -6,8 +6,8 @@
 > | Then | Now |
 > |---|---|
 > | engine `vllm_native`, `containers/openai_server-vllm_native-neuron/`, `openai_server/vllm_native/run.sh` | the existing `vllm` engine: `containers/openai_server-vllm-neuron/` builds the **native** stack on trn2/trn3 (`scripts/openai_server-vllm-neuron.sh`), `openai_server/vllm/neuron_native.sh` configures it |
-> | `serve/run_qwen3_32b.sh`, `serve/precompile.sh`, `serve/launch_qwen3_32b.sh` (`CONFIG=recipe\|sweep`) | `bench/serve_neuron.sh` with `config/neuron_profiles/qwen3-32b-trn2-{recipe,sweep}.env` |
-> | `SWEEP_MODE=1` | the `-sweep` profile |
+> | `serve/run_qwen3_32b.sh`, `serve/precompile.sh`, `serve/launch_qwen3_32b.sh` (`CONFIG=recipe\|sweep`) | `bench/serve_neuron.sh` with the settings as environment variables (recipe: `MAX_MODEL_LEN=10240 MAX_NUM_SEQS=4 BUCKET_PROFILE=recipe`; sweep: `MAX_MODEL_LEN=10240 MAX_NUM_SEQS=16`) |
+> | `SWEEP_MODE=1` | the sweep settings above |
 > | `$HOME/scripts/vllm_native.env` | `$HOME/scripts/neuron_native.env` |
 > | `bench/*` | top-level `bench/` (engine-agnostic) |
 > | `bootstrap.sh`, `ops/`, `serve/download_model.sh` | `labstore/bootstrap/` |

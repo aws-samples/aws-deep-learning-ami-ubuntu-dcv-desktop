@@ -6,7 +6,7 @@ measure TTFT or ITL.
 
 | Tool | Purpose |
 |---|---|
-| `serve_neuron.sh` | start the Neuron vLLM server via `launch.sh` from a profile in `config/neuron_profiles/`, wait for every replica |
+| `serve_neuron.sh` | start the Neuron vLLM server via `launch.sh` (settings as environment variables), wait for every replica |
 | `client.sh` | run a client container in the server's network namespace, against nginx (`TARGET=nginx`) or one replica (`TARGET=<i>`); records the run context (`server-context.json`) |
 | `run_vllm_bench.sh` | `vllm bench serve` sweep over shapes x concurrencies (source of truth); unique prompts per cell, prefix-cache and preemption counters per cell |
 | `locustfile.py` | streaming Locust cross-check with a workload identical to the sweep; single-process |
@@ -20,7 +20,7 @@ the client container is the running server's own image. Only `serve_neuron.sh` i
 
 ```bash
 cd gen-ai-inference-testing
-PROFILE=config/neuron_profiles/qwen3-32b-trn2-sweep.env NUM_REPLICAS=1 bash bench/serve_neuron.sh up
+MODEL_DIR=$HOME/snapshots/Qwen3-32B MAX_MODEL_LEN=10240 MAX_NUM_SEQS=16 NUM_REPLICAS=1 bash bench/serve_neuron.sh up
 TARGET=0 bash bench/client.sh vllm my-sweep -e SHAPES="4096:256" -e CONCURRENCIES="1 2 4 8"
 TARGET=0 bash bench/client.sh locust my-sweep 4096 256 8 80
 python3 bench/compare_harnesses.py --results-dir /tmp/results/my-sweep

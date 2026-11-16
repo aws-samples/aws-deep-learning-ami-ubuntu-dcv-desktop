@@ -28,7 +28,6 @@ containers/openai_server-vllm-neuron/
   resources/serve                                 replicas + nginx :8080; core pinning per stack
 openai_server/vllm/run.sh                         shared CUDA/Neuron script; hands native images to:
 openai_server/vllm/neuron_native.sh               native config, buckets, prefix caching, env
-config/neuron_profiles/                           optional per-model serving profiles (scripted path)
 bench/                                            SLO tooling: serve_neuron.sh, client.sh, sweep, Locust,
                                                   parse/compare (engine-agnostic except serve_neuron.sh)
 labstore/bootstrap/                               unattended pre-staging of a Neuron desktop
@@ -85,8 +84,8 @@ stack rather than of the model:
 
 - Usually nothing: set the model in the notebook (or `MODEL_ID` for `bench/serve_neuron.sh`) with
   `openai_server` + `vllm`. Defaults come from the standard variables and the `ladder` buckets.
-- For a model with a published Neuron recipe, or a benchmark configuration you want to pin, add
-  `config/neuron_profiles/<model>-<family>-<purpose>.env`.
+  For a non-default configuration (e.g. a published AWS recipe's lengths and batch size), pass the
+  values as notebook parameters or `bench/serve_neuron.sh` environment variables.
 - Encoder tasks (embeddings, rerankers, ...; `ENCODER_TYPE` set by `locust_encoder.ipynb`) keep the
   **legacy** stack even on trn2/trn3: `auto` picks legacy whenever `ENCODER_TYPE` is set, because the
   `run_<task>.sh` scripts only implement the legacy path. Native encoder support is future work.

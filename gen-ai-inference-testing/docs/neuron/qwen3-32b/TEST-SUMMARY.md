@@ -6,8 +6,8 @@
 > | Then | Now |
 > |---|---|
 > | engine `vllm_native`, `containers/openai_server-vllm_native-neuron/`, `openai_server/vllm_native/run.sh` | the existing `vllm` engine: `containers/openai_server-vllm-neuron/` builds the **native** stack on trn2/trn3 (`scripts/openai_server-vllm-neuron.sh`), `openai_server/vllm/neuron_native.sh` configures it |
-> | `serve/run_qwen3_32b.sh`, `serve/precompile.sh`, `serve/launch_qwen3_32b.sh` (`CONFIG=recipe\|sweep`) | `bench/serve_neuron.sh` with `config/neuron_profiles/qwen3-32b-trn2-{recipe,sweep}.env` |
-> | `SWEEP_MODE=1` | the `-sweep` profile |
+> | `serve/run_qwen3_32b.sh`, `serve/precompile.sh`, `serve/launch_qwen3_32b.sh` (`CONFIG=recipe\|sweep`) | `bench/serve_neuron.sh` with the settings as environment variables (recipe: `MAX_MODEL_LEN=10240 MAX_NUM_SEQS=4 BUCKET_PROFILE=recipe`; sweep: `MAX_MODEL_LEN=10240 MAX_NUM_SEQS=16`) |
+> | `SWEEP_MODE=1` | the sweep settings above |
 > | `$HOME/scripts/vllm_native.env` | `$HOME/scripts/neuron_native.env` |
 > | `bench/*` | top-level `bench/` (engine-agnostic) |
 > | `bootstrap.sh`, `ops/`, `serve/download_model.sh` | `labstore/bootstrap/` |
@@ -95,7 +95,7 @@ trn2/trn3 and the legacy stack elsewhere (`docs/neuron/README.md`).
 | `locust_decoder.ipynb` load-test cells on the **host's Python 3.14** with upstream's deps (`datasets 5.2.0`), legacy stack, 64 users | **PASS** | 0 failures, load on all 8 replicas, no HF 429s (upstream's staggered workers) |
 | Same cells, native stack, 1 replica | **PASS** | 0 failures |
 | Notebook engine/Neuron cells, 9 combinations × 2 notebooks | **PASS** | CUDA/Triton/DJL unaffected; `vllm_native` refused by upstream's own engine check |
-| `bench/serve_neuron.sh` with `config/neuron_profiles/qwen3-32b-trn2-sweep.env` | **PASS** | profile values applied; cold compile of the sweep buckets |
+| `bench/serve_neuron.sh` with Qwen3-32B sweep settings (TP 8, 10240 tokens, 16 sequences, ladder buckets; then a profile file, since removed) | **PASS** | settings applied; cold compile of the sweep buckets |
 | `bench/client.sh` (vllm + locust), `compare_harnesses.py`, `parse_results.py` | **PASS** | `server-context.json` recorded model, dtype, TP, instance, stack, replica slots and KV admission cap from the live server; parser used them (no hardcoded context) |
 
 ## Not tested

@@ -27,8 +27,13 @@ MODEL_ID="${MODEL_ID:-Qwen/Qwen3-32B}"
 BF16_REVISION="${BF16_REVISION:-main}"
 DLC="${DLC:-public.ecr.aws/neuron/pytorch-inference-vllm-neuronx:0.29.0.1.2.0-neuronx-py314-sdk2.33.0-ubuntu26.04}"
 IMAGE_TAG="${IMAGE_TAG:-openai_server-vllm:neuron}"
-# Serving configuration for bench/serve_neuron.sh (config/neuron_profiles/).
-SERVE_PROFILE="${SERVE_PROFILE:-config/neuron_profiles/qwen3-32b-trn2-sweep.env}"
+# Serving configuration passed to bench/serve_neuron.sh; override any of them.
+# Defaults: Qwen3-32B on trn2 with room for an SLO sweep (up to 16 concurrent
+# requests per replica, prompts up to 8k tokens).
+SERVE_TP="${SERVE_TP:-8}"
+SERVE_MAX_MODEL_LEN="${SERVE_MAX_MODEL_LEN:-10240}"
+SERVE_MAX_NUM_SEQS="${SERVE_MAX_NUM_SEQS:-16}"
+SERVE_BUCKET_PROFILE="${SERVE_BUCKET_PROFILE:-ladder}"
 
 HOME_DIR="${HOME_DIR:-/home/ubuntu}"
 EFS="${EFS:-$HOME_DIR/efs}"
@@ -192,7 +197,8 @@ elif [[ "$(realpath "$HOME_DIR/cache")" != "$(realpath "$LOCAL_CACHE")" ]]; then
 fi
 
 phase PRECOMPILE "launch.sh up (first start compiles; replicas start one by one)"
-env -u MODEL_ID MODEL_DIR="$MODEL_DIR" PROFILE="$SERVE_PROFILE" \
+env -u MODEL_ID MODEL_DIR="$MODEL_DIR" TENSOR_PARALLEL_SIZE="$SERVE_TP" \
+  MAX_MODEL_LEN="$SERVE_MAX_MODEL_LEN" MAX_NUM_SEQS="$SERVE_MAX_NUM_SEQS" BUCKET_PROFILE="$SERVE_BUCKET_PROFILE" \
   PREFIX_CACHING="${PREFIX_CACHING:-false}" NUM_REPLICAS="${NUM_REPLICAS:-}" HOME="$HOME_DIR" \
   bash "$GAIT/bench/serve_neuron.sh" up || fail "bench/serve_neuron.sh up"
 phase PRECOMPILE_OK "cache files=$(find "$(realpath "$HOME_DIR/cache")" -type f | wc -l | tr -d ' ')"

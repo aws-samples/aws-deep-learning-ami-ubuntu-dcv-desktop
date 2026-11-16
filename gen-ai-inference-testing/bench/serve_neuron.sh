@@ -5,16 +5,15 @@
 #             -> containers/openai_server-vllm-neuron (serve: replicas + nginx :8080)
 #
 # Usage (from gen-ai-inference-testing/):
-#   PROFILE=config/neuron_profiles/qwen3-32b-trn2-sweep.env bash bench/serve_neuron.sh up
-#   MODEL_ID=Qwen/Qwen3-8B TENSOR_PARALLEL_SIZE=8 bash bench/serve_neuron.sh up
+#   MODEL_ID=Qwen/Qwen3-8B bash bench/serve_neuron.sh up
+#   MODEL_DIR=$HOME/snapshots/Qwen3-32B MAX_MODEL_LEN=10240 MAX_NUM_SEQS=16 bash bench/serve_neuron.sh up
 #   bash bench/serve_neuron.sh down
-#   PROFILE=... bash bench/serve_neuron.sh precompile   # up, wait for every replica, down
+#   MODEL_ID=... bash bench/serve_neuron.sh precompile   # up, wait for every replica, down
 #
-# A profile (config/neuron_profiles/) is optional; any variable on the command line
-# overrides it. Without one, defaults are the notebooks': TP 8, MAX_MODEL_LEN 8192,
-# MAX_NUM_SEQS 8. Native-stack knobs (PREFIX_CACHING, NUM_REPLICAS, BUCKET_PROFILE,
-# MAX_NUM_BATCHED_TOKENS) are written to $HOME/scripts/neuron_native.env; the legacy
-# stack ignores them.
+# Every setting is an environment variable. Defaults are the notebooks': TP 8,
+# MAX_MODEL_LEN 8192, MAX_NUM_SEQS 8, NEURON_VLLM_STACK auto. Native-stack knobs
+# (PREFIX_CACHING, NUM_REPLICAS, BUCKET_PROFILE, MAX_NUM_BATCHED_TOKENS) are written to
+# $HOME/scripts/neuron_native.env; the legacy stack ignores them.
 #
 # Model: MODEL_ID (Hugging Face id, downloaded into the HF cache under $HOME/snapshots)
 # or MODEL_DIR (a checkpoint directory). launch.sh mounts only $HOME/snapshots, so
@@ -33,13 +32,6 @@ ACTION="${1:-up}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"                 # gen-ai-inference-testing/
 CONTAINER="${CONTAINER:-compose-server_0-1}"
-
-if [[ -n "${PROFILE:-}" ]]; then
-  [[ -f "$PROFILE" ]] || PROFILE="$REPO/$PROFILE"
-  [[ -f "$PROFILE" ]] || { echo "PROFILE not found: $PROFILE" >&2; exit 1; }
-  # shellcheck disable=SC1090
-  . "$PROFILE"
-fi
 
 export INFERENCE_SERVER=openai_server INFERENCE_ENGINE=vllm DEVICE=neuron
 export TENSOR_PARALLEL_SIZE="${TENSOR_PARALLEL_SIZE:-8}"
@@ -87,7 +79,7 @@ ${MAX_NUM_BATCHED_TOKENS:+MAX_NUM_BATCHED_TOKENS=$MAX_NUM_BATCHED_TOKENS}
 ENV
 
 echo "MODEL_ID=$MODEL_ID TP=$TENSOR_PARALLEL_SIZE MAX_MODEL_LEN=$MAX_MODEL_LEN MAX_NUM_SEQS=$MAX_NUM_SEQS" \
-     "stack=$NEURON_VLLM_STACK${PROFILE:+ profile=$(basename "$PROFILE")}"
+     "stack=$NEURON_VLLM_STACK"
 cd "$REPO"
 bash launch.sh down >/dev/null 2>&1 || true
 bash launch.sh up

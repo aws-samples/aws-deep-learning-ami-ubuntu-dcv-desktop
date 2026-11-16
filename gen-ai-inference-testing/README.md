@@ -37,8 +37,7 @@ gen-ai-inference-testing/
 │   │   ├── sequence_classification/
 │   │   ├── token_classification/
 │   │   └── masked_lm/       # Masked language model configs
-│   ├── litellm/             # LiteLLM proxy configuration
-│   └── neuron_profiles/     # Optional per-model Neuron serving profiles (bench/serve_neuron.sh)
+│   └── litellm/             # LiteLLM proxy configuration
 ├── modules/                  # Test prompt generators
 │   ├── inst-semeval2017/    # Text generation prompts
 │   ├── ms-marco/            # Reranking prompts
