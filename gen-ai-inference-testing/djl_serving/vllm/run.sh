@@ -26,7 +26,7 @@ option.max_num_batched_tokens=$MAX_MODEL_LEN
 option.model_loading_timeout=1800
 option.max_rolling_batch_size=$MAX_NUM_SEQS
 option.block_size=$BLOCK_SIZE
-option.trust_remote_code=$TRUST_REMOTE_CODE 
+option.trust_remote_code=$TRUST_REMOTE_CODE
 EOF
 
 # 4. Hardware-specific setup

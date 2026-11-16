@@ -37,7 +37,7 @@ max-model-len: $MAX_MODEL_LEN
 max-num-batched-tokens: $(($MAX_NUM_SEQS * $MAX_MODEL_LEN))
 gpu-memory-utilization: $GPU_MEMORY_UTILIZATION
 trust-remote-code: $TRUST_REMOTE_CODE
-task: "score"
+runner: "pooling"
 EOF
 
 # Final Execution

@@ -30,7 +30,6 @@ echo "Build TensorRT-LLM engine"
 trtllm-build \
 --checkpoint_dir ${CKPT_PATH} \
 --max_num_tokens ${MAX_MODEL_LEN} \
---gpus_per_node ${TENSOR_PARALLEL_SIZE} \
 --remove_input_padding enable \
 --paged_kv_cache enable \
 --context_fmha enable \
@@ -49,6 +48,9 @@ INSTANCE_COUNT=1
 MAX_QUEUE_DELAY_MS=100
 FILL_TEMPLATE_SCRIPT=tools/fill_template.py
 encoder_input_features_data_type=TYPE_BF16
+# Must match the hardcoded TYPE_FP16 in the ensemble template, or the ensemble is
+# rejected with an inconsistent-data-type error
+prompt_embedding_table_data_type=TYPE_FP16
 
 MODEL_NAME=model
 cp -r all_models/inflight_batcher_llm/preprocessing $MODEL_REPO/${MODEL_NAME}_preprocessing
@@ -58,9 +60,9 @@ cp -r all_models/inflight_batcher_llm/ensemble $MODEL_REPO/${MODEL_NAME}
 cp -r all_models/inflight_batcher_llm/tensorrt_llm $MODEL_REPO/${MODEL_NAME}_tensorrt_llm
 python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}_preprocessing/config.pbtxt tokenizer_dir:${TOKENIZER_DIR},triton_max_batch_size:${MAX_NUM_SEQS},preprocessing_instance_count:${INSTANCE_COUNT} 
 python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}_postprocessing/config.pbtxt tokenizer_dir:${TOKENIZER_DIR},triton_max_batch_size:${MAX_NUM_SEQS},postprocessing_instance_count:${INSTANCE_COUNT}
-python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}_tensorrt_llm_bls/config.pbtxt triton_max_batch_size:${MAX_NUM_SEQS},decoupled_mode:${DECOUPLED_MODE},bls_instance_count:${INSTANCE_COUNT},tensorrt_llm_model_name:${MODEL_NAME}_tensorrt_llm
+python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}_tensorrt_llm_bls/config.pbtxt triton_max_batch_size:${MAX_NUM_SEQS},decoupled_mode:${DECOUPLED_MODE},bls_instance_count:${INSTANCE_COUNT},tensorrt_llm_model_name:${MODEL_NAME}_tensorrt_llm,prompt_embedding_table_data_type:${prompt_embedding_table_data_type}
 python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}/config.pbtxt triton_max_batch_size:${MAX_NUM_SEQS}
-python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}_tensorrt_llm/config.pbtxt triton_max_batch_size:${MAX_NUM_SEQS},decoupled_mode:${DECOUPLED_MODE},engine_dir:${ENGINE_DIR},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MS},batching_strategy:inflight_fused_batching,encoder_input_features_data_type:${encoder_input_features_data_type},triton_backend:tensorrtllm
+python3 ${FILL_TEMPLATE_SCRIPT} -i ${MODEL_REPO}/${MODEL_NAME}_tensorrt_llm/config.pbtxt triton_max_batch_size:${MAX_NUM_SEQS},decoupled_mode:${DECOUPLED_MODE},engine_dir:${ENGINE_DIR},max_queue_delay_microseconds:${MAX_QUEUE_DELAY_MS},batching_strategy:inflight_fused_batching,encoder_input_features_data_type:${encoder_input_features_data_type},prompt_embedding_table_data_type:${prompt_embedding_table_data_type},triton_backend:tensorrtllm
 sed -i 's/name: "preprocessing"/name: "model_preprocessing"/1' ${MODEL_REPO}/${MODEL_NAME}_preprocessing/config.pbtxt
 sed -i 's/name: "postprocessing"/name: "model_postprocessing"/1' ${MODEL_REPO}/${MODEL_NAME}_postprocessing/config.pbtxt
 sed -i 's/name: "tensorrt_llm_bls"/name: "model_tensorrt_llm_bls"/1' ${MODEL_REPO}/${MODEL_NAME}_tensorrt_llm_bls/config.pbtxt

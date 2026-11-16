@@ -10,7 +10,7 @@ from pprint import pprint
 import sys
 from requests.exceptions import RequestException
 from urllib.parse import urlparse
-from importlib import import_module
+import importlib.util
 
 def get_health_endpoint(endpoint_url: str) -> str:
     """
@@ -76,13 +76,29 @@ def wait_for_inference_ready(endpoint_url, timeout_seconds=1800, interval=5):
     print("❌ Timeout: Inference server failed to start in time.")
     return False
 
+def load_prompt_module(prompt_module_dir: str, prompt_module_name: str):
+    """Load a prompt module from its directory, by path.
+
+    Several module dirs contain identically named files -- prompt_generator.py exists in
+    both modules/inst-semeval2017 and modules/sahil2801-codealpca20k, and
+    llama3_prompt_generator.py in both modules/inst-semeval2017 and modules/thudm-longbench,
+    each exposing a PromptGenerator class. A plain import_module() would return whichever
+    was imported first in this process, silently generating prompts from the wrong corpus,
+    so the module is loaded from its explicit path under a dir-qualified name instead.
+    """
+    module_path = os.path.join(prompt_module_dir, f"{prompt_module_name}.py")
+    assert os.path.isfile(module_path), f"{module_path} does not exist"
+
+    qualified_name = f"{os.path.basename(prompt_module_dir)}.{prompt_module_name}"
+    spec = importlib.util.spec_from_file_location(qualified_name, module_path)
+    prompt_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(prompt_module)
+
+    return prompt_module
+
 def get_prompt_generator(config: dict):
-    prompt_module_dir = config['module_dir']
-    sys.path.append(prompt_module_dir)
-    
-    prompt_module_name = config['module_name']
-    prompt_module=import_module(prompt_module_name)
-    
+    prompt_module = load_prompt_module(config['module_dir'], config['module_name'])
+
     prompt_generator_name = config['prompt_generator']
     prompt_generator_class = getattr(prompt_module, prompt_generator_name)
 

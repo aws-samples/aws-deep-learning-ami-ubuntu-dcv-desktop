@@ -5,7 +5,8 @@ import random
 class RerankerPair:
 
     def __init__(self) -> None:
-        self.dataset = datasets.load_dataset("midas/semeval2017", "generation", split="test")
+        self.dataset = datasets.load_dataset("midas/semeval2017", data_dir="generation", split="test",
+                                            revision="refs/convert/parquet")
         self.max_dynamic_batch_size = int(os.getenv("MAX_DYNAMIC_BATCH_SIZE", 16))
         self.dynamic_batching = int(os.getenv("DYNAMIC_BATCHING", 0))
 
