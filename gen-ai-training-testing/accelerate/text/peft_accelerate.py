@@ -5,6 +5,10 @@ import argparse
 import json
 import time
 from dataclasses import dataclass, field, fields, MISSING
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), 'shared'))
+from device_preflight import detected_gpu_count, check_capacity
 from pathlib import Path
 from typing import List
 import sys
@@ -247,7 +251,6 @@ def train(config: TrainingConfig):
         dataloader_num_workers=config.num_workers,
         remove_unused_columns=False,
         report_to=["wandb", "tensorboard"] if config.use_wandb else ["tensorboard"],
-        logging_dir=f"{config.output_dir}/logs",
         seed=config.seed,
         eval_strategy="steps",
         metric_for_best_model="eval_loss",
@@ -371,6 +374,12 @@ def main():
     """Main entry point."""
     args = parse_args()
     config = TrainingConfig.from_args(args)
+
+    gpu_count = detected_gpu_count()
+    print(f"Detected {gpu_count} GPU(s)")
+    check_capacity(config.hf_model_id, gpu_count,
+                   full_finetune=config.full_ft, label="accelerate SFT")
+
     train(config)
 
 

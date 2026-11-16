@@ -40,7 +40,7 @@ class QwenVLAdapter(BaseVLMAdapter):
     def load_model(self, model_id: str, **kwargs):
         """Load Qwen-VL model using Qwen3VLForConditionalGeneration."""
         default_kwargs = {
-            'torch_dtype': torch.bfloat16,
+            'dtype': torch.bfloat16,
             'attn_implementation': 'flash_attention_2',
         }
         default_kwargs.update(kwargs)

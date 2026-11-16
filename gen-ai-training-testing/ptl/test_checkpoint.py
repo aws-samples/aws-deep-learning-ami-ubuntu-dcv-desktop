@@ -110,7 +110,7 @@ def load_checkpoint_in_memory(config: Config):
     print(f"\nLoading base model: {base_model_id}")
     base_model = AutoModelForCausalLM.from_pretrained(
         base_model_id,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         trust_remote_code=True,
     )
     

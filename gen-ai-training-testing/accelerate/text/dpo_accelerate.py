@@ -507,7 +507,7 @@ def train(config: DPOConfig):
         policy_model = AutoModelForCausalLM.from_pretrained(
             base_model_path,
             trust_remote_code=config.trust_remote_code,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
             use_cache=False,
         )
@@ -520,7 +520,7 @@ def train(config: DPOConfig):
         policy_model = AutoModelForCausalLM.from_pretrained(
             config.sft_model_path,
             trust_remote_code=config.trust_remote_code,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
             use_cache=False,
         )
@@ -567,7 +567,7 @@ def train(config: DPOConfig):
         ref_model = AutoModelForCausalLM.from_pretrained(
             base_model_path,
             trust_remote_code=config.trust_remote_code,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
             use_cache=True,
         )
@@ -577,7 +577,7 @@ def train(config: DPOConfig):
         ref_model = AutoModelForCausalLM.from_pretrained(
             config.sft_model_path,
             trust_remote_code=config.trust_remote_code,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
             use_cache=True,
         )

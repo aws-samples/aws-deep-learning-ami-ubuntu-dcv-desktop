@@ -275,7 +275,6 @@ def train(config: VLMTrainingConfig):
         dataloader_num_workers=config.num_workers,
         remove_unused_columns=False,
         report_to=["wandb", "tensorboard"] if config.use_wandb else ["tensorboard"],
-        logging_dir=f"{config.output_dir}/logs",
         seed=config.seed,
         eval_strategy="steps",
         metric_for_best_model="eval_loss",

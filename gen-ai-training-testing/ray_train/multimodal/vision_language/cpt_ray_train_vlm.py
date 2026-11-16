@@ -254,7 +254,6 @@ def train_func(config_dict: Dict):
         dataloader_num_workers=config.num_workers,
         remove_unused_columns=False,
         report_to=report_to,
-        logging_dir=f"{config.results_dir}/logs",
         seed=config.seed,
         dataloader_drop_last=False,
         optim="adamw_torch_fused",

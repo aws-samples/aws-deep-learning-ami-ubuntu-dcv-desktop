@@ -2,6 +2,10 @@ import os
 import argparse
 import json
 from dataclasses import dataclass, field, asdict, fields, MISSING
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), 'shared'))
+from device_preflight import detected_gpu_count, check_capacity
 from typing import Dict
 from pathlib import Path
 
@@ -85,8 +89,8 @@ class Config:
         split="train",
         train_split_ratio=0.9,
         val_test_split_ratio=0.5,
-        input_template="### Instruction:\\n{instruction}\\n ### Input:\\n{input}\\n",
-        output_template="### Response:\\n{output}",
+        input_template="### Instruction:\n{instruction}\n ### Input:\n{input}\n",
+        output_template="### Response:\n{output}",
         field_mapping={
             "instruction": "instruction",
             "input": "input",
@@ -276,7 +280,9 @@ def train_func(config_dict: Dict):
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         learning_rate=config.learning_rate,
         weight_decay=config.weight_decay,
-        warmup_ratio=config.warmup_ratio,
+        # warmup_ratio was removed from TrainingArguments; express it as steps,
+        # matching how the other scripts in this repo configure warmup
+        warmup_steps=int(config.warmup_ratio * config.max_steps),
         lr_scheduler_type=config.lr_scheduler_type,
         max_grad_norm=config.max_grad_norm,
         logging_steps=config.logging_steps,
@@ -287,7 +293,6 @@ def train_func(config_dict: Dict):
         dataloader_num_workers=config.dataloader_num_workers,
         remove_unused_columns=config.remove_unused_columns,
         report_to=report_to,
-        logging_dir=config.logging_dir,
         save_strategy="no",
         eval_strategy="steps" if eval_dataset else "no",
         metric_for_best_model="eval_loss",
@@ -421,7 +426,12 @@ def main():
     """Main entry point."""
     args = parse_args()
     config = Config.from_args(args)
-    
+
+    gpu_count = detected_gpu_count()
+    print(f"Detected {gpu_count} GPU(s)")
+    check_capacity(config.hf_model_id, gpu_count,
+                   full_finetune=config.full_ft, label="ray_train SFT")
+
     # Initialize Ray with runtime_env
     if not ray.is_initialized():
         ray.init()

@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/nemo:25.09
+FROM nvcr.io/nvidia/nemo:26.10
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DEBCONF_NONINTERACTIVE_SEEN=true

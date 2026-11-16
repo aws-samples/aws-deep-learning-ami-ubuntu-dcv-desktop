@@ -118,7 +118,7 @@ class VLLMEngineActor:
                 
             base_model = AutoModelForCausalLM.from_pretrained(
                 base_model_path,
-                torch_dtype=torch.bfloat16,
+                dtype=torch.bfloat16,
                 trust_remote_code=True,
                 device_map="cpu"
             )
@@ -606,7 +606,7 @@ def train(config: PPOConfig):
         policy_model = AutoModelForCausalLM.from_pretrained(
             base_model_path,
             trust_remote_code=config.trust_remote_code,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
             use_cache=False,
         )
@@ -619,7 +619,7 @@ def train(config: PPOConfig):
         policy_model = AutoModelForCausalLM.from_pretrained(
             config.sft_model_path,
             trust_remote_code=config.trust_remote_code,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
             use_cache=False,
         )
@@ -670,7 +670,7 @@ def train(config: PPOConfig):
         ref_model = AutoModelForCausalLM.from_pretrained(
             base_model_path,
             trust_remote_code=config.trust_remote_code,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             attn_implementation="eager",
             use_cache=True,
             device_map="cpu",
@@ -681,7 +681,7 @@ def train(config: PPOConfig):
         ref_model = AutoModelForCausalLM.from_pretrained(
             config.sft_model_path,
             trust_remote_code=config.trust_remote_code,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             attn_implementation="eager",
             use_cache=True,
             device_map="cpu",
@@ -700,7 +700,7 @@ def train(config: PPOConfig):
     reward_model = AutoModelForSequenceClassification.from_pretrained(
         config.reward_model_path,
         trust_remote_code=config.trust_remote_code,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         attn_implementation="eager",
         use_cache=True,
         num_labels=1,

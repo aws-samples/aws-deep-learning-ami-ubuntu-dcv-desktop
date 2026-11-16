@@ -299,7 +299,6 @@ def train_func(config_dict: Dict):
         dataloader_num_workers=config.num_workers,
         remove_unused_columns=False,
         report_to=report_to,
-        logging_dir=f"{config.results_dir}/logs",
         save_strategy="no",
         eval_strategy="steps",
         metric_for_best_model="eval_loss",
