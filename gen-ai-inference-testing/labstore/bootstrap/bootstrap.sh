@@ -182,7 +182,7 @@ fi
 # launch.sh mounts $HOME/snapshots and $HOME/cache. The server container runs
 # as root (compose/neuron.yaml), so the compile cache is kept LOCAL and only
 # copied to the store as ubuntu -- root-owned entries on the shared EFS block
-# ubuntu (PLAN.md 2b). The store copy seeds the local cache when present.
+# ubuntu (docs/neuron/README.md section 5). The store copy seeds the local cache when present.
 LOCAL_CACHE="${LAB_LOCAL_ROOT:-$HOME_DIR/lab-local}/cache/neuron"
 mkdir -p "$LOCAL_CACHE"
 if [[ -d "$CACHE_DIR" && -n "$(ls -A "$CACHE_DIR" 2>/dev/null)" ]]; then

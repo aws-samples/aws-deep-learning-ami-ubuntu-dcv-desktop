@@ -52,7 +52,7 @@ gen-ai-inference-testing/
 ├── djl_serving/             # DJL serving configurations
 ├── bench/                   # SLO tooling: vllm bench serve sweeps, streaming Locust cross-check, analysis
 ├── labstore/                # Durable model/cache store for ephemeral accelerator instances
-└── docs/neuron/             # vLLM on Neuron: native vs legacy stack, findings, Qwen3-32B trn2 record
+└── docs/neuron/             # vLLM on Neuron: design of the native TorchNeuron stack (trn2/trn3)
 ```
 
 ## Supported Configurations

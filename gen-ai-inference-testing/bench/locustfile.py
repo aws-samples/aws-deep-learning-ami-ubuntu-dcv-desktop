@@ -46,7 +46,7 @@ Environment:
 
 The summary reports raw percentiles and steady-state ones, which drop the
 first and last USERS requests by start order (closed-loop ramp and drain).
-This is the same trimming bench/parse_results.py applies (PLAN.md 5a).
+This is the same trimming bench/parse_results.py applies (docs/neuron/README.md section 4.1).
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ if not MODEL or not TOKENIZER:
 INPUT_TOKENS = int(os.environ.get("INPUT_TOKENS", "4096"))
 OUTPUT_TOKENS = int(os.environ.get("OUTPUT_TOKENS", "256"))
 # Default differs per run: a fixed seed resends the same prompts on every run,
-# and with prefix caching on those become cache hits (PLAN.md 5b).
+# and with prefix caching on those become cache hits (docs/neuron/README.md section 4.4).
 SEED = int(os.environ.get("SEED", str(int(time.time()))))
 _NUM_REQUESTS_ENV = os.environ.get("NUM_REQUESTS")
 

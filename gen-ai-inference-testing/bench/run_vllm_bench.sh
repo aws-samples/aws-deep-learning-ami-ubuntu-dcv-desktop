@@ -41,7 +41,7 @@ SHAPES="${SHAPES:-1024:128 4096:256 8192:1024}"
 CONCURRENCIES="${CONCURRENCIES:-1 2 4 8 16}"
 # Enough prompts for percentiles to mean something: >= 10x concurrency.
 # parse_results.py trims the first and last N requests of each cell (closed-loop
-# ramp and drain, see PLAN.md 5a), so the floor is set high enough that the
+# ramp and drain, see docs/neuron/README.md section 4.1), so the floor is set high enough that the
 # steady-state window still holds >= 30 samples at low concurrency.
 PROMPT_MULTIPLIER="${PROMPT_MULTIPLIER:-10}"
 MIN_PROMPTS="${MIN_PROMPTS:-40}"
@@ -53,7 +53,7 @@ TEMPERATURE="${TEMPERATURE:-0}"
 # Unique prompts per cell AND per run. The random dataset is seeded (default
 # seed 0), so without this every cell and every rerun sends the SAME prompts;
 # the server has prefix caching on, and on Neuron a prefix-cache hit makes
-# TTFT slower, not faster (PLAN.md 5b). The base is recorded in metadata.
+# TTFT slower, not faster (docs/neuron/README.md section 4.4). The base is recorded in metadata.
 SEED_BASE="${SEED_BASE:-$(date +%s)}"
 
 mkdir -p "$RESULTS_DIR"

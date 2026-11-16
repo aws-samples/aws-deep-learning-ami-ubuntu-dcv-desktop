@@ -4,7 +4,7 @@
 For every locust_in{I}_out{O}_c{C}.json in --results-dir with a matching
 vllmbench_in{I}_out{O}_c{C}.json, compare median TTFT, output throughput and
 median ITL on both the raw and steady-state views. Any |delta| > --tolerance
-on median TTFT or throughput is a BLOCKER (PLAN.md Phase 5): one harness is
+on median TTFT or throughput is a BLOCKER (bench/README.md): one harness is
 mis-instrumented, so do not average the two -- find out which is wrong.
 
 Exit status: 0 if every compared cell agrees, 1 if any cell is a blocker,
@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from parse_results import pct, steady_state  # noqa: E402
 
 LOCUST_RE = re.compile(r"locust_in(\d+)_out(\d+)_c(\d+)\.json$")
-GATED = ("median_ttft_ms", "output_throughput")       # the PLAN.md gate
+GATED = ("median_ttft_ms", "output_throughput")       # the cross-check gate
 INFO = ("median_itl_ms",)                              # reported, not gated
 
 

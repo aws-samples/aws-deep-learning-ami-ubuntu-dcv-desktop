@@ -7,7 +7,7 @@ Produces, in --results-dir (or --out-dir):
   slo_feasibility.md   only with --slo-* targets: max load inside each target
   slo_curves.png       p99 TTFT and p99 ITL against output throughput
 
-Two views of every cell (see PLAN.md 5a, open item O-7):
+Two views of every cell (see docs/neuron/README.md section 4.1):
   raw      what `vllm bench serve` itself reports
   steady   recomputed from --save-detailed per-request data after dropping the
            first and last N requests (N = concurrency) by start time. In a
@@ -132,11 +132,11 @@ def steady_state(data: dict, conc: int) -> dict:
         # Longest single token gap per request, summarised across requests.
         # Phase-locked closed loops put one long multi-prefill stall in each
         # stream, which is under 1% of gaps (invisible to p99 ITL) but is a
-        # visible freeze of the stream (PLAN.md 5a).
+        # visible freeze of the stream (docs/neuron/README.md section 4.1).
         "ss_maxgap_p50_ms": pct([max(r["itls"]) * 1e3 for r in window if r["itls"]], 50),
         "ss_maxgap_p99_ms": pct([max(r["itls"]) * 1e3 for r in window if r["itls"]], 99),
         # Share of token gaps > 3x the median gap: decode steps frozen behind
-        # another request's prefill (PLAN.md 5a).
+        # another request's prefill (docs/neuron/README.md section 4.1).
         "ss_stall_frac": (sum(1 for g in all_itl if g > 3 * itl_med) / len(all_itl)
                           if all_itl and itl_med == itl_med else NAN),
     }
@@ -184,12 +184,12 @@ def load(results_dir: Path) -> list[dict]:
         row.update(server_sidecar(path))
         if row["prefix_hit_rate"] == row["prefix_hit_rate"] and row["prefix_hit_rate"] > 0.01:
             print(f"WARN: {path.name}: prefix-cache hit rate {row['prefix_hit_rate']:.0%} -- prompts were "
-                  "reused; on Neuron that changes TTFT (PLAN.md 5b). Cell is CONTAMINATED.", file=sys.stderr)
+                  "reused; on Neuron that changes TTFT (docs/neuron/README.md section 4.4). Cell is CONTAMINATED.", file=sys.stderr)
         if row["preemptions"] == row["preemptions"] and row["preemptions"] > 0:
             print(f"WARN: {path.name}: {row['preemptions']:.0f} preemptions during the cell.", file=sys.stderr)
         rows.append(row)
     rows.sort(key=lambda r: (r["input_len"], r["output_len"], r["concurrency"]))
-    # Queueing share of TTFT: only concurrency 1 is compute-only (PLAN.md 5a).
+    # Queueing share of TTFT: only concurrency 1 is compute-only (docs/neuron/README.md section 4.1).
     for r in rows:
         base = next((b for b in rows if b["input_len"] == r["input_len"]
                      and b["output_len"] == r["output_len"] and b["concurrency"] == 1), None)
@@ -254,7 +254,7 @@ def write_knee(rows: list[dict], path: Path, replicas: int,
     lines = [
         "# Derived SLO recommendation", "",
         f"- Context for every number: {CONTEXT}, {replicas} replica(s) serving concurrently.",
-        f"- Basis: **{basis}** ({'ramp/drain trimmed, PLAN.md 5a' if basis == 'steady' else 'as reported by vllm bench serve'}).",
+        f"- Basis: **{basis}** ({'ramp/drain trimmed, docs/neuron/README.md section 4.1' if basis == 'steady' else 'as reported by vllm bench serve'}).",
         "- Concurrency = closed-loop clients per replica (`--max-concurrency`, `--request-rate inf`).",
     ]
     if admission_cap:
@@ -285,7 +285,7 @@ def write_knee(rows: list[dict], path: Path, replicas: int,
                 f"| {f1(r[tput])} | {r.get('ss_requests') if basis == 'steady' else r['completed']} |")
         lines += ["", "Latencies in ms. `worst gap/req` = each request's longest token gap (a stream "
                   "freeze behind other requests' prefills), as p50/p99 over requests. It is the stall a user "
-                  "sees and p99 ITL hides it once stalls are < 1% of gaps (PLAN.md 5a).", ""]
+                  "sees and p99 ITL hides it once stalls are < 1% of gaps (docs/neuron/README.md section 4.1).", ""]
 
         floor = next((r for r in srows if r["concurrency"] == 1), None)
         if floor:
@@ -323,7 +323,7 @@ def write_knee(rows: list[dict], path: Path, replicas: int,
             if k_ttft and k_ttft["concurrency"] == min(r["concurrency"] for r in in_cap):
                 lines.append("  On Neuron the TTFT knee sits at the lowest concurrency by construction: prefill "
                              "is serialized, so TTFT grows about in proportion to concurrency while throughput "
-                             "grows less (PLAN.md 5a). Use target feasibility (`--slo-ttft-p99`) for TTFT "
+                             "grows less (docs/neuron/README.md section 4.1). Use target feasibility (`--slo-ttft-p99`) for TTFT "
                              "SLOs and the ITL knee for capacity.")
 
             def slo_line(tag: str, k: dict) -> str:
