@@ -118,6 +118,10 @@ Supported inference configurations for decoder models:
 | CUDA     | Triton Inference Server, OpenAI Server, DJL Serving | vLLM, TensorRT-LLM |
 | Neuron   | Triton Inference Server, OpenAI Server, DJL Serving | vLLM |
 
+On trn2/trn3, `openai_server` + `vllm` uses the native TorchNeuron stack (vLLM with the `vllm-neuron`
+plugin); on inf2/trn1 it uses the legacy torch-neuronx stack. The notebook's Neuron parameter cell shows
+which one will be built and holds the native-stack settings.
+
 ### Example 1: Qwen/Qwen3-8B
 
 ```

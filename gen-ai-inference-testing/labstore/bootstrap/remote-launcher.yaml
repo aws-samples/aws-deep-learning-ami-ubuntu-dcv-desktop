@@ -1,0 +1,212 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Small always-on instance that runs labstore/bootstrap/launch_and_bootstrap.sh when a
+  capacity reservation becomes active, so the launch does not depend on a laptop being awake
+  (scheduled jobs on a sleeping laptop fire late or not at all).
+
+  It runs the same launcher script used interactively, rather than reimplementing it.
+
+  Safe to run alongside another launcher: the script's idempotency guard exits cleanly if the
+  desktop stack already exists, so whichever fires first wins. Delete this stack once the
+  desktop is up.
+
+Parameters:
+  LabStoreStackName:
+    Description: Name of the lab store stack (lab-store.yaml) whose exports supply blank values.
+    Type: String
+    Default: dl-lab-store
+  ReservationId:
+    Description: Capacity reservation ID to launch into. The launcher polls until it is active.
+    Type: String
+  DesktopStackName:
+    Description: Name for the trn2 desktop stack the launcher will create.
+    Type: String
+    Default: trn2-dl-desktop-3
+  EfsId:
+    Description: Blank = import the lab store stack's EfsId export.
+    Type: String
+    Default: ''
+  LabBucket:
+    Description: Blank = import the lab store stack's BucketName export.
+    Type: String
+    Default: ''
+  DesktopAccessCidr:
+    Description: >-
+      CIDR allowed to reach DCV on 8443. The launcher cannot auto-detect your
+      home IP from inside AWS, so it must be supplied here.
+    Type: String
+    AllowedPattern: '^(\d{1,3}\.){3}\d{1,3}/\d{1,2}$'
+  VpcId:
+    Type: 'AWS::EC2::VPC::Id'
+  SubnetId:
+    Type: 'AWS::EC2::Subnet::Id'
+  InstanceType:
+    Description: Only runs bash and the AWS CLI; a small arm64 instance is enough.
+    Type: String
+    Default: t4g.small
+  RepoUrl:
+    Type: String
+    Default: https://github.com/aws-samples/aws-deep-learning-ami-ubuntu-dcv-desktop.git
+  RepoBranch:
+    Type: String
+    Default: main
+  UbuntuArm64AmiSsmParameter:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id
+
+Conditions:
+  HasLabBucket: !Not [!Equals [!Ref LabBucket, '']]
+  HasEfsId: !Not [!Equals [!Ref EfsId, '']]
+
+Resources:
+
+  RunnerRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: launch-desktop-stack
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              # CloudFormation acts with THIS role's permissions, so the role
+              # needs whatever the desktop stack creates.
+              - Effect: Allow
+                Action: ['cloudformation:CreateStack', 'cloudformation:DescribeStacks',
+                         'cloudformation:DescribeStackEvents', 'cloudformation:DescribeStackResources',
+                         'cloudformation:GetTemplateSummary']
+                Resource: '*'
+              - Effect: Allow
+                Action: 'ec2:*'
+                Resource: '*'
+              # NOTE: the IAM service prefix for EFS is 'elasticfilesystem', NOT
+              # 'efs'. An 'efs:*' statement grants nothing and fails silently at
+              # policy creation -- it only surfaces later as
+              # AccessDeniedException on elasticfilesystem:DescribeMountTargets.
+              - Effect: Allow
+                Action: ['elasticfilesystem:DescribeMountTargets',
+                         'elasticfilesystem:DescribeFileSystems']
+                Resource: '*'
+              - Effect: Allow
+                Action: ['ssm:SendCommand', 'ssm:GetCommandInvocation',
+                         'ssm:DescribeInstanceInformation', 'ssm:ListCommandInvocations']
+                Resource: '*'
+              # Scoped to the names CloudFormation generates for this stack.
+              - Effect: Allow
+                Action: ['iam:CreateRole', 'iam:DeleteRole', 'iam:GetRole', 'iam:TagRole',
+                         'iam:AttachRolePolicy', 'iam:DetachRolePolicy',
+                         'iam:PutRolePolicy', 'iam:DeleteRolePolicy',
+                         'iam:CreateInstanceProfile', 'iam:DeleteInstanceProfile',
+                         'iam:GetInstanceProfile', 'iam:AddRoleToInstanceProfile',
+                         'iam:RemoveRoleFromInstanceProfile', 'iam:PassRole']
+                Resource:
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/${DesktopStackName}-*'
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:instance-profile/${DesktopStackName}-*'
+
+  RunnerProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles: [!Ref RunnerRole]
+
+  RunnerSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Launch runner - egress only
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - Description: HTTPS for AWS APIs, apt and git
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - Description: HTTP for apt
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-sg'
+
+  RunnerInstance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !Ref UbuntuArm64AmiSsmParameter
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref RunnerProfile
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds: [!GetAtt RunnerSecurityGroup.GroupId]
+      MetadataOptions:
+        HttpTokens: required
+        HttpEndpoint: enabled
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
+        - Key: Purpose
+          Value: capacity-block-launcher
+        - Key: Project
+          Value: trn2-torchneuron-vllm
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            exec > >(tee -a /var/log/runner.log) 2>&1
+            STATUS=/var/log/runner-status
+            phase() { echo "PHASE=$1 AT=$(date -u +%H:%M:%SZ) $2" | tee -a $STATUS; }
+            : > $STATUS
+
+            phase APT
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq
+            apt-get install -y -qq git curl unzip jq
+
+            phase AWSCLI
+            # arm64 installer -- this instance family is Graviton.
+            curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o /tmp/a.zip
+            unzip -q /tmp/a.zip -d /tmp/awscli-pkg
+            /tmp/awscli-pkg/aws/install >/dev/null
+            export PATH=/usr/local/bin:$PATH
+            phase AWSCLI_OK "$(aws --version 2>&1)"
+
+            phase CLONE
+            git clone --depth 1 -b ${RepoBranch} ${RepoUrl} /opt/repo
+            chmod +x /opt/repo/gen-ai-inference-testing/labstore/bootstrap/*.sh
+
+            # The launcher normally detects the access CIDR from checkip.amazonaws.com,
+            # which from inside AWS would return THIS instance's address and lock
+            # the user out of DCV. Pass the real CIDR through instead.
+            phase LAUNCH "reservation ${ReservationId}"
+            cd /opt/repo/gen-ai-inference-testing/labstore/bootstrap
+            RESERVATION_ID=${ReservationId} \
+            STACK_NAME=${DesktopStackName} \
+            EFS_ID=${EfsIdResolved} \
+            S3_BUCKET=${LabBucketResolved} \
+            AWS_REGION=${AWS::Region} \
+            DESKTOP_ACCESS_CIDR=${DesktopAccessCidr} \
+            RUN_BOOTSTRAP=yes \
+              nohup bash ./launch_and_bootstrap.sh >>/var/log/launcher.log 2>&1 &
+            phase DISPATCHED "tail /var/log/launcher.log for progress"
+          - LabBucketResolved: !If [HasLabBucket, !Ref LabBucket, {'Fn::ImportValue': !Sub '${LabStoreStackName}-BucketName'}]
+            EfsIdResolved: !If [HasEfsId, !Ref EfsId, {'Fn::ImportValue': !Sub '${LabStoreStackName}-EfsId'}]
+
+Outputs:
+  InstanceId:
+    Value: !Ref RunnerInstance
+  WatchProgress:
+    Value: !Sub 'aws ssm start-session --target ${RunnerInstance} --region ${AWS::Region}  # then: tail -f /var/log/launcher.log'
+  Reminder:
+    Value: 'Delete this stack once the trn2 desktop is up. Safe to run alongside the launchd job - the launcher is idempotent.'

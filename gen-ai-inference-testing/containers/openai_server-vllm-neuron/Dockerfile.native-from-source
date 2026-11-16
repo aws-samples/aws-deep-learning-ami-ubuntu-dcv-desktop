@@ -1,0 +1,101 @@
+# Reference image: full stack from source on Ubuntu 26.04.
+#
+# This exists to document the complete recipe and to be the basis for the
+# eventual EKS production image. Build it ahead of time, not on an
+# accelerator instance: dependency resolution across neuronx-cc /
+# libtorch-neuronx-lite / torch can take a long time to get right.
+#
+# UNVERIFIED: not yet built. Pins follow the validated DLC (torch 2.13.0,
+# neuronx-cc 2.28.7631.0, vllm-neuron 0.29.0.1.2.0).
+#
+# Build:
+#   cd containers/openai_server-vllm-neuron
+#   docker buildx build -t openai_server-vllm:neuron -f Dockerfile.native-from-source .
+# Same contract as the native build of ./Dockerfile (resources/serve, stack marker).
+
+FROM ubuntu:26.04
+
+ARG PYTHON_VERSION=3.14
+ARG VLLM_NEURON_REF=release-0.29.0.1.2.0
+ARG NEURON_PIP_INDEX=https://pip.repos.neuron.amazonaws.com
+ARG TORCH_CPU_INDEX=https://download.pytorch.org/whl/cpu
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# ---------------------------------------------------------------------------
+# 1. OS packages
+# ---------------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl git gnupg jq nginx numactl pkg-config \
+        build-essential libnuma-dev \
+        "python${PYTHON_VERSION}" "python${PYTHON_VERSION}-venv" "python${PYTHON_VERSION}-dev" \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# 2. Neuron apt repo -> runtime, collectives and tools.
+#
+# The kernel driver (aws-neuronx-dkms) belongs on the HOST, not in the
+# container -- the repo's CloudFormation template installs it via UserData.
+# Only userspace runtime/tools go here.
+# ---------------------------------------------------------------------------
+RUN . /etc/os-release \
+    && curl -fsSL https://apt.repos.neuron.amazonaws.com/GPG-PUB-KEY-AMAZON-AWS-NEURON.PUB \
+         | gpg --dearmor -o /etc/apt/trusted.gpg.d/aws_neuron.gpg \
+    && echo "deb https://apt.repos.neuron.amazonaws.com ${VERSION_CODENAME} main" \
+         > /etc/apt/sources.list.d/neuron.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        aws-neuronx-collectives \
+        aws-neuronx-runtime-lib \
+        aws-neuronx-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/opt/aws/neuron/bin:${PATH}" \
+    LD_LIBRARY_PATH="/opt/aws/neuron/lib:${LD_LIBRARY_PATH}"
+
+# ---------------------------------------------------------------------------
+# 3. Python env.
+#
+# IMPORTANT: do NOT install torch-neuronx here. The vllm-neuron plugin pulls
+# libtorch-neuronx-lite, which vendors the TorchNeuron compile components into
+# its own wheel. Having both in one environment is a conflict risk. Standalone
+# TorchNeuron work gets its own venv on the host (see PLAN.md Phase 1).
+# ---------------------------------------------------------------------------
+RUN python${PYTHON_VERSION} -m venv /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}" VIRTUAL_ENV=/opt/venv
+
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir \
+        "torch==2.13.0" \
+        --extra-index-url ${TORCH_CPU_INDEX} \
+    && pip install --no-cache-dir \
+        "neuronx-cc==2.28.7631.0" \
+        nki \
+        --extra-index-url ${NEURON_PIP_INDEX}
+
+# ---------------------------------------------------------------------------
+# 4. vLLM Neuron plugin from source. Pulls vLLM 0.29.0 and
+#    libtorch-neuronx-lite as dependencies.
+# ---------------------------------------------------------------------------
+RUN git clone --depth 1 -b ${VLLM_NEURON_REF} \
+        https://github.com/vllm-project/vllm-neuron.git /opt/vllm-neuron \
+    && cd /opt/vllm-neuron \
+    && pip install --no-cache-dir --extra-index-url ${NEURON_PIP_INDEX} -e .
+
+RUN pip install --no-cache-dir "locust>=2.32" "pandas>=2.2" "matplotlib>=3.9"
+
+# The native-stack environment (backend, LNC, EFA affinity, cache roots) is set by
+# openai_server/vllm/neuron_native.sh at start, as for the DLC-based native build.
+ENV PATH="/opt/program:${PATH}"
+LABEL org.opencontainers.image.neuron-vllm-stack=native
+RUN pip install --no-cache-dir jinja2 pyyaml requests
+COPY resources /opt/program
+RUN chmod u+x /opt/program/serve && echo native > /opt/program/neuron-stack
+
+WORKDIR /opt/program
+RUN pip freeze > /opt/program/pip-freeze.txt
+
+# Should print: neuron
+RUN python -c "import vllm; from vllm.platforms import current_platform; print(current_platform.device_name)" \
+    || echo "WARN: platform probe failed at build time (no Neuron device in builder) -- verify at runtime"

@@ -15,6 +15,9 @@ TRUST_REMOTE_CODE=${TRUST_REMOTE_CODE:-false}
 
 # Neuron setup
 if [ "$DEVICE" = "neuron" ]; then
+    # trn2/trn3 images carry the native TorchNeuron stack, which has its own setup
+    # (scripts/openai_server-vllm-neuron.sh chooses the stack at build time).
+    [ "$(cat /opt/program/neuron-stack 2>/dev/null)" = "native" ] && exec /scripts/neuron_native.sh
     [ ! -d /cache ] && echo "/cache dir must exist" && exit 1
     CACHE_DIR=/cache
     instance_family=$(/opt/aws/neuron/bin/neuron-ls | grep instance-type | awk -F': ' '{split($2, a, "."); print a[1]}')

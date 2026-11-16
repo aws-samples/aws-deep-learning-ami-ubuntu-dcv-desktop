@@ -37,7 +37,8 @@ gen-ai-inference-testing/
 │   │   ├── sequence_classification/
 │   │   ├── token_classification/
 │   │   └── masked_lm/       # Masked language model configs
-│   └── litellm/             # LiteLLM proxy configuration
+│   ├── litellm/             # LiteLLM proxy configuration
+│   └── neuron_profiles/     # Optional per-model Neuron serving profiles (bench/serve_neuron.sh)
 ├── modules/                  # Test prompt generators
 │   ├── inst-semeval2017/    # Text generation prompts
 │   ├── ms-marco/            # Reranking prompts
@@ -49,7 +50,10 @@ gen-ai-inference-testing/
 ├── compose/                 # Docker Compose files
 ├── triton_inference_server/ # Triton server configurations
 ├── openai_server/           # OpenAI server configurations
-└── djl_serving/             # DJL serving configurations
+├── djl_serving/             # DJL serving configurations
+├── bench/                   # SLO tooling: vllm bench serve sweeps, streaming Locust cross-check, analysis
+├── labstore/                # Durable model/cache store for ephemeral accelerator instances
+└── docs/neuron/             # vLLM on Neuron: native vs legacy stack, findings, Qwen3-32B trn2 record
 ```
 
 ## Supported Configurations
@@ -60,7 +64,15 @@ gen-ai-inference-testing/
 - **DJL Serving**: Deep Java Library serving framework
 
 ### Inference Engines
-- **vLLM**: High-performance LLM inference engine
+- **vLLM**: High-performance LLM inference engine. On AWS Neuron, `scripts/openai_server-vllm-neuron.sh`
+  builds the OpenAI server image (`openai_server-vllm:neuron`) with one of two stacks, chosen by instance type:
+  - **native** on **trn2 / trn3**: vLLM with the `vllm-neuron` plugin on the native TorchNeuron backend
+    (Neuron's documented support for this stack is trn2/trn3 only).
+  - **legacy** on **inf2 / trn1** and anything else: the torch-neuronx / XLA stack, unchanged.
+
+  Set `NEURON_VLLM_STACK=native|legacy` to override the default. Native-stack settings (prefix caching,
+  replica count, bucket profile) are set in the notebooks' Neuron parameter cell, which writes
+  `$HOME/scripts/neuron_native.env` for `openai_server/vllm/neuron_native.sh`.
 - **TensorRT-LLM**: NVIDIA's optimized inference engine
 - **Python**: Custom Python backend for specialized models
 

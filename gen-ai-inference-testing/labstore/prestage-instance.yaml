@@ -1,0 +1,266 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Throwaway instance that pre-stages a model checkpoint into the durable lab
+  store's S3 bucket. No accelerator required.
+
+  Why this exists: a large checkpoint download from Hugging Face is slow and
+  subject to third-party rate limits. Staging it once here means every later
+  session hydrates from S3 in-region instead.
+
+  Access is via SSM only; no inbound ports and no SSH key. Terminate the stack
+  when the push completes.
+
+Parameters:
+  LabStoreStackName:
+    Description: Name of the lab store stack (lab-store.yaml) whose exports supply blank values.
+    Type: String
+    Default: dl-lab-store
+  ModelId:
+    Description: HuggingFace model id, e.g. Qwen/Qwen3-32B
+    Type: String
+    Default: Qwen/Qwen3-32B
+  ModelRevision:
+    Description: Pin a commit SHA for reproducibility; benchmark numbers are not comparable across revisions.
+    Type: String
+    Default: main
+  LabBucket:
+    Description: Blank = import the lab store stack's BucketName export.
+    Type: String
+    Default: ''
+  LabS3Prefix:
+    Description: Key prefix inside the bucket. Must match labstore's LAB_S3_PREFIX.
+    Type: String
+    Default: lab
+  InstanceType:
+    Description: >-
+      Network throughput is the bottleneck, not compute. m5.2xlarge gives up to
+      10 Gbps for a few cents an hour.
+    Type: String
+    Default: m5.2xlarge
+  VolumeSizeGb:
+    Description: >-
+      Must hold the full checkpoint with headroom. Qwen3-32B BF16 is ~65 GB;
+      a 70B model needs ~150 GB, so size for the largest model you will stage.
+    Type: Number
+    Default: 250
+    MinValue: 100
+  SubnetId:
+    Description: Any subnet with outbound internet (NAT or IGW) in the lab region.
+    Type: 'AWS::EC2::Subnet::Id'
+  VpcId:
+    Type: 'AWS::EC2::VPC::Id'
+  RepoUrl:
+    Description: Repo providing labstore, so S3 keys are computed by the same code that reads them.
+    Type: String
+    Default: https://github.com/aws-samples/aws-deep-learning-ami-ubuntu-dcv-desktop.git
+  RepoBranch:
+    Type: String
+    Default: main
+  HfToken:
+    Description: Only needed if the model is gated. Leave blank otherwise.
+    Type: String
+    Default: ''
+    NoEcho: true
+  UbuntuAmiSsmParameter:
+    Description: SSM public parameter resolving to the latest Ubuntu 24.04 AMI.
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+
+Conditions:
+  HasLabBucket: !Not [!Equals [!Ref LabBucket, '']]
+
+Resources:
+
+  PrestageRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        # SSM only -- this is how we get a shell without opening a port.
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: lab-store-write
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              # Scoped to the store's prefix, not the whole account.
+              - Effect: Allow
+                Action: ['s3:PutObject', 's3:GetObject', 's3:DeleteObject', 's3:AbortMultipartUpload']
+                Resource: !Sub ['arn:aws:s3:::${LabBucketResolved}/${LabS3Prefix}/*', {LabBucketResolved: !If [HasLabBucket, !Ref LabBucket, {'Fn::ImportValue': !Sub '${LabStoreStackName}-BucketName'}]}]
+              - Effect: Allow
+                Action: ['s3:ListBucket', 's3:GetBucketLocation']
+                Resource: !Sub ['arn:aws:s3:::${LabBucketResolved}', {LabBucketResolved: !If [HasLabBucket, !Ref LabBucket, {'Fn::ImportValue': !Sub '${LabStoreStackName}-BucketName'}]}]
+                Condition:
+                  StringLike:
+                    's3:prefix': [!Sub '${LabS3Prefix}/*', !Sub '${LabS3Prefix}']
+
+  PrestageProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles: [!Ref PrestageRole]
+
+  PrestageSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Pre-stage instance - egress only, no inbound
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - Description: HTTPS out for HuggingFace, S3 and apt
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - Description: HTTP out for apt
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-sg'
+
+  PrestageInstance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !Ref UbuntuAmiSsmParameter
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref PrestageProfile
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds: [!GetAtt PrestageSecurityGroup.GroupId]
+      MetadataOptions:
+        HttpTokens: required
+        HttpEndpoint: enabled
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref VolumeSizeGb
+            VolumeType: gp3
+            Iops: 6000
+            # NOTE: gp3 `Throughput` is deliberately absent. AWS::EC2::Instance's
+            # BlockDeviceMappings.Ebs does NOT support it -- the property exists
+            # only on AWS::EC2::LaunchTemplate and AWS::EC2::Volume, and
+            # including it fails AWS::EarlyValidation::PropertyValidation with a
+            # generic "Validation failed with 1 error(s)" that names no resource.
+            # So this volume runs at the gp3 default 125 MB/s. For a ~65 GB
+            # checkpoint that is roughly 9 minutes of write and 9 of read --
+            # acceptable for a one-off. If staging a 650 GB model, switch this
+            # resource to a LaunchTemplate so Throughput can be raised.
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-prestage'
+        - Key: Purpose
+          Value: model-prestage
+        - Key: Project
+          Value: trn2-torchneuron-vllm
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            # Progress is written to /var/log/prestage-status as PHASE= lines so a
+            # remote poller can report state without streaming the whole log.
+            exec > >(tee -a /var/log/prestage.log) 2>&1
+            STATUS=/var/log/prestage-status
+            # Note: positional args are used WITHOUT braces here, because Fn::Sub
+            # parses the whole UserData string -- comments included -- and rejects
+            # bash default-value brace syntax as an invalid variable name.
+            phase() { echo "PHASE=$1 AT=$(date -u +%H:%M:%SZ) $2" | tee -a $STATUS; }
+            fail()  { echo "PHASE=FAILED AT=$(date -u +%H:%M:%SZ) WHERE=$1" | tee -a $STATUS; exit 1; }
+            : > $STATUS
+
+            phase APT
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq || fail apt-update
+            # NOTE: 'awscli' is NOT an installable apt package on Ubuntu 24.04 --
+            # it was dropped from the default repos, and asking for it fails with
+            # "has no installation candidate". Install CLI v2 from AWS's own
+            # installer instead, which is also the version we actually want.
+            apt-get install -y -qq python3-pip python3-venv git jq curl unzip || fail apt-install
+
+            phase AWSCLI
+            if command -v aws >/dev/null 2>&1; then
+              phase AWSCLI_OK "preinstalled $(aws --version 2>&1)"
+            else
+              curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip || fail awscli-download
+              unzip -q /tmp/awscliv2.zip -d /tmp/awscli-pkg || fail awscli-unzip
+              /tmp/awscli-pkg/aws/install >/dev/null || fail awscli-install
+              export PATH=/usr/local/bin:$PATH
+              command -v aws >/dev/null || fail awscli-missing-after-install
+              phase AWSCLI_OK "$(aws --version 2>&1)"
+            fi
+
+            phase VENV
+            python3 -m venv /opt/hf || fail venv
+            /opt/hf/bin/pip install -q --upgrade pip
+            /opt/hf/bin/pip install -q "huggingface_hub[cli]" || fail pip-hf
+
+            phase CLONE
+            git clone --depth 1 -b ${RepoBranch} ${RepoUrl} /opt/repo || fail clone
+            LABSTORE=/opt/repo/gen-ai-inference-testing/labstore/labstore.sh
+            chmod +x $LABSTORE /opt/repo/gen-ai-inference-testing/labstore/*.sh
+
+            export MODEL_ID="${ModelId}"
+            export MODEL_REVISION="${ModelRevision}"
+            export LAB_S3_BUCKET="${LabBucketResolved}"
+            export LAB_S3_PREFIX="${LabS3Prefix}"
+            export AWS_REGION="${AWS::Region}"
+            export LAB_LOCAL_ROOT=/mnt/stage
+            # No EFS here: this box only writes to S3. Point LAB_EFS_ROOT at local
+            # disk so labstore's layout calls succeed without a mount.
+            export LAB_EFS_ROOT=/mnt/stage/efs-placeholder
+            # Only export HF_TOKEN when one was supplied; an empty value can make
+            # the hub client treat requests as authenticated-but-invalid.
+            HF_TOKEN_VAL="${HfToken}"
+            [ -n "$HF_TOKEN_VAL" ] && export HF_TOKEN="$HF_TOKEN_VAL"
+            mkdir -p /mnt/stage
+
+            # The CLI entry point was renamed: newer huggingface_hub ships `hf`,
+            # older ships `huggingface-cli`. Pick whichever exists.
+            if [ -x /opt/hf/bin/hf ]; then HF=/opt/hf/bin/hf
+            elif [ -x /opt/hf/bin/huggingface-cli ]; then HF=/opt/hf/bin/huggingface-cli
+            else fail no-hf-cli; fi
+            phase HF_CLI "$HF"
+
+            # Ask labstore for the key, so the upload lands exactly where a later
+            # 'labstore resume' will look. Hardcoding the path here is how caches
+            # silently never get hit.
+            phase KEY
+            WKEY=$(python3 -I /opt/repo/gen-ai-inference-testing/labstore/provenance.py \
+                     --model-id "$MODEL_ID" --model-revision "$MODEL_REVISION" --key weights) || fail provenance
+            phase KEY_OK "$WKEY"
+            DEST=/mnt/stage/$WKEY
+            mkdir -p "$DEST"
+
+            phase DOWNLOAD "$MODEL_ID @ $MODEL_REVISION"
+            $HF download "$MODEL_ID" --revision "$MODEL_REVISION" \
+              --local-dir "$DEST" || fail hf-download
+            phase DOWNLOAD_OK "$(du -sh $DEST | cut -f1)"
+
+            phase PUSH "-> s3://${LabBucketResolved}/${LabS3Prefix}/$WKEY"
+            aws configure set default.s3.max_concurrent_requests 32
+            aws configure set default.s3.multipart_chunksize 64MB
+            WEIGHTS_SRC="$DEST" bash $LABSTORE push-weights || fail push-weights
+            phase PUSH_OK
+
+            phase VERIFY
+            N=$(aws s3 ls "s3://${LabBucketResolved}/${LabS3Prefix}/$WKEY/" --recursive --region ${AWS::Region} | wc -l)
+            phase DONE "objects_in_s3=$N -- safe to delete this stack"
+          - LabBucketResolved: !If [HasLabBucket, !Ref LabBucket, {'Fn::ImportValue': !Sub '${LabStoreStackName}-BucketName'}]
+
+Outputs:
+  InstanceId:
+    Value: !Ref PrestageInstance
+  SsmCommand:
+    Description: Open a shell (no SSH key needed).
+    Value: !Sub 'aws ssm start-session --target ${PrestageInstance} --region ${AWS::Region}'
+  WatchProgress:
+    Description: Tail the phase file.
+    Value: !Sub 'aws ssm send-command --instance-ids ${PrestageInstance} --document-name AWS-RunShellScript --parameters commands="tail -5 /var/log/prestage-status" --region ${AWS::Region}'
+  Reminder:
+    Value: 'Delete this stack once PHASE=DONE appears.'
