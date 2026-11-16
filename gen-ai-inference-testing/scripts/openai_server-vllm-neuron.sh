@@ -29,6 +29,12 @@ if [ "$STACK" == "auto" ]; then
         echo "ENCODER_TYPE=$ENCODER_TYPE: encoder tasks use the legacy stack"
     fi
     echo "NEURON_VLLM_STACK=auto: instance family '${family:-unknown}' -> $STACK"
+elif [ "$STACK" == "native" ] && [ -n "$ENCODER_TYPE" ]; then
+    # An explicit native request for an encoder task would otherwise fail later, deep in
+    # vLLM: the encoder run scripts only set up the legacy stack.
+    echo "NEURON_VLLM_STACK=native is not supported for encoder tasks (ENCODER_TYPE=$ENCODER_TYPE)."
+    echo "Encoder tasks use the legacy stack: unset NEURON_VLLM_STACK or set it to legacy."
+    exit 1
 fi
 
 cd $DIR/containers/openai_server-vllm-neuron

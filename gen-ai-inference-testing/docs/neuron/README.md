@@ -48,6 +48,12 @@ Neuron cell or `bench/serve_neuron.sh`):
 | `BUCKET_PROFILE` | `ladder` | `ladder`: batch 1,2,4..MAX_NUM_SEQS and prefill 1024..8192; `recipe`: one bucket each |
 | `MAX_NUM_BATCHED_TOKENS` | min(8192, MAX_MODEL_LEN) | prefill chunk size |
 
+The file is parsed, not executed: only these keys (plus `OPT_LEVEL`,
+`VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS`, `OMP_NUM_THREADS`, `NGINX_TIMEOUT_S`) with plain values are
+applied; anything else is logged and ignored. `launch.sh` never cleans `$HOME/scripts`, so a direct
+`launch.sh up` reuses the last file written; the server log prints the values applied and the file's
+timestamp. The notebooks and `bench/serve_neuron.sh` rewrite it on every run.
+
 ## What holds for any model on the native stack
 
 Found on trn2 with Qwen3-32B (details and evidence in `qwen3-32b/PLAN.md`), but properties of the

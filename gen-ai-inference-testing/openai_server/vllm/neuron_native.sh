@@ -8,7 +8,9 @@
 #
 # Native-only inputs. compose/neuron.yaml has no slot for them, so they are read
 # from /scripts/neuron_native.env ($HOME/scripts/neuron_native.env on the host)
-# when it exists. The notebooks write it. Every value has a default.
+# when it exists. The notebooks write it. Every value has a default. The file is
+# parsed, not executed: only the keys below (and VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS,
+# OMP_NUM_THREADS, NGINX_TIMEOUT_S) with plain values are applied.
 #   PREFIX_CACHING=false|true   vLLM automatic prefix caching (default false, as
 #                               on the other vLLM paths). Each setting compiles
 #                               separately. On this stack a prefix-cache hit was
@@ -37,10 +39,19 @@ case "$instance_family" in
 esac
 
 OVERRIDES=/scripts/neuron_native.env
+ALLOWED=" PREFIX_CACHING NUM_REPLICAS BUCKET_PROFILE MAX_NUM_BATCHED_TOKENS OPT_LEVEL VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS OMP_NUM_THREADS NGINX_TIMEOUT_S "
 if [ -f "$OVERRIDES" ]; then
     echo "Applying $OVERRIDES (written $(date -r "$OVERRIDES" -u +%Y-%m-%dT%H:%M:%SZ)):"
-    sed 's/^/    /' "$OVERRIDES"
-    set -a; . "$OVERRIDES"; set +a
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%$'\r'}"
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        if [[ "$line" =~ ^([A-Z_][A-Z0-9_]*)=([A-Za-z0-9._-]*)$ ]] && [[ "$ALLOWED" == *" ${BASH_REMATCH[1]} "* ]]; then
+            export "${BASH_REMATCH[1]}=${BASH_REMATCH[2]}"
+            echo "    ${BASH_REMATCH[1]}=${BASH_REMATCH[2]}"
+        else
+            echo "    WARNING: ignored line (unknown key or unsupported value): $line"
+        fi
+    done < "$OVERRIDES"
 fi
 
 TENSOR_PARALLEL_SIZE=${TENSOR_PARALLEL_SIZE:-8}
