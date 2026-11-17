@@ -207,5 +207,4 @@ containers/openai_server-vllm-neuron/
 openai_server/vllm/run.sh                     shared CUDA/Neuron entry; hands native images to:
 openai_server/vllm/neuron_native.sh           native settings, buckets, prefix caching, environment
 bench/                                        SLO measurement tools (see bench/README.md)
-labstore/                                     durable store and unattended pre-staging
 ```

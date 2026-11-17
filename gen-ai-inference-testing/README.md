@@ -51,7 +51,6 @@ gen-ai-inference-testing/
 ├── openai_server/           # OpenAI server configurations
 ├── djl_serving/             # DJL serving configurations
 ├── bench/                   # SLO tooling: vllm bench serve sweeps, streaming Locust cross-check, analysis
-├── labstore/                # Durable model/cache store for ephemeral accelerator instances
 └── docs/neuron/             # vLLM on Neuron: design of the native TorchNeuron stack (trn2/trn3)
 ```
 

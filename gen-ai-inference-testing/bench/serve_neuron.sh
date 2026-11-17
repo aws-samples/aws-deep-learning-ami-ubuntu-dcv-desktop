@@ -22,7 +22,7 @@
 #
 # Cache: the server container runs as root (compose/neuron.yaml), so $HOME/cache must
 # not resolve to EFS -- root-owned entries on a shared EFS block other users. Keep it
-# local and copy it to the store as your own user (labstore save), or set
+# local and copy it to shared storage as your own user, or set
 # ALLOW_ROOT_CACHE_ON_EFS=1.
 #
 # Replica i listens on 8000+128*i inside the container; bench/client.sh reaches them.
