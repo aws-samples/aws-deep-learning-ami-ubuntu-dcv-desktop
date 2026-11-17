@@ -161,6 +161,23 @@ The infrastructure creates multiple inference server instances based on availabl
 
 ---
 
+## Latency SLO benchmarking (Claude Code skill)
+
+The prompts above use the notebooks, which measure throughput and end-to-end latency. For latency
+SLOs (time to first token, inter-token latency, per-request stalls), this folder ships a Claude Code
+skill, `.claude/skills/slo-bench/`, that drives the `bench/` tools: it checks or starts the server,
+runs the sweep and the optional cross-checks, and reports the SLO tables. With `gen-ai-inference-testing`
+open in Claude Code:
+
+```
+/slo-bench Qwen/Qwen3-32B shapes=1024:128,4096:256 conc=1,2,4,8,16 locust replicas=8
+```
+
+or ask in plain words ("measure TTFT and ITL SLOs for the running server"). Results stay in
+`/tmp/results/<run>`; the skill confirms its plan before starting a server or a sweep.
+
+---
+
 ## Supported Hardware
 - **NVIDIA GPUs**: Detected as `cuda` device
 - **AWS Neuron (Inferentia/Trainium)**: Detected as `neuron` device

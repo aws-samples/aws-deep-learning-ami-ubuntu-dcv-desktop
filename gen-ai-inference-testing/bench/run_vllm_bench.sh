@@ -33,8 +33,8 @@ RESULTS_DIR="${RESULTS_DIR:-./results}"
 # recompiles mid-run and the latency numbers become meaningless.
 #
 # On the Neuron native stack every shape is a compiled bucket: start the server
-# with buckets that cover this matrix (e.g. a *-sweep profile with
-# bench/serve_neuron.sh), and keep CONCURRENCIES <= the server's MAX_NUM_SEQS
+# with buckets that cover this matrix (bench/serve_neuron.sh with the default
+# BUCKET_PROFILE=ladder covers prefills up to 8192), and keep CONCURRENCIES <= the server's MAX_NUM_SEQS
 # and below the scheduler's KV admission cap (recorded in server-context.json);
 # requests above it only queue.
 SHAPES="${SHAPES:-1024:128 4096:256 8192:1024}"

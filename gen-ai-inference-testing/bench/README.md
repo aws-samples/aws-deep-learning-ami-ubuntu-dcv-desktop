@@ -31,3 +31,6 @@ bash bench/serve_neuron.sh down
 Results go to `/tmp/results/<run>`, mirrored after every cell to `$HOME/efs/lab/results/<run>` when
 that exists. Keep measured numbers out of git. On the Neuron native stack, read
 `docs/neuron/README.md` before interpreting TTFT or ITL at concurrency > 1.
+
+With Claude Code, the `slo-bench` skill (`../.claude/skills/slo-bench/SKILL.md`) runs this sequence,
+including the multi-replica run, and summarises the results: `/slo-bench <model> shapes=... conc=...`.
