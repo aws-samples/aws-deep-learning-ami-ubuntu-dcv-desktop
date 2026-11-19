@@ -60,7 +60,7 @@ ENV PATH="/opt/aws/neuron/bin:${PATH}" \
 # IMPORTANT: do NOT install torch-neuronx here. The vllm-neuron plugin pulls
 # libtorch-neuronx-lite, which vendors the TorchNeuron compile components into
 # its own wheel. Having both in one environment is a conflict risk. Standalone
-# TorchNeuron work gets its own venv on the host (see PLAN.md Phase 1).
+# TorchNeuron work gets its own venv on the host (docs/neuron/README.md section 2).
 # ---------------------------------------------------------------------------
 RUN python${PYTHON_VERSION} -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}" VIRTUAL_ENV=/opt/venv
