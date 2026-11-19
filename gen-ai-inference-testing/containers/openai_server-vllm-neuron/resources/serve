@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import copy
+import json
 import os
 import signal
 import subprocess
@@ -11,6 +12,25 @@ import requests
 
 from jinja2 import Template
 import re
+
+# Which vLLM-on-Neuron stack this image carries (scripts/openai_server-vllm-neuron.sh):
+#   legacy  torch-neuronx/XLA; cores are claimed via NEURON_RT_NUM_CORES.
+#   native  vllm-neuron plugin on native TorchNeuron (trn2/trn3). The plugin rejects
+#           NEURON_RT_VISIBLE_CORES and otherwise defaults every server to cores
+#           0..TP-1, so each server is pinned with NEURON_VISIBLE_DEVICES (logical ids).
+try:
+    with open("/opt/program/neuron-stack") as _f:
+        NEURON_STACK = _f.read().strip() or "legacy"
+except OSError:
+    NEURON_STACK = "legacy"
+NATIVE = NEURON_STACK == "native"
+
+# Environment variables whose values must not reach the container log.
+_SECRET_KEY = re.compile(r"TOKEN|SECRET|PASSWORD|CREDENTIAL|(^|_)KEY($|_)", re.IGNORECASE)
+
+def redacted_env(env):
+    """The environment as printed in the log: secret values replaced by '***'."""
+    return {k: ("***" if _SECRET_KEY.search(k) and v else v) for k, v in env.items()}
 
 def get_conf(num_servers):
 
@@ -42,15 +62,17 @@ def get_conf(num_servers):
                 proxy_http_version 1.1;
                 proxy_set_header Connection "";
                 proxy_connect_timeout 60s; 
-                proxy_read_timeout 120s;
-                proxy_send_timeout 120s;
+                proxy_read_timeout {{ timeout }}s;
+                proxy_send_timeout {{ timeout }}s;
             }
         }
     }
     """)
 
     servers = [ { "port": (8000+x*128)} for x in range(num_servers) ]
-    data = { "servers": servers}
+    # NGINX_TIMEOUT_S: long-prompt requests under load can run for minutes on the
+    # native stack (its run script raises this); 120 s is the historical default.
+    data = { "servers": servers, "timeout": int(os.environ.get("NGINX_TIMEOUT_S", 120))}
 
     nginx_conf = template.render(data)
     server_ports = [ {"http": (8000+128*x)} for x in range(num_servers)]
@@ -74,27 +96,35 @@ def get_core_groups():
     cores = [ x for x in range(num_cores)]
     core_groups = [cores[x:x+model_server_cores] for x in range(0, len(cores), model_server_cores)]
     core_groups = core_groups[: (num_cores// model_server_cores)]
+    # Optional cap on the number of servers (default: every complete group).
+    num_replicas = int(os.environ.get("NUM_REPLICAS", "0") or 0)
+    if num_replicas > 0:
+        core_groups = core_groups[:num_replicas]
     return core_groups
 
-def sigterm_handler(*pids):
+def sigterm_handler(*pids, code=0):
+    """Stop the given processes and exit with code (0 for a requested shutdown)."""
     for pid in pids:
         try:
             os.kill(pid, signal.SIGTERM)
         except OSError:
             pass
 
-    sys.exit(0)
+    sys.exit(code)
 
-def wait_for_server_ready(port, timeout=1800):
+def wait_for_server_ready(port, timeout=1800, proc=None):
     """Wait for VLLM server to be ready by polling the health endpoint."""
     print(f"Waiting for server on port {port} to be ready...")
     start_time = time.time()
     
     while time.time() - start_time < timeout:
+        if proc is not None and proc.poll() is not None:
+            print(f"Server on port {port} exited with code {proc.returncode}")
+            return False
         try:
             response = requests.get(f"http://localhost:{port}/health", timeout=5)
             if response.status_code == 200:
-                print(f"Server on port {port} is ready!")
+                print(f"Server on port {port} is ready after {time.time() - start_time:.0f}s")
                 return True
         except (requests.ConnectionError, requests.Timeout):
             pass
@@ -125,11 +155,18 @@ def start_server():
     for i, ports in enumerate(openai_server_ports):
         env_copy = copy.deepcopy(os.environ)
         group = core_groups[i]
-        env_copy['NEURON_RT_NUM_CORES']=f"{len(group)}"
+        if NATIVE:
+            env_copy.pop('NEURON_RT_VISIBLE_CORES', None)
+            env_copy.pop('NEURON_RT_NUM_CORES', None)
+            env_copy['NEURON_VISIBLE_DEVICES']=",".join(str(c) for c in group)
+            core_setting = f"NEURON_VISIBLE_DEVICES={env_copy['NEURON_VISIBLE_DEVICES']}"
+        else:
+            env_copy['NEURON_RT_NUM_CORES']=f"{len(group)}"
+            core_setting = f"NEURON_RT_NUM_CORES={env_copy['NEURON_RT_NUM_CORES']}"
         env_copy['NEURON_RT_ROOT_COMM_ID']=f"localhost:{48620+i}" 
         http = ports['http']
         print(f"server instance: {i}: http: {http}")
-        print(f"server instance: {i}: NEURON_RT_NUM_CORES={env_copy['NEURON_RT_NUM_CORES']}")
+        print(f"server instance: {i}: {core_setting}")
         
         vllm_config = os.getenv("VLLM_CONFIG", None)
         assert vllm_config is not None, "VLLM_CONFIG env variarable is required"
@@ -152,19 +189,21 @@ def start_server():
         for key, value in config.items():
             if value is True:
                 cmd.append(f'--{key}')
+            elif isinstance(value, (dict, list)):
+                # e.g. additional-config on the native stack; Python repr is not JSON
+                cmd.append(f'--{key}={json.dumps(value)}')
             elif value is not False and value is not None:
                 cmd.append(f'--{key}={value}')
 
         print(f"server instance: {i}: cmd: {cmd}")
-        print(f"server instance: {i}: env={env_copy}")
+        print(f"server instance: {i}: env={redacted_env(env_copy)}")
         server = subprocess.Popen(cmd, env=env_copy)
         pids.append(server.pid)
         
         # Wait for this instance to be ready before starting the next one
-        if not wait_for_server_ready(http):
+        if not wait_for_server_ready(http, proc=server):
             print(f"Failed to start server instance {i}, stopping...")
-            sigterm_handler(*pids)
-            sys.exit(1)
+            sigterm_handler(*pids, code=1)
         
         print(f"Server instance {i} is running, starting next instance...")
 

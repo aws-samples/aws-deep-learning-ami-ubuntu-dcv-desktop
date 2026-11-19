@@ -41,6 +41,14 @@ if [ "$DEVICE" = "neuron" ]; then
   export FI_EFA_FORK_SAFE=1
   export NEURON_COMPILED_ARTIFACTS="$CACHE_DIR/$MODEL_ID/neuron-compiled-artifacts-tp-$TENSOR_PARALLEL_SIZE"
   mkdir -p "$NEURON_COMPILED_ARTIFACTS"
+  # neuronx-cc 2.26 (Neuron SDK 2.31.1) fails to compile the NxDI context-encoding
+  # attention NKI kernel at logical_nc_config=1 (inf2/trn1; NCC_INLA001 in
+  # checkDMATranspose), which NxDI enables once a bucket reaches 4096 tokens.
+  # Disable the kernel there; remove once the compiler is fixed.
+  case "$instance_family" in
+    inf2|trn1) ADDITIONAL_CONFIG=',
+  "additional_config": {"override_neuron_config": {"attn_kernel_enabled": false}}' ;;
+  esac
 fi
 
 # Base model config
@@ -56,7 +64,7 @@ cat > /tmp/model.json <<EOF
   "trust_remote_code": $TRUST_REMOTE_CODE,
   "limit_mm_per_prompt": {"image": $LIMIT_MM_PER_PROMPT_IMAGE},
   "block_size": $BLOCK_SIZE,
-  "enable_prefix_caching": false
+  "enable_prefix_caching": false${ADDITIONAL_CONFIG:-}
 }
 EOF
 

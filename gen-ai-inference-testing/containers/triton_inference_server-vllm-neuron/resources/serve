@@ -11,6 +11,13 @@ import requests
 from jinja2 import Template
 import re
 
+# Environment variables whose values must not reach the container log.
+_SECRET_KEY = re.compile(r"TOKEN|SECRET|PASSWORD|CREDENTIAL|(^|_)KEY($|_)", re.IGNORECASE)
+
+def redacted_env(env):
+    """The environment as printed in the log: secret values replaced by '***'."""
+    return {k: ("***" if _SECRET_KEY.search(k) and v else v) for k, v in env.items()}
+
 def get_conf(num_servers):
 
     template = Template("""
@@ -77,21 +84,28 @@ def get_core_groups():
     core_groups = core_groups[: (num_cores// model_server_cores)]
     return core_groups
 
-def sigterm_handler(*pids):
+def sigterm_handler(*pids, code=0):
+    """Stop the given processes and exit with code (0 for a requested shutdown)."""
     for pid in pids:
         try:
             os.kill(pid, signal.SIGTERM)
         except OSError:
             pass
 
-    sys.exit(0)
+    sys.exit(code)
 
-def wait_for_triton_ready(http_port, timeout=1800):
-    """Wait for Triton server to be ready by polling the health endpoint."""
+def wait_for_triton_ready(http_port, timeout=1800, proc=None):
+    """Wait for Triton server to be ready by polling the health endpoint.
+
+    Returns False as soon as proc (the tritonserver process) exits, e.g. when a
+    model fails to load, instead of polling until the timeout."""
     print(f"Waiting for Triton server on port {http_port} to be ready...")
     start_time = time.time()
     
     while time.time() - start_time < timeout:
+        if proc is not None and proc.poll() is not None:
+            print(f"Triton server on port {http_port} exited with code {proc.returncode}")
+            return False
         try:
             # Triton health endpoints: /v2/health/ready or /v2/health/live
             response = requests.get(f"http://localhost:{http_port}/v2/health/ready", timeout=5)
@@ -137,7 +151,7 @@ def start_server():
         metrics = ports['metrics']
         print(f"server instance: {i}: http: {http}, grpc: {grpc}, metric: {metrics}")
         print(f"server instance: {i}: NEURON_RT_NUM_CORES={env_copy['NEURON_RT_NUM_CORES']}")
-        print(f"server instance: {i}: env={env_copy}")
+        print(f"server instance: {i}: env={redacted_env(env_copy)}")
         
         server = subprocess.Popen(['tritonserver', 
                                    f"--model-repository={model_repo}",
@@ -149,10 +163,9 @@ def start_server():
         pids.append(server.pid)
         
         # Wait for this instance to be ready before starting the next one
-        if not wait_for_triton_ready(http):
+        if not wait_for_triton_ready(http, proc=server):
             print(f"Failed to start Triton server instance {i}, stopping...")
-            sigterm_handler(*pids)
-            sys.exit(1)
+            sigterm_handler(*pids, code=1)
         
         print(f"Triton server instance {i} is running, starting next instance...")
 

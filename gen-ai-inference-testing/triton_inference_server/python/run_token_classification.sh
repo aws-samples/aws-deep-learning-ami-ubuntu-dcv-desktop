@@ -14,9 +14,10 @@ TENSOR_PARALLEL_SIZE=1 # Force Tensor Parallel Size to 1 for encoder
 # 3. Hardware-specific setup
 if [ "$DEVICE" == "neuron" ]; then
     [ ! -d /cache ] && echo "/cache dir must exist for neuron" && exit 1
-    
+    CACHE_DIR=/cache
+
     export NEURON_CC_FLAGS="--model-type=transformer --enable-fast-loading-neuron-binaries"
-    export NEURON_COMPILE_CACHE_URL="/cache"
+    export NEURON_COMPILE_CACHE_URL="$CACHE_DIR"
     export FI_EFA_FORK_SAFE=1
     export NEURON_COMPILED_ARTIFACTS="$CACHE_DIR/$MODEL_ID/neuron-compiled-artifacts-tp-$TENSOR_PARALLEL_SIZE"
     mkdir -p "$NEURON_COMPILED_ARTIFACTS"

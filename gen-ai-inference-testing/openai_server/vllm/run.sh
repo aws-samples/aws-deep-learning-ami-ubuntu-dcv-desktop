@@ -15,6 +15,9 @@ TRUST_REMOTE_CODE=${TRUST_REMOTE_CODE:-false}
 
 # Neuron setup
 if [ "$DEVICE" = "neuron" ]; then
+    # trn2/trn3 images carry the native TorchNeuron stack, which has its own setup
+    # (scripts/openai_server-vllm-neuron.sh chooses the stack at build time).
+    [ "$(cat /opt/program/neuron-stack 2>/dev/null)" = "native" ] && exec /scripts/neuron_native.sh
     [ ! -d /cache ] && echo "/cache dir must exist" && exit 1
     CACHE_DIR=/cache
     instance_family=$(/opt/aws/neuron/bin/neuron-ls | grep instance-type | awk -F': ' '{split($2, a, "."); print a[1]}')
@@ -24,6 +27,13 @@ if [ "$DEVICE" = "neuron" ]; then
     export FI_EFA_FORK_SAFE=1
     export NEURON_COMPILED_ARTIFACTS="$CACHE_DIR/$MODEL_ID/neuron-compiled-artifacts-tp-$TENSOR_PARALLEL_SIZE"
     mkdir -p "$NEURON_COMPILED_ARTIFACTS"
+    # neuronx-cc 2.26 (Neuron SDK 2.31.1) fails to compile the NxDI context-encoding
+    # attention NKI kernel at logical_nc_config=1 (inf2/trn1; NCC_INLA001 in
+    # checkDMATranspose), which NxDI enables once a bucket reaches 4096 tokens.
+    # Disable the kernel there; remove once the compiler is fixed.
+    case "$instance_family" in
+        inf2|trn1) ADDITIONAL_CONFIG='additional-config: {"override_neuron_config": {"attn_kernel_enabled": false}}' ;;
+    esac
 fi
 
 # Generate config
@@ -38,6 +48,7 @@ max-num-batched-tokens: $MAX_MODEL_LEN
 trust-remote-code: $TRUST_REMOTE_CODE
 block-size: $BLOCK_SIZE
 no-enable-prefix-caching: true
+${ADDITIONAL_CONFIG:-}
 EOF
 
 # Final Execution
