@@ -11,7 +11,7 @@ On Neuron, `openai_server` + `vllm` is a single engine (`INFERENCE_ENGINE=vllm`,
 
 | | **native** | **legacy** |
 |---|---|---|
-| Software | vLLM 0.29 + `vllm-neuron` plugin on **TorchNeuron** (Neuron SDK 2.33 DLC) | earlier vLLM DLC (Neuron SDK 2.28): torch-neuronx / PyTorch-XLA with NxD Inference |
+| Software | vLLM 0.29 + `vllm-neuron` plugin on **TorchNeuron** (Neuron SDK 2.33 DLC) | vLLM 0.16 DLC (Neuron SDK 2.31.1, the last legacy DLC): torch-neuronx / PyTorch-XLA with NxD Inference |
 | Hardware | trn2, trn3 (the only hardware Neuron supports this stack on) | inf2, trn1 (also runs on trn2/trn3) |
 | Selected | `auto` on trn2/trn3 for **decoder** tasks | `auto` everywhere else, and for **encoder** tasks on every instance |
 

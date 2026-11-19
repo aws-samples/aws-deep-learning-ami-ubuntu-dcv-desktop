@@ -193,7 +193,7 @@ def start_server():
         pids.append(server.pid)
         
         # Wait for this instance to be ready before starting the next one
-        if not wait_for_server_ready(http, proc=server if NATIVE else None):
+        if not wait_for_server_ready(http, proc=server):
             print(f"Failed to start server instance {i}, stopping...")
             sigterm_handler(*pids)
             sys.exit(1)

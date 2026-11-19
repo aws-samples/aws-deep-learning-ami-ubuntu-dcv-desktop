@@ -2,7 +2,7 @@
 # Build openai_server-vllm:neuron for the Neuron hardware this host has.
 #
 # Two vLLM-on-Neuron stacks share containers/openai_server-vllm-neuron:
-#   legacy  vLLM 0.13 DLC (Neuron SDK 2.28, torch-neuronx/XLA). inf2, trn1 -- and the
+#   legacy  vLLM 0.16 DLC (Neuron SDK 2.31.1, torch-neuronx/XLA). inf2, trn1 -- and the
 #           default on any host whose instance family is not trn2/trn3.
 #   native  vLLM 0.29 + vllm-neuron plugin on the native TorchNeuron backend
 #           (Neuron SDK 2.33 DLC). Neuron documents this stack for trn2 and trn3 only.
