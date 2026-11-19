@@ -11,6 +11,13 @@ import requests
 from jinja2 import Template
 import re
 
+# Environment variables whose values must not reach the container log.
+_SECRET_KEY = re.compile(r"TOKEN|SECRET|PASSWORD|CREDENTIAL|(^|_)KEY($|_)", re.IGNORECASE)
+
+def redacted_env(env):
+    """The environment as printed in the log: secret values replaced by '***'."""
+    return {k: ("***" if _SECRET_KEY.search(k) and v else v) for k, v in env.items()}
+
 def get_conf(num_servers):
 
     template = Template("""
@@ -137,7 +144,7 @@ def start_server():
         metrics = ports['metrics']
         print(f"server instance: {i}: http: {http}, grpc: {grpc}, metric: {metrics}")
         print(f"server instance: {i}: NEURON_RT_NUM_CORES={env_copy['NEURON_RT_NUM_CORES']}")
-        print(f"server instance: {i}: env={env_copy}")
+        print(f"server instance: {i}: env={redacted_env(env_copy)}")
         
         server = subprocess.Popen(['tritonserver', 
                                    f"--model-repository={model_repo}",
