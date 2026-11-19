@@ -93,12 +93,18 @@ def sigterm_handler(*pids):
 
     sys.exit(0)
 
-def wait_for_triton_ready(http_port, timeout=1800):
-    """Wait for Triton server to be ready by polling the health endpoint."""
+def wait_for_triton_ready(http_port, timeout=1800, proc=None):
+    """Wait for Triton server to be ready by polling the health endpoint.
+
+    Returns False as soon as proc (the tritonserver process) exits, e.g. when a
+    model fails to load, instead of polling until the timeout."""
     print(f"Waiting for Triton server on port {http_port} to be ready...")
     start_time = time.time()
     
     while time.time() - start_time < timeout:
+        if proc is not None and proc.poll() is not None:
+            print(f"Triton server on port {http_port} exited with code {proc.returncode}")
+            return False
         try:
             # Triton health endpoints: /v2/health/ready or /v2/health/live
             response = requests.get(f"http://localhost:{http_port}/v2/health/ready", timeout=5)
@@ -156,7 +162,7 @@ def start_server():
         pids.append(server.pid)
         
         # Wait for this instance to be ready before starting the next one
-        if not wait_for_triton_ready(http):
+        if not wait_for_triton_ready(http, proc=server):
             print(f"Failed to start Triton server instance {i}, stopping...")
             sigterm_handler(*pids)
             sys.exit(1)
