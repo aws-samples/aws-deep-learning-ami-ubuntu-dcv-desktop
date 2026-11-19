@@ -55,7 +55,11 @@ if command -v neuron-ls >/dev/null 2>&1; then
 else
   CORES=$(nvidia-smi -L 2>/dev/null | wc -l)
 fi
+# Logical NeuronCore config as the server process sees it (native sets it in its run
+# script, so it is not in the container's own environment); empty if unset or on CUDA.
+LNC=$(docker exec "$CONTAINER" bash -c 'p=$(pgrep -f "vllm serve" | head -1); [ -n "$p" ] && tr "\0" "\n" < /proc/$p/environ | sed -n "s/^NEURON_LOGICAL_NC_CONFIG=//p"' 2>/dev/null || true)
 CFG="$CFG" STACK="$STACK" CACHE_INFO="$CACHE_INFO" CORES="${CORES:-0}" NSERV="$NSERV" MODEL="$MODEL" \
+TARGET="$TARGET" LNC="$LNC" HAS_NEURON="$(command -v neuron-ls >/dev/null 2>&1 && echo 1)" \
 INSTANCE="$(cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null)" python3 - > "$D/server-context.json" <<'PY'
 import json, os, re
 cfg = {}
@@ -66,15 +70,26 @@ for line in os.environ["CFG"].splitlines():
 tp = int(cfg["tensor-parallel-size"]) if cfg.get("tensor-parallel-size", "").isdigit() else None
 cap = re.search(r'kv_cache_max_concurrency="([0-9.]+)"', os.environ["CACHE_INFO"])
 cores = int(os.environ["CORES"] or 0)
+instance = os.environ["INSTANCE"] or None
+# LNC: the server's NEURON_LOGICAL_NC_CONFIG, else the Neuron default for the
+# instance family (2 on trn2/trn3, 1 on trn1/inf2); None off Neuron.
+lnc = int(os.environ["LNC"]) if os.environ["LNC"].isdigit() else None
+if lnc is None and os.environ["HAS_NEURON"]:
+    lnc = 2 if (instance or "").startswith(("trn2", "trn3")) else 1
+target = os.environ["TARGET"]
 print(json.dumps({
     "model": os.environ["MODEL"],
     "dtype": cfg.get("dtype"),
     "tp": tp,
     "max_model_len": cfg.get("max-model-len"),
     "max_num_seqs": cfg.get("max-num-seqs"),
-    "instance_type": os.environ["INSTANCE"] or None,
+    "instance_type": instance,
+    "lnc": lnc,
     "neuron_stack": os.environ["STACK"] or None,
     "servers_running": int(os.environ["NSERV"]),
+    # nginx spreads the load over every running server; TARGET=<i> loads one.
+    "target": target,
+    "replicas_loaded": int(os.environ["NSERV"]) if target == "nginx" else 1,
     "replica_slots": cores // tp if tp and cores else None,
     "kv_admission_cap": int(float(cap.group(1))) if cap else None,
 }, indent=2))

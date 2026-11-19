@@ -17,6 +17,10 @@ measure TTFT or ITL.
 
 The client tools work against any OpenAI-compatible vLLM server started by `launch.sh`; by default
 the client container is the running server's own image. Only `serve_neuron.sh` is Neuron-specific.
+`client.sh` records the run's context (model, dtype, TP, LNC, instance, stack, target and replicas
+loaded) in `server-context.json`, and `parse_results.py` labels every number from it. Steady-state
+figures need per-request start times, which `vllm bench serve` records from vLLM 0.16 on; with an
+older client image `parse_results.py` falls back to the raw view and says so.
 
 ```bash
 cd gen-ai-inference-testing

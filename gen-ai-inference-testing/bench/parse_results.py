@@ -21,7 +21,12 @@ where the relative gain in throughput still exceeds the relative rise in that
 latency. Whichever knee comes at the lower concurrency is the binding metric.
 
 Every reported number carries its full context: input/output tokens,
-concurrency, replicas, dtype (BF16) and topology (TP8/LNC2).
+concurrency, replicas, dtype and topology (TP, and LNC on Neuron), all taken
+from server-context.json.
+
+Steady-state needs per-request start times, which `vllm bench serve` records
+from vLLM 0.16 on. With an older client every steady column is empty, so the
+report falls back to the raw basis and says so.
 """
 
 from __future__ import annotations
@@ -41,11 +46,13 @@ FNAME_RE = re.compile(r"vllmbench_in(\d+)_out(\d+)_c(\d+)\.json$")
 CONTEXT = "context unknown (no server-context.json)"
 REPLICA_SLOTS: int | None = None
 MODEL_NAME = "model unknown"
+DTYPE = "unknown"
+TOPOLOGY = "unknown"
 
 
 def load_context(results_dir: Path) -> dict:
     """Read server-context.json and set the module-level context strings."""
-    global CONTEXT, REPLICA_SLOTS, MODEL_NAME
+    global CONTEXT, REPLICA_SLOTS, MODEL_NAME, DTYPE, TOPOLOGY
     path = results_dir / "server-context.json"
     try:
         ctx = json.loads(path.read_text())
@@ -54,7 +61,10 @@ def load_context(results_dir: Path) -> dict:
         return {}
     MODEL_NAME = ctx.get("model") or MODEL_NAME
     REPLICA_SLOTS = ctx.get("replica_slots")
-    parts = [ctx.get("dtype"), f"TP{ctx['tp']}" if ctx.get("tp") else None,
+    DTYPE = ctx.get("dtype") or DTYPE
+    if ctx.get("tp"):
+        TOPOLOGY = f"TP{ctx['tp']}" + (f"/LNC{ctx['lnc']}" if ctx.get("lnc") else "")
+    parts = [ctx.get("dtype"), TOPOLOGY if ctx.get("tp") else None,
              ctx.get("instance_type"), f"{ctx['neuron_stack']} stack" if ctx.get("neuron_stack") else None]
     CONTEXT = ", ".join(p for p in parts if p) or CONTEXT
     return ctx
@@ -243,7 +253,7 @@ def write_csv(rows: list[dict], path: Path, replicas: int) -> None:
         w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
         w.writeheader()
         for r in rows:
-            w.writerow({**r, "replicas": replicas, "dtype": "bfloat16", "topology": "TP8/LNC2"})
+            w.writerow({**r, "replicas": replicas, "dtype": DTYPE, "topology": TOPOLOGY})
     print(f"wrote {path}")
 
 
@@ -255,10 +265,15 @@ def write_knee(rows: list[dict], path: Path, replicas: int,
         "# Derived SLO recommendation", "",
         f"- Context for every number: {CONTEXT}, {replicas} replica(s) serving concurrently.",
         f"- Basis: **{basis}** ({'ramp/drain trimmed, docs/neuron/README.md section 4.1' if basis == 'steady' else 'as reported by vllm bench serve'}).",
-        "- Concurrency = closed-loop clients per replica (`--max-concurrency`, `--request-rate inf`).",
+        ("- Concurrency = closed-loop clients per replica (`--max-concurrency`, `--request-rate inf`)."
+         if replicas == 1 else
+         f"- Concurrency = closed-loop clients in total, spread by nginx over {replicas} replicas "
+         "(`--max-concurrency`, `--request-rate inf`); throughput is the total across them."),
     ]
     if admission_cap:
-        lines.append(f"- Scheduler admission cap (worst-case KV): **{admission_cap}** running requests. "
+        # admission_cap is the total over the replicas loaded (main() scales the per-replica cap).
+        per = "" if replicas == 1 else f" ({admission_cap // replicas} per replica x {replicas} replicas)"
+        lines.append(f"- Scheduler admission cap (worst-case KV): **{admission_cap}** running requests{per}. "
                      "Cells above it are marked OVER CAP: the excess requests queue and do not run concurrently.")
     lines.append("")
     for in_len, out_len in shapes:
@@ -329,7 +344,8 @@ def write_knee(rows: list[dict], path: Path, replicas: int,
             def slo_line(tag: str, k: dict) -> str:
                 return (f"- **{tag}:** p99 TTFT <= {k[col(basis, 'ttft_p99_ms')] * 1.1:,.0f} ms and "
                         f"p99 ITL <= {k[col(basis, 'itl_p99_ms')] * 1.1:,.0f} ms "
-                        f"(+10% headroom) at {label(k, replicas)}; {f1(k[tput])} out tok/s per replica.")
+                        f"(+10% headroom) at {label(k, replicas)}; {f1(k[tput])} out tok/s "
+                        + ("per replica." if replicas == 1 else f"across {replicas} replicas.")) 
             lines.append(slo_line("Proposed SLO, latency-optimal (first knee)", knee))
             if k_itl and k_itl is not knee:
                 tag = ("Proposed SLO, capacity point (ITL knee)" if k_itl["concurrency"] != last_c
@@ -437,11 +453,13 @@ def main() -> None:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--results-dir", type=Path, default=Path("./results"))
     ap.add_argument("--out-dir", type=Path, default=None, help="default: --results-dir")
-    ap.add_argument("--replicas", type=int, default=1,
-                    help="TP8 replicas serving concurrently during the sweep")
+    ap.add_argument("--replicas", type=int, default=None,
+                    help="replicas serving the sweep concurrently "
+                         "(default: replicas_loaded from server-context.json, else 1)")
     ap.add_argument("--basis", choices=("steady", "raw"), default="steady")
     ap.add_argument("--admission-cap", type=int, default=None,  # default: from server-context.json
-                    help="Scheduler's worst-case-KV concurrency cap from the server log")
+                    help="Scheduler's worst-case-KV concurrency cap per server, from the server log "
+                         "(multiplied by --replicas when several replicas are loaded)")
     ap.add_argument("--slo-ttft-p99", type=float, default=None, metavar="MS")
     ap.add_argument("--slo-itl-p99", type=float, default=None, metavar="MS")
     ap.add_argument("--slo-tpot-p99", type=float, default=None, metavar="MS")
@@ -456,8 +474,20 @@ def main() -> None:
     if args.admission_cap is None and ctx.get("kv_admission_cap"):
         args.admission_cap = int(ctx["kv_admission_cap"])
         print(f"admission cap {args.admission_cap} (from the server's KV cache config)")
+    if args.replicas is None:
+        args.replicas = int(ctx.get("replicas_loaded") or 1)
+        if "replicas_loaded" not in ctx:
+            print("warn: server-context.json has no replicas_loaded (older bench/client.sh); "
+                  "assuming 1 replica, pass --replicas to override", file=sys.stderr)
+    if args.admission_cap and args.replicas > 1:
+        # The cap is per server; through nginx the sweep's concurrency is spread over all of them.
+        args.admission_cap *= args.replicas
     rows = load(args.results_dir)
     print(f"loaded {len(rows)} result cells")
+    if args.basis == "steady" and not any(usable(r, "ss_ttft_p50_ms") for r in rows):
+        print("warn: no cell has per-request start times (vllm bench serve before 0.16), so no "
+              "steady-state view; using --basis raw", file=sys.stderr)
+        args.basis = "raw"
     write_csv(rows, out / "slo_table.csv", args.replicas)
     write_knee(rows, out / "slo_knee.md", args.replicas, args.basis,
                args.admission_cap)
