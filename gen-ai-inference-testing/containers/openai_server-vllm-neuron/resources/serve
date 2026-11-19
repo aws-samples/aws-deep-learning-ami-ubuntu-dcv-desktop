@@ -102,14 +102,15 @@ def get_core_groups():
         core_groups = core_groups[:num_replicas]
     return core_groups
 
-def sigterm_handler(*pids):
+def sigterm_handler(*pids, code=0):
+    """Stop the given processes and exit with code (0 for a requested shutdown)."""
     for pid in pids:
         try:
             os.kill(pid, signal.SIGTERM)
         except OSError:
             pass
 
-    sys.exit(0)
+    sys.exit(code)
 
 def wait_for_server_ready(port, timeout=1800, proc=None):
     """Wait for VLLM server to be ready by polling the health endpoint."""
@@ -202,8 +203,7 @@ def start_server():
         # Wait for this instance to be ready before starting the next one
         if not wait_for_server_ready(http, proc=server):
             print(f"Failed to start server instance {i}, stopping...")
-            sigterm_handler(*pids)
-            sys.exit(1)
+            sigterm_handler(*pids, code=1)
         
         print(f"Server instance {i} is running, starting next instance...")
 
